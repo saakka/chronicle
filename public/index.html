@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chronicle — a planet of history</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ====================== GLOBE (landing) ====================== -->
+  <section id="globe-view">
+    <div id="globe"></div>
+
+    <div class="globe-overlay">
+      <p class="kicker">✦ &nbsp; a planet of history &nbsp; ✦</p>
+      <h1>Chronicle</h1>
+      <p class="tagline">Spin the planet. Click any Arab country to journey through its past.</p>
+    </div>
+
+    <p class="globe-hint" id="globe-hint">
+      🌍 Drag to spin · scroll to zoom &nbsp;—&nbsp; click any <strong>golden marker</strong> to explore
+    </p>
+
+    <!-- Shown only if the 3D globe can't load (country buttons injected by app.js) -->
+    <div class="globe-fallback" id="globe-fallback" hidden></div>
+  </section>
+
+  <!-- ====================== HISTORY VIEW ====================== -->
+  <section id="history-view" hidden>
+    <button id="back-btn" class="back-btn">← &nbsp;Back to the globe</button>
+
+    <header class="hist-head">
+      <h2 id="result-heading"></h2>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </header>
+
+    <div id="eras" class="eras"></div>
+
+    <footer class="foot">
+      <p>Text by Claude · images from Wikimedia Commons · AI-generated — verify anything important</p>
+    </footer>
+  </section>
+
+  <!-- ====================== LIGHTBOX ====================== -->
+  <div id="lightbox" class="lightbox" hidden>
+    <button class="lightbox-close" aria-label="Close">&times;</button>
+    <figure>
+      <img id="lightbox-img" src="" alt="" />
+      <figcaption id="lightbox-caption"></figcaption>
+    </figure>
+  </div>
+
+  <!-- 3D globe library (browser-side) -->
+  <script src="https://unpkg.com/globe.gl"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Your secret API key lives here — never commit it.
+.env
+api-key.txt
+
+# macOS noise
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Editor / tooling config (preview launch config is environment-specific)
+.claude/
+.vscode/
