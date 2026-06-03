@@ -738,7 +738,12 @@ eraStage.addEventListener("click", (e) => {
   if (s) openStory(parseInt(s.getAttribute("data-story"), 10));
 });
 
-storyExit.addEventListener("click", () => { story.hidden = true; });
+let storyObserver = null;
+function closeStory() {
+  story.hidden = true;
+  if (storyObserver) { storyObserver.disconnect(); storyObserver = null; }
+}
+storyExit.addEventListener("click", closeStory);
 
 async function openStory(index) {
   const era = currentEras[index];
@@ -784,10 +789,12 @@ function renderStory(data, era) {
   story.scrollTop = 0;
 
   const beats = storyRail.querySelectorAll(".beat");
+  if (storyObserver) storyObserver.disconnect();
   const io = new IntersectionObserver(
     (entries) => entries.forEach((en) => { if (en.isIntersecting) en.target.classList.add("in"); }),
     { root: story, threshold: 0.55 }
   );
+  storyObserver = io;
   beats.forEach((el, i) => {
     io.observe(el);
     fetchImages(data.beats[i].imageQuery, 1).then((imgs) => {
@@ -846,6 +853,9 @@ async function goToEra(index) {
       ? era.imageQueries
       : [era.imageQuery, era.title + " " + currentCountry, currentCountry + " " + (era.period || ""), era.title].filter(Boolean);
     era.images = await fetchVariedImages(qs, 8);
+    // If the user jumped to another era (or left) while we were fetching,
+    // abandon this stale render so it doesn't clobber the current view.
+    if (currentEra !== index || journey.hidden) return;
   }
 
   // backdrop (crossfade between two layers + Ken Burns)
@@ -948,6 +958,9 @@ timeline.addEventListener("click", (e) => {
 
 document.addEventListener("keydown", (e) => {
   if (!lightbox.hidden) { if (e.key === "Escape") closeLightbox(); return; }
+  // Story sits on top of the journey — Escape closes the story; don't let arrows
+  // leak through and change the era underneath it.
+  if (!story.hidden) { if (e.key === "Escape") closeStory(); return; }
   if (journey.hidden) return;
   if (e.key === "ArrowRight") travelTo(currentEra + 1);
   else if (e.key === "ArrowLeft") travelTo(currentEra - 1);
