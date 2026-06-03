@@ -98,6 +98,14 @@ body {
   padding: 24px; z-index: 3; overflow-y: auto;
 }
 .globe-fallback[hidden] { display: none; }
+
+/* Interactive 2D-canvas globe (Radio-Garden style) for no-WebGL environments */
+.globe-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: block; cursor: grab; touch-action: none;
+}
+.globe-canvas:active { cursor: grabbing; }
+
 .fallback-inner { max-width: 720px; text-align: center; padding: 40px 0; }
 
 /* 2D planet — a spinning Earth for environments without WebGL */

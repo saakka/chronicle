@@ -314,31 +314,196 @@ function refreshPolygonStyles() {
 
 function sizeGlobe() { if (world) world.width(window.innerWidth).height(window.innerHeight); }
 
+// When WebGL is unavailable (e.g. the in-app preview pane), we still want the
+// Radio-Garden experience: a real, draggable, spinning globe you can hover and
+// click. This renders the actual country shapes with a 2D-canvas orthographic
+// projection — no WebGL needed.
 function showFallback() {
   if (!globeFallback) return;
-  // A curated spread of civilizations so the landing is explorable even without WebGL.
+  globeFallback.hidden = false;
+  initGlobe2D();
+}
+
+function initGlobe2D() {
+  globeFallback.innerHTML = '<canvas class="globe-canvas" id="globe-canvas"></canvas>';
+  const canvas = document.getElementById("globe-canvas");
+  const ctx = canvas.getContext("2d");
+  const DEG = Math.PI / 180;
+
+  const s = {
+    rotLng: 35, rotLat: 20,           // longitude/latitude at the centre of the disc
+    dragging: false, lastX: 0, lastY: 0, moved: 0,
+    autoRotate: true, hoverFeat: null,
+    features: [], cx: 0, cy: 0, R: 0, dwell: null,
+  };
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = window.innerWidth, h = window.innerHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    canvas.style.width = w + "px"; canvas.style.height = h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    s.cx = w / 2; s.cy = h / 2; s.R = Math.min(w, h) * 0.34;
+  }
+  resize();
+  window.addEventListener("resize", resize);
+
+  fetch(COUNTRIES_GEOJSON)
+    .then((r) => r.json())
+    .then((gj) => {
+      s.features = (gj.features || []).map((f) => ({
+        admin: f.properties.ADMIN,
+        sub: f.properties.SUBREGION || null,
+        cont: f.properties.CONTINENT || null,
+        polys: f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates,
+        feat: f,
+      }));
+    })
+    .catch(() => showChips());
+
+  // --- orthographic projection ---
+  function project(lng, lat) {
+    const l = (lng - s.rotLng) * DEG, p = lat * DEG, p0 = s.rotLat * DEG;
+    const cosc = Math.sin(p0) * Math.sin(p) + Math.cos(p0) * Math.cos(p) * Math.cos(l);
+    return {
+      x: s.cx + s.R * (Math.cos(p) * Math.sin(l)),
+      y: s.cy - s.R * (Math.cos(p0) * Math.sin(p) - Math.sin(p0) * Math.cos(p) * Math.cos(l)),
+      vis: cosc >= 0,
+    };
+  }
+  function unproject(px, py) {
+    const x = (px - s.cx) / s.R, y = -(py - s.cy) / s.R;
+    const rho = Math.sqrt(x * x + y * y);
+    if (rho > 1) return null;
+    const c = Math.asin(Math.min(1, rho)), p0 = s.rotLat * DEG;
+    if (rho < 1e-9) return { lng: s.rotLng, lat: s.rotLat };
+    const lat = Math.asin(Math.cos(c) * Math.sin(p0) + (y * Math.sin(c) * Math.cos(p0)) / rho) / DEG;
+    const lng = s.rotLng + Math.atan2(x * Math.sin(c), rho * Math.cos(c) * Math.cos(p0) - y * Math.sin(c) * Math.sin(p0)) / DEG;
+    return { lng, lat };
+  }
+  function pointInPoly(lng, lat, poly) {
+    let inside = false;
+    for (const ring of poly) {
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+        if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+      }
+    }
+    return inside;
+  }
+  function featureAt(lng, lat) {
+    for (const f of s.features) for (const poly of f.polys) if (pointInPoly(lng, lat, poly)) return f;
+    return null;
+  }
+
+  // --- drawing ---
+  function drawSphere() {
+    const glow = ctx.createRadialGradient(s.cx, s.cy, s.R * 0.82, s.cx, s.cy, s.R * 1.2);
+    glow.addColorStop(0, "rgba(96,156,255,0.20)");
+    glow.addColorStop(1, "rgba(96,156,255,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R * 1.2, 0, 2 * Math.PI); ctx.fill();
+    const oc = ctx.createRadialGradient(s.cx - s.R * 0.32, s.cy - s.R * 0.34, s.R * 0.08, s.cx, s.cy, s.R);
+    oc.addColorStop(0, "#15324f"); oc.addColorStop(0.7, "#0b2036"); oc.addColorStop(1, "#06121e");
+    ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R, 0, 2 * Math.PI); ctx.fillStyle = oc; ctx.fill();
+  }
+  function strokeMeridians() {
+    ctx.strokeStyle = "rgba(130,170,210,0.10)"; ctx.lineWidth = 1;
+    const lines = [];
+    for (let lat = -60; lat <= 60; lat += 30) { const a = []; for (let lng = -180; lng <= 180; lng += 4) a.push([lng, lat]); lines.push(a); }
+    for (let lng = -180; lng < 180; lng += 30) { const a = []; for (let lat = -90; lat <= 90; lat += 4) a.push([lng, lat]); lines.push(a); }
+    for (const a of lines) {
+      ctx.beginPath(); let on = false;
+      for (const [lng, lat] of a) { const p = project(lng, lat); if (!p.vis) { on = false; continue; } if (!on) { ctx.moveTo(p.x, p.y); on = true; } else ctx.lineTo(p.x, p.y); }
+      ctx.stroke();
+    }
+  }
+  function drawCountries() {
+    for (const f of s.features) {
+      const hot = f === s.hoverFeat;
+      ctx.beginPath();
+      for (const poly of f.polys) for (const ring of poly) {
+        let on = false;
+        for (const pt of ring) { const p = project(pt[0], pt[1]); if (!p.vis) { on = false; continue; } if (!on) { ctx.moveTo(p.x, p.y); on = true; } else ctx.lineTo(p.x, p.y); }
+      }
+      ctx.fillStyle = hot ? "rgba(212,175,82,0.62)" : "rgba(120,152,184,0.34)";
+      ctx.fill("evenodd");
+      ctx.lineWidth = hot ? 1.5 : 0.6;
+      ctx.strokeStyle = hot ? "rgba(243,220,160,0.95)" : "rgba(150,186,222,0.42)";
+      ctx.stroke();
+    }
+  }
+  function render() {
+    if (globeView.style.display !== "none") {
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      if (s.autoRotate && !s.dragging && !s.hoverFeat && !busy) s.rotLng += 0.11;
+      drawSphere();
+      ctx.save();
+      ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R, 0, 2 * Math.PI); ctx.clip();
+      strokeMeridians();
+      drawCountries();
+      ctx.restore();
+    }
+    requestAnimationFrame(render);
+  }
+  render();
+
+  // --- interaction ---
+  function setHoverGlobals(f, geo) {
+    lastHoverLatLng = geo ? { lat: geo.lat, lng: geo.lng } : centroid(f.feat);
+    lastHoverSubregion = f.sub; lastHoverContinent = f.cont;
+  }
+  function setHover(f, geo) {
+    if (s.hoverFeat === f) return;
+    s.hoverFeat = f;
+    clearTimeout(s.dwell);
+    canvas.style.cursor = f ? "pointer" : "grab";
+    if (f) {
+      setHoverGlobals(f, geo);
+      s.dwell = setTimeout(() => { if (s.hoverFeat === f && !busy) enterCountry(f.admin); }, 1100);
+    }
+  }
+  canvas.addEventListener("pointerdown", (e) => {
+    s.dragging = true; s.moved = 0; s.lastX = e.clientX; s.lastY = e.clientY;
+    clearTimeout(s.dwell); s.hoverFeat = null;
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    canvas.style.cursor = "grabbing";
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (s.dragging) {
+      const dx = e.clientX - s.lastX, dy = e.clientY - s.lastY;
+      s.moved += Math.abs(dx) + Math.abs(dy);
+      s.rotLng -= dx * 0.25; s.rotLat += dy * 0.25;
+      s.rotLat = Math.max(-82, Math.min(82, s.rotLat));
+      s.lastX = e.clientX; s.lastY = e.clientY;
+    } else {
+      const geo = unproject(e.clientX, e.clientY);
+      setHover(geo ? featureAt(geo.lng, geo.lat) : null, geo);
+    }
+  });
+  canvas.addEventListener("pointerup", (e) => {
+    s.dragging = false; canvas.style.cursor = "grab";
+    if (s.moved < 6) {
+      const geo = unproject(e.clientX, e.clientY);
+      const f = geo ? featureAt(geo.lng, geo.lat) : null;
+      if (f && !busy) { setHoverGlobals(f, geo); enterCountry(f.admin); }
+    }
+  });
+  canvas.addEventListener("pointerleave", () => { s.dragging = false; setHover(null); });
+}
+
+// Last-resort list, only if the country shapes can't be fetched at all.
+function showChips() {
+  if (!globeFallback) return;
   const popular = [
     "Egypt", "Greece", "Italy", "France", "Spain", "United Kingdom", "Germany",
-    "Turkey", "Iraq", "Iran", "Saudi Arabia", "Morocco", "Jordan", "Lebanon",
-    "India", "China", "Japan", "Mexico", "Peru", "United States of America",
-    "Russia", "Ethiopia", "Mali", "South Africa",
+    "Turkey", "Iraq", "Iran", "Saudi Arabia", "Morocco", "India", "China",
+    "Japan", "Mexico", "Peru", "United States of America", "Russia", "Ethiopia",
   ];
-  const seen = new Set();
-  const list = [];
-  popular.concat(ARAB_COUNTRIES.map((c) => c.country)).forEach((name) => {
-    if (!seen.has(name)) { seen.add(name); list.push(name); }
-  });
-  const gv = document.getElementById("globe-view");
-  if (gv) gv.classList.add("no-webgl");
-  globeFallback.hidden = false;
   globeFallback.innerHTML =
-    '<div class="fallback-inner">' +
-      '<div class="globe-2d" aria-hidden="true"></div>' +
-      "<p>Choose a civilization to explore</p>" +
-      '<div class="fallback-list">' +
-      list.map((c) => '<button class="chip" data-country="' + esc(c) + '">' + esc(c) + "</button>").join("") +
-      "</div>" +
-    "</div>";
+    '<div class="fallback-inner"><p>Choose a civilization to explore</p><div class="fallback-list">' +
+    popular.map((c) => '<button class="chip" data-country="' + esc(c) + '">' + esc(c) + "</button>").join("") +
+    "</div></div>";
 }
 
 /* ====================== HOVER DWELL ====================== */

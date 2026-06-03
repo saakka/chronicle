@@ -58,6 +58,17 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- iter9 — INTERACTIVE 2D-CANVAS GLOBE FALLBACK (Ahmad: "the landing needs to be like it was 3 hours
+  ago, when it was interactive like radio garden"). Root cause confirmed: the in-app preview pane has
+  WebGL DISABLED (canvas.getContext('webgl') === null), so globe.gl can't draw there — the user only
+  ever saw the non-interactive static fallback. FIX: showFallback() now builds a real interactive globe
+  on a 2D canvas (no WebGL): orthographic projection of the actual Natural-Earth country shapes, dark
+  ocean sphere + graticule + soft atmosphere glow (Radio-Garden look), slow auto-rotate, DRAG to spin,
+  hover-highlight a country (gold), hover-dwell 1.1s OR click to enter — wires into the same enterCountry
+  pipeline (sets lastHoverLatLng/Subregion/Continent so the portal theme is correct). Falls back to a
+  chip list only if the GeoJSON can't be fetched. The real 3D globe.gl path is untouched and still renders
+  on the user's machine. Verified in-preview: canvas paints (center pixel = ocean), shapes loaded, and the
+  hover-dwell auto-entered Egypt/portal end to end. Screenshot confirms the dark interactive globe.
 - iter8 — CIV-VI VISUAL THEME EVERYWHERE + 2D PLANET FALLBACK (Ahmad shared a Civ VI "Create Game"
   screenshot: "use this theme everywhere", and "i can still not see a planet"). (1) Retheme: new
   :root palette — deep navy bg, parchment ink, gold trim, teal/green action; added Cinzel (Trajan-like
