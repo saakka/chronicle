@@ -225,12 +225,14 @@ For each era provide:
 "1947-present".
 - "summary": 2-3 clear, plain-language sentences on what defined this era and why \
 it matters.
-- "imageQuery": a short search phrase (2 to 5 words) naming a CONCRETE, photographable \
-subject strongly tied to this era — a famous monument, artifact, ruler, artwork, \
-battle, building, or place — that would return good results in an image archive. \
-Strongly prefer well-known proper nouns (e.g. "Great Pyramid of Giza", \
-"Tutankhamun gold mask", "Colosseum Rome", "Berlin Wall"). Include the country or \
-place name when it helps disambiguate.
+- "imageQuery": a short search phrase (2 to 5 words) naming the single most iconic, \
+CONCRETE, photographable subject of this era (a famous monument, artifact, ruler, \
+artwork, battle, building, or place). Prefer well-known proper nouns (e.g. "Great \
+Pyramid of Giza", "Tutankhamun gold mask"). Include the country/place name if helpful.
+- "imageQueries": an array of 4 DISTINCT, varied search phrases for this era so a gallery \
+shows variety — e.g. a monument, an artifact, a key person, and a place/scene. Each must \
+be a different concrete subject (NOT four phrasings of the same thing), all genuinely from \
+this era. Prefer proper nouns.
 
 Be historically accurate; never invent. Return exactly 10 eras."""
 
@@ -247,8 +249,9 @@ SCHEMA = {
                     "period": {"type": "string"},
                     "summary": {"type": "string"},
                     "imageQuery": {"type": "string"},
+                    "imageQueries": {"type": "array", "items": {"type": "string"}},
                 },
-                "required": ["title", "period", "summary", "imageQuery"],
+                "required": ["title", "period", "summary", "imageQuery", "imageQueries"],
                 "additionalProperties": False,
             },
         },

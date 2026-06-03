@@ -632,6 +632,25 @@ dossierExit.addEventListener("click", exitJourney);
 
 /* ====================== ERA JOURNEY ====================== */
 
+// Fetch several queries and interleave them so the gallery mixes subjects.
+async function fetchVariedImages(queries, max) {
+  const lists = await Promise.all(queries.slice(0, 5).map((q) => fetchImages(q, 3)));
+  const out = [], seen = new Set();
+  let idx = 0, added = true;
+  while (added && out.length < max) {
+    added = false;
+    for (const list of lists) {
+      const im = list[idx];
+      if (im && im.thumb && !seen.has(im.thumb)) {
+        seen.add(im.thumb); out.push(im); added = true;
+        if (out.length >= max) break;
+      }
+    }
+    idx++;
+  }
+  return out;
+}
+
 async function goToEra(index) {
   if (index < 0 || index >= currentEras.length) return;
   currentEra = index;
@@ -640,7 +659,10 @@ async function goToEra(index) {
   updateArrows();
 
   if (era.images === undefined) {
-    era.images = await fetchImages(era.imageQuery || era.title, 6);
+    const qs = (Array.isArray(era.imageQueries) && era.imageQueries.length)
+      ? era.imageQueries
+      : [era.imageQuery, era.title + " " + currentCountry, currentCountry + " " + (era.period || ""), era.title].filter(Boolean);
+    era.images = await fetchVariedImages(qs, 8);
   }
 
   // backdrop (crossfade between two layers + Ken Burns)

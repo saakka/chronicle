@@ -283,20 +283,20 @@ body {
 /* Cover Flow inside an era */
 .album {
   display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
-  perspective: 1500px; padding: 28px 40% 8px; margin-top: 20px;
+  perspective: 1700px; padding: 40px 32% 14px; margin-top: 20px;
   -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
 .album::-webkit-scrollbar { display: none; }
 .cover {
-  flex: 0 0 260px; max-width: 70vw; margin: 0; scroll-snap-align: center;
+  flex: 0 0 400px; max-width: 82vw; margin: 0; scroll-snap-align: center;
   transform-style: preserve-3d; will-change: transform; cursor: zoom-in;
   transition: opacity 0.2s ease;
 }
 .cover img {
-  display: block; width: 260px; max-width: 70vw; height: 260px; object-fit: cover;
-  border-radius: 8px; background: #2a2218;
-  box-shadow: 0 20px 44px rgba(0,0,0,0.7);
-  -webkit-box-reflect: below 6px linear-gradient(transparent 55%, rgba(255,255,255,0.16));
+  display: block; width: 400px; max-width: 82vw; height: 400px; object-fit: cover;
+  border-radius: 10px; background: #2a2218;
+  box-shadow: 0 26px 60px rgba(0,0,0,0.75);
+  -webkit-box-reflect: below 8px linear-gradient(transparent 52%, rgba(255,255,255,0.18));
 }
 .cover figcaption {
   font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.74rem; color: #f2ead8;
