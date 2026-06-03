@@ -354,12 +354,17 @@ function initGlobe2D() {
     img.src = "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg";
   })();
 
-  function makeBuffer() {
-    bufD = Math.max(80, Math.min(Math.round(2 * s.R), 700));   // sphere render resolution (sharper)
+  function makeBuffer(D) {
+    bufD = D;
     buf = document.createElement("canvas"); buf.width = bufD; buf.height = bufD;
     bufCtx = buf.getContext("2d");
     bufImg = bufCtx.createImageData(bufD, bufD);
     s.bufKey = null;                                            // force a fresh sphere paint
+  }
+  function setSizes() {
+    // crisp when still, lighter while moving → smooth 60fps spin without losing sharpness at rest
+    s.hiD = Math.max(80, Math.min(Math.round(2 * s.R), 760));
+    s.loD = Math.max(80, Math.min(Math.round(2 * s.R), 460));
   }
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -368,9 +373,9 @@ function initGlobe2D() {
     canvas.style.width = w + "px"; canvas.style.height = h + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     s.cx = w / 2; s.cy = h / 2; s.R0 = Math.min(w, h) * 0.34; s.R = s.R0 * s.zoom;
-    makeBuffer();
+    setSizes(); makeBuffer(s.hiD);
   }
-  function applyZoom() { s.R = s.R0 * s.zoom; makeBuffer(); }
+  function applyZoom() { s.R = s.R0 * s.zoom; setSizes(); makeBuffer(bufD > (s.loD + s.hiD) / 2 ? s.hiD : s.loD); }
   resize();
   let resizeT = null;
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 120); });
@@ -524,10 +529,14 @@ function initGlobe2D() {
       ctx.fillStyle = "#3b34dd"; ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);   // Radio-Garden blue
       const now = performance.now();
       const dt = s.lastT ? Math.min(60, now - s.lastT) : 16; s.lastT = now;
+      const moving = s.dragging || Math.abs(s.vel) > 0.0008 || (s.autoRotate && !s.hoverFeat && !busy);
       if (!s.dragging && !s.hoverFeat && !busy) {
         if (Math.abs(s.vel) > 0.0006) { s.rotLng += s.vel * dt; s.vel *= Math.pow(0.94, dt / 16); }  // fling momentum
         else if (s.autoRotate) s.rotLng += 0.006 * dt;                                                 // gentle, fps-independent spin
       }
+      // light buffer while moving (smooth), crisp buffer once it settles
+      const wantD = moving ? s.loD : s.hiD;
+      if (wantD !== bufD) makeBuffer(wantD);
       renderSphere();
       drawHighlight();
     }
@@ -1235,17 +1244,17 @@ function coverHtml(img, eager) {
 }
 
 function applyCoverflow(album) {
-  const rect = album.getBoundingClientRect();
-  const center = rect.left + rect.width / 2;
+  // Use untransformed layout (offsetLeft) + scrollLeft so reading positions never
+  // forces a reflow off the transformed covers — smoother scrolling.
+  const center = album.scrollLeft + album.clientWidth / 2;
+  const half = album.clientWidth / 2 || 1;
   album.querySelectorAll(".cover").forEach((cover) => {
-    const cr = cover.getBoundingClientRect();
-    const coverCenter = cr.left + cr.width / 2;
-    const d = (coverCenter - center) / (rect.width / 2);
-    const k = Math.max(-1.4, Math.min(1.4, d));
+    const coverCenter = cover.offsetLeft + cover.offsetWidth / 2;
+    const k = Math.max(-1.4, Math.min(1.4, (coverCenter - center) / half));
     const rot = -k * 38;
     const scale = 1 - Math.min(Math.abs(k), 1) * 0.32;
     const tz = -Math.abs(k) * 120;
-    cover.style.transform = "translateZ(" + tz + "px) rotateY(" + rot + "deg) scale(" + scale + ")";
+    cover.style.transform = "translate3d(0,0," + tz + "px) rotateY(" + rot + "deg) scale(" + scale + ")";
     cover.style.zIndex = String(1000 - Math.round(Math.abs(k) * 1000));
     cover.style.opacity = String(1 - Math.min(Math.abs(k), 1) * 0.28);
   });

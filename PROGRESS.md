@@ -58,6 +58,13 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- SMOOTHER (Ahmad: "make it more smooth"). Two real wins: (1) GLOBE dynamic resolution — render the
+  textured sphere at a lighter buffer (~460px) WHILE moving (drag/fling/auto-rotate) for a solid-60fps
+  spin, and sharpen to a crisp buffer (~760px) the instant it settles on a hovered country; buffer is
+  re-allocated only on the moving↔still transition, not per frame. (2) COVER FLOW no longer calls
+  getBoundingClientRect on the transformed covers each scroll frame — it uses offsetLeft + scrollLeft
+  (untransformed layout) + translate3d, eliminating forced reflows → smoother photo scrolling. Verified:
+  globe spins (pixels change), no new JS errors.
 - NO DUPLICATE PHOTOS + INVITING COUNTRY PAGE + 10 FIXES (Ahmad: "same picture twice like Suez";
   country infos not inviting → add logos/icons; more fluid + 10 bug fixes).
   Dedup: 1) fetchImages tags each photo with a canonical Commons file id; 2) timeline shows ONE distinct
