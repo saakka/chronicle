@@ -148,9 +148,12 @@ function initGlobe() {
 
   try {
     world = Globe()(el)
-      .backgroundColor("rgba(0,0,0,0)")
+      .backgroundImageUrl("https://unpkg.com/three-globe/example/img/night-sky.png")
       .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
       .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
+      .showAtmosphere(true)
+      .atmosphereColor("#7fb2ff")
+      .atmosphereAltitude(0.22)
       .pointsData(FALLBACK_POINTS)
       .pointLat("lat").pointLng("lng")
       .pointColor(() => "rgba(255,207,87,0)")
@@ -168,14 +171,14 @@ function initGlobe() {
 
   sizeGlobe();
   globeControls = world.controls();
-  globeControls.autoRotate = true;
-  globeControls.autoRotateSpeed = 0.45;
+  globeControls.autoRotate = true;          // a living, always-turning planet
+  globeControls.autoRotateSpeed = 0.35;
   globeControls.minDistance = 180;
+  globeControls.enableDamping = true;       // smooth, weighty feel
+  globeControls.dampingFactor = 0.1;
   world.pointOfView({ lat: 24, lng: 42, altitude: 2.1 }, 0);
 
-  const stopSpin = () => { globeControls.autoRotate = false; };
-  el.addEventListener("pointerdown", stopSpin);
-  el.addEventListener("pointermove", stopSpin, { once: true });
+  // Rotation pauses while you rest on a country (recomputeHover) and resumes after.
   window.addEventListener("resize", sizeGlobe);
 
   loadCountryShapes();
@@ -224,7 +227,12 @@ function showFallback() {
 
 /* ====================== HOVER DWELL ====================== */
 
-function recomputeHover() { handleDwell(polyHoverCountry || pointHoverCountry || null); }
+function recomputeHover() {
+  const c = polyHoverCountry || pointHoverCountry || null;
+  // Pause the living rotation while the user focuses a country; resume when they leave.
+  if (globeControls && !busy) globeControls.autoRotate = !c;
+  handleDwell(c);
+}
 
 function handleDwell(country) {
   if (busy) return;
@@ -273,7 +281,7 @@ async function enterCountry(country) {
 
   // 1. cinematic zoom: fly the globe down toward the country
   const loc = lastHoverLatLng || ARAB_COUNTRIES.find((c) => c.country === country) || null;
-  if (world && loc) world.pointOfView({ lat: loc.lat, lng: loc.lng, altitude: 0.62 }, 1100);
+  if (world && loc) world.pointOfView({ lat: loc.lat, lng: loc.lng, altitude: 0.62 }, 2000);
 
   // fetch in parallel with the zoom
   const fetchPromise = (async () => {
@@ -287,7 +295,7 @@ async function enterCountry(country) {
     }
   })();
 
-  await wait(1000);                       // let the zoom play
+  await wait(2200);                       // 2.2s cinematic zoom before the portal opens
   const portalDone = playPortal(country); // portal opens over the zoomed globe
   const { data, error } = await fetchPromise;
   await portalDone;
@@ -405,6 +413,7 @@ function exitJourney() {
   globeView.style.display = "";
   sizeGlobe();
   if (world) world.pointOfView({ lat: 24, lng: 42, altitude: 2.1 }, 900); // zoom back out
+  if (globeControls) globeControls.autoRotate = true;                     // resume the living spin
 }
 
 function travelTo(index) {

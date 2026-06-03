@@ -39,7 +39,19 @@ Run autonomously following this process:
 - [ ] Phase 1 TODO: add fallback hover-points for micro-states missing from the 110m dataset
 - [ ] Phase 2 cycles begin
 
+## NEXT PRIORITIES — content + design tailored to HISTORY GEEKS (Civ-V vibe), set ~by Ahmad
+Wikimedia is broad/generic. Make it richer and more curated:
+1. **Curated image sources** (better than generic Wikimedia): query open cultural-heritage APIs —
+   Art Institute of Chicago (free, CORS, no key) + The Met Open Access (free, CORS, no key) for
+   artworks/artifacts; Wikimedia as fallback. Bias toward paintings/artifacts → painterly, Civ-like feel.
+2. **Civilopedia-depth content**: tune the era prompt so each era also yields a key figure/leader,
+   a defining wonder/achievement, and a pivotal turning point. Specific, geeky, accurate.
+3. **Design audit (game-like HUD)**: ornamental era frames, a "key figure · wonder · year" fact strip,
+   optional era-territory map snippet, leader/portrait highlight, tech/wonder timeline markers.
+Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
+
 ## CHANGELOG (newest first — append every iteration)
+- iter4 — LIVING PLANET: starfield background + blue atmosphere glow; continuous slow auto-rotation with damping that PAUSES on country-hover and resumes on leave (interactive). Portal delay set to 2.2s with a smoother 2s zoom-into-country. Recorded content/design direction (Civ-V / history-geek) above.
 - iter3 — WOW pass on the portal: god-rays (rotating conic light), drifting embers, slow zoom-push, flourished label (✦ … ✦). Smarter photo selection: fetch 40 candidates, drop maps/flags/crests/diagrams, rank by size + aspect + relevance → striking images first. Verified visually (Egypt portal) + fetchImages returns clean results. Next Phase-2 ideas: per-era backdrop = best image (not just [0]); zoom globe-out on exit; richer era transition; "wow" audit.
 - iter2 — Spot-checked Greece end to end via DOM: portal→journey renders (eras, Cover Flow, timeline) for a non-Arab country. All-countries pipeline validated. Next: more spot-checks, then Phase 2 audit cycles.
 - iter1 — Opened globe to ALL countries (no filter); centroid-based zoom for any country;
