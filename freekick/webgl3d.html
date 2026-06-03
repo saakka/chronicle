@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Free Kick 3D</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;overflow:hidden;background:#05070d;font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;color:#fff}
+  #app{position:fixed;inset:0;cursor:none}
+  canvas{display:block}
+  .hud{position:fixed;inset:0;pointer-events:none;user-select:none}
+
+  #scoreboard{position:absolute;top:18px;left:18px;background:rgba(8,14,28,.82);border-radius:9px;overflow:hidden;
+    box-shadow:0 6px 22px rgba(0,0,0,.4)}
+  #scoreboard .top{display:flex;align-items:center;height:34px}
+  #scoreboard .bar{width:7px;height:100%;background:#173f9e}
+  #scoreboard .nm{font-weight:800;font-size:15px;padding:0 10px}
+  #scoreboard .sc{font-weight:800;font-size:16px;background:#0a0f1c;border-radius:5px;padding:3px 9px;margin:0 2px}
+  #scoreboard .sc.g{color:#46e08a}
+  #scoreboard .dash{opacity:.6;padding:0 4px}
+  #scoreboard .clk{font-size:13px;font-weight:800;color:#9fb3d6;background:#0a0f1c;border-radius:5px;padding:3px 7px;margin:0 8px}
+  #scoreboard .sub{display:flex;gap:16px;font-size:11px;font-weight:700;color:#cfe0ff;padding:5px 12px;background:rgba(0,0,0,.25)}
+  #scoreboard .sub b{color:#ffd34d}
+
+  #title{position:absolute;top:18px;right:20px;text-align:right}
+  #title .t1{font-size:20px;font-weight:800;letter-spacing:3px;text-shadow:0 2px 8px #000}
+  #title .t2{font-size:10px;letter-spacing:4px;opacity:.6}
+
+  #power{position:absolute;right:42px;top:50%;transform:translateY(-50%);width:22px;height:210px;
+    background:rgba(8,14,28,.7);border-radius:8px;overflow:hidden;opacity:0;transition:opacity .15s}
+  #power.on{opacity:1}
+  #power .zone{position:absolute;left:0;width:100%;background:rgba(70,224,138,.3);border-top:2px solid #46e08a;border-bottom:2px solid #46e08a}
+  #power .fill{position:absolute;left:0;bottom:0;width:100%;height:0%;
+    background:linear-gradient(0deg,#36d97a,#ffe14d 60%,#ff5d5d)}
+  #power .lbl{position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:2px;font-weight:700}
+
+  #spin{position:absolute;right:30px;bottom:34px;width:78px;height:78px;border-radius:50%;
+    background:rgba(8,14,28,.6);border:2px solid rgba(255,255,255,.18);opacity:0;transition:opacity .15s}
+  #spin.on{opacity:1}
+  #spin .cross{position:absolute;inset:0}
+  #spin .cross::before,#spin .cross::after{content:'';position:absolute;background:rgba(255,255,255,.14)}
+  #spin .cross::before{left:50%;top:8%;bottom:8%;width:1px}
+  #spin .cross::after{top:50%;left:8%;right:8%;height:1px}
+  #spin .dot{position:absolute;width:14px;height:14px;border-radius:50%;background:#8fd0ff;left:50%;top:50%;
+    transform:translate(-50%,-50%);box-shadow:0 0 8px #8fd0ff}
+  #spin .lbl{position:absolute;bottom:-18px;width:100%;text-align:center;font-size:9px;letter-spacing:2px;font-weight:700;opacity:.8}
+
+  #banner{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%) scale(.6);font-size:84px;font-weight:900;
+    letter-spacing:3px;opacity:0;text-shadow:0 6px 30px rgba(0,0,0,.6);white-space:nowrap}
+  #banner.show{animation:pop .5s cubic-bezier(.2,1.4,.4,1) forwards}
+  @keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.5) rotate(-4deg)}
+    60%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+  #caption{position:absolute;bottom:74px;left:50%;transform:translateX(-50%);background:rgba(8,14,28,.82);
+    border-left:6px solid #173f9e;border-radius:9px;padding:10px 22px;font-size:17px;font-weight:700;opacity:0;transition:opacity .3s;white-space:nowrap}
+  #caption.on{opacity:1}
+  #hint{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);font-size:12.5px;opacity:.78;text-shadow:0 1px 3px #000}
+  #hint b{color:#ffe14d}
+
+  #start{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+    background:radial-gradient(130% 100% at 50% 20%,rgba(18,30,58,.55),rgba(4,7,16,.9));backdrop-filter:blur(2px);
+    pointer-events:auto;transition:opacity .5s;z-index:10}
+  #start.hidden{opacity:0;pointer-events:none}
+  #start .eyebrow{letter-spacing:7px;font-size:12px;opacity:.6;text-transform:uppercase}
+  #start h1{font-size:70px;font-weight:900;letter-spacing:4px;background:linear-gradient(180deg,#fff,#7fd0ff);
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  #start .keys{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;max-width:740px}
+  #start .k{width:158px;text-align:center;background:rgba(12,20,40,.5);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:13px 10px}
+  #start .k .i{font-size:25px;margin-bottom:7px}
+  #start .k .d{font-size:12px;opacity:.82;line-height:1.5}
+  #start .k b{color:#ffe14d}
+  #start button{pointer-events:auto;cursor:pointer;margin-top:4px;font-size:18px;font-weight:800;letter-spacing:3px;color:#04210f;
+    background:linear-gradient(180deg,#73f7a9,#21c96b);border:none;border-radius:40px;padding:15px 50px;text-transform:uppercase;
+    box-shadow:0 12px 34px rgba(40,220,120,.4);transition:transform .12s}
+  #start button:hover{transform:translateY(-2px) scale(1.03)}
+  #loading{position:absolute;bottom:40px;font-size:12px;opacity:.6;letter-spacing:2px}
+
+  #err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;color:#ffd9d9;font-size:14px;
+    padding:46px;text-align:center;background:#120a0a;z-index:99;line-height:1.6}
+</style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div class="hud">
+    <div id="scoreboard">
+      <div class="top"><div class="bar"></div><div class="nm">YOU</div><div id="sGoals" class="sc g">0</div>
+        <div class="dash">—</div><div id="sWall" class="sc">0</div><div class="nm" style="opacity:.7">WALL</div>
+        <div id="clk" class="clk">44:00</div></div>
+      <div class="sub"><div>SHOTS <b id="sShots" style="color:#cfe0ff">0</b></div><div>STREAK <b id="sStreak">0</b></div></div>
+    </div>
+    <div id="title"><div class="t1">FREE KICK</div><div class="t2">3D · CLUB WORLD</div></div>
+    <div id="power"><div class="zone"></div><div class="fill"></div><div class="lbl">POWER</div></div>
+    <div id="spin"><div class="cross"></div><div class="dot"></div><div class="lbl">SPIN</div></div>
+    <div id="banner"></div>
+    <div id="caption"></div>
+    <div id="hint"><b>Move</b> aim · <b>hold</b> power (green) · <b>release</b> · then <b>move / WASD</b> to bend it</div>
+  </div>
+
+  <div id="start">
+    <div class="eyebrow">Club World · Free Kick</div>
+    <h1>FREE&nbsp;KICK&nbsp;3D</h1>
+    <div class="keys">
+      <div class="k"><div class="i">🖱️</div><div class="d"><b>Move</b> to aim</div></div>
+      <div class="k"><div class="i">⏱️</div><div class="d"><b>Hold click</b> — release in the <b>green</b></div></div>
+      <div class="k"><div class="i">🌀</div><div class="d">Then <b>move / WASD</b> to curl &amp; dip in the air</div></div>
+      <div class="k"><div class="i">⚽</div><div class="d">Bend it past the wall</div></div>
+    </div>
+    <button id="startBtn">PLAY</button>
+    <div id="loading"></div>
+  </div>
+
+  <div id="err"></div>
+
+  <script>
+  "use strict";
+  // ===== resilient Three.js loader (multi-CDN), then boot =====
+  (function(){
+    var SRC=["https://unpkg.com/three@0.128.0/build/three.min.js",
+             "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js",
+             "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"];
+    function fail(t,d){ var e=document.getElementById('err'); e.style.display='flex';
+      e.innerHTML='<div style="max-width:640px"><div style="font-size:22px;margin-bottom:14px">'+t+'</div><div style="opacity:.85">'+d+'</div></div>'; }
+    function go(){ try{ boot(); }catch(e){ fail('Something broke starting the 3D game.','<pre style="white-space:pre-wrap;text-align:left">'+(e&&e.stack?e.stack:e)+'</pre>'); } }
+    function load(i){ if(typeof THREE!=='undefined') return go();
+      if(i>=SRC.length) return fail('Couldn’t load the 3D engine.','Every CDN was blocked. Check your connection/firewall.');
+      var s=document.createElement('script'); s.src=SRC[i]; s.onload=go; s.onerror=function(){load(i+1);}; document.head.appendChild(s); }
+    document.getElementById('loading').textContent='loading 3D engine…';
+    load(0);
+  })();
+
+  function boot(){
+  var $=function(id){return document.getElementById(id);};
+  if(typeof THREE==='undefined'){ throw new Error('Three.js not available'); }
+  $('loading').textContent='';
+
+  // ===================================================================
+  //  CONFIG + PHYSICS  (ported, verified)
+  // ===================================================================
+  var CONFIG={ ballZ:19.0, ballR:0.11, goalW:7.32, goalH:2.44,
+    wallDist:9.15, wallCount:4, wallHalfW:1.0, wallBaseH:1.7, wallJump:0.16, wallMargin:0.1, wallCenterX:-0.4,
+    gravity:10.2, drag:0.05, minSpeed:17, maxSpeed:31, chargeTime:1.0, timedLo:0.62, timedHi:0.84,
+    curlStrength:14.5, dipStrength:20.0, spinMax:1.0, spinMouseSens:0.0042, spinKeySens:2.1,
+    authNear:0.5, authFar:0.97, keeperReact:0.24, keeperDecide:0.17, keeperSpeed:6.0, keeperRange:2.05,
+    keeperCatchR:0.6, keeperReachY:2.12, aimRangeX:5.6, aimYmin:0.2, aimYmax:4.3 };
+  var GOAL_HALF=CONFIG.goalW/2, WALL_Z=CONFIG.ballZ-CONFIG.wallDist;
+  var clamp=function(v,a,b){return Math.max(a,Math.min(b,v));}, lerp=function(a,b,t){return a+(b-a)*t;}, rand=function(a,b){return a+Math.random()*(b-a);};
+  var TAU=Math.PI*2;
+  var ballMesh,goalGroup,wallGroup,keeperGroup,kickerGroup,tracer,tracerGlow,players={};
+
+  // ===================================================================
+  //  RENDERER / SCENE / LIGHTS
+  // ===================================================================
+  var renderer, scene, camera, sun;
+  try{
+    renderer=new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth,window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    renderer.outputEncoding=THREE.sRGBEncoding; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.05;
+    $('app').appendChild(renderer.domElement);
+  }catch(glErr){
+    // headless / no WebGL: still build the scene to validate code, then bail with a message
+    buildWorld(); console.log('[freekick] scene built OK (no GL context here)');
+    var e=$('err'); e.style.display='flex';
+    e.innerHTML='<div style="max-width:620px"><div style="font-size:22px;margin-bottom:14px">This browser can’t start WebGL (3D).</div>'
+      +'<div style="opacity:.85">Enable hardware acceleration in Chrome (chrome://settings/system) and relaunch, then reopen.</div></div>';
+    return;
+  }
+
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x0a1426);
+  scene.fog=new THREE.Fog(0x0a1426, 55, 130);
+  camera=new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 400);
+
+  var hemi=new THREE.HemisphereLight(0x9fc6ff, 0x2c4a2c, 0.7); scene.add(hemi);
+  sun=new THREE.DirectionalLight(0xfff3df, 2.0); sun.position.set(-16,30,26); sun.castShadow=true;
+  sun.shadow.mapSize.set(2048,2048); sun.shadow.camera.near=1; sun.shadow.camera.far=90;
+  sun.shadow.camera.left=-22; sun.shadow.camera.right=22; sun.shadow.camera.top=24; sun.shadow.camera.bottom=-12; sun.shadow.bias=-0.0004;
+  scene.add(sun); scene.add(sun.target); sun.target.position.set(0,0,8);
+  var fill=new THREE.DirectionalLight(0xbfe0ff,0.5); fill.position.set(18,16,24); scene.add(fill);
+
+  // ---- textures ----
+  function ctex(w,h,draw){ var c=document.createElement('canvas'); c.width=w; c.height=h; draw(c.getContext('2d'),w,h);
+    var t=new THREE.CanvasTexture(c); t.anisotropy=4; return t; }
+  function grassTex(){ return ctex(512,512,function(g,w,h){
+    for(var i=0;i<2;i++){ g.fillStyle=i?'#2f8a37':'#379a40'; g.fillRect(0,i*h/2,w,h/2); }
+    for(var k=0;k<14000;k++){ g.fillStyle='rgba(255,255,255,'+(Math.random()*0.04)+')'; g.fillRect(Math.random()*w,Math.random()*h,1,2);
+      g.fillStyle='rgba(0,40,0,'+(Math.random()*0.05)+')'; g.fillRect(Math.random()*w,Math.random()*h,1,2); } }); }
+  function crowdTex(){ return ctex(1024,256,function(g,w,h){ var bg=g.createLinearGradient(0,0,0,h);
+    bg.addColorStop(0,'#0a0f1c'); bg.addColorStop(1,'#1a2436'); g.fillStyle=bg; g.fillRect(0,0,w,h);
+    var cols=['#c0392b','#2e6da4','#d8dde2','#c9a227','#27916b','#e8ebee','#8a929b','#922'];
+    for(var r=0;r<h;r+=3)for(var x=0;x<w;x+=3){ if(Math.random()<0.35)continue; g.fillStyle=cols[(Math.random()*cols.length)|0];
+      g.globalAlpha=(0.4+Math.random()*0.45)*(0.5+0.5*r/h); g.fillRect(x,r,2,2); } g.globalAlpha=1; }); }
+  function adTex(txt){ return ctex(1024,128,function(g,w,h){ g.fillStyle='#0b1f3a'; g.fillRect(0,0,w,h);
+    g.fillStyle='#dbe9ff'; g.font='800 64px Trebuchet MS'; g.textBaseline='middle'; var t=txt+'   ', tw=g.measureText(t).width;
+    for(var x=0;x<w;x+=tw) g.fillText(t,x,h/2); }); }
+  function ballTex(){ return ctex(256,256,function(g,w,h){ g.fillStyle='#f4f6fa'; g.fillRect(0,0,w,h);
+    g.fillStyle='#15233f'; function pent(cx,cy,r,rot){ g.beginPath(); for(var k=0;k<5;k++){ var a=rot+k*TAU/5-Math.PI/2;
+      var px=cx+Math.cos(a)*r, py=cy+Math.sin(a)*r; k?g.lineTo(px,py):g.moveTo(px,py);} g.closePath(); g.fill(); }
+    pent(128,128,30,0); pent(40,50,20,0.4); pent(216,50,20,-0.4); pent(50,210,20,0.7); pent(206,210,20,-0.7);
+    pent(128,20,16,0); pent(128,236,16,0.6);
+    g.strokeStyle='rgba(40,50,80,0.4)'; g.lineWidth=3; for(var i=0;i<6;i++){ g.beginPath();
+      g.moveTo(128,128); g.lineTo(128+Math.cos(i)*120,128+Math.sin(i)*120); g.stroke(); } }); }
+  function kitTex(base, stripe, num){ return ctex(256,256,function(g,w,h){ g.fillStyle=base; g.fillRect(0,0,w,h);
+    if(stripe){ g.fillStyle=stripe; for(var x=20;x<w;x+=64) g.fillRect(x,0,28,h); }
+    if(num){ g.fillStyle='#fff'; g.strokeStyle='rgba(0,0,0,.4)'; g.lineWidth=4; g.font='900 90px Trebuchet MS';
+      g.textAlign='center'; g.textBaseline='middle'; g.strokeText(num,w/2,h*0.42); g.fillText(num,w/2,h*0.42); } }); }
+  function netTex(){ return ctex(128,128,function(g,w,h){ g.clearRect(0,0,w,h); g.strokeStyle='rgba(255,255,255,0.8)'; g.lineWidth=1.2;
+    for(var i=0;i<=w;i+=10){ g.beginPath(); g.moveTo(i,0); g.lineTo(i,h); g.stroke(); g.beginPath(); g.moveTo(0,i); g.lineTo(w,i); g.stroke(); } }); }
+
+  // ===================================================================
+  //  WORLD
+  // ===================================================================
+  function mat(c,opt){ return new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:0.75,metalness:0.0},opt||{})); }
+
+  function buildWorld(){
+    if(!scene){ // diagnostic path (no renderer): make a temp scene so build code runs
+      scene=new THREE.Scene(); camera=new THREE.PerspectiveCamera(50,1,0.1,400);
+    }
+    // pitch
+    var gt=grassTex(); gt.wrapS=gt.wrapT=THREE.RepeatWrapping; gt.repeat.set(24,28);
+    var pitch=new THREE.Mesh(new THREE.PlaneGeometry(200,220), mat(0xffffff,{map:gt,roughness:1}));
+    pitch.rotation.x=-Math.PI/2; pitch.position.z=-20; pitch.receiveShadow=true; scene.add(pitch);
+    // mow stripes (subtle darker bands)
+    for(var s=-12;s<46;s+=4){ var st=new THREE.Mesh(new THREE.PlaneGeometry(70,2), new THREE.MeshStandardMaterial({color:0x000000,transparent:true,opacity:0.05}));
+      st.rotation.x=-Math.PI/2; st.position.set(0,0.005,s); st.receiveShadow=false; scene.add(st); }
+    // lines
+    var lineMat=new THREE.MeshBasicMaterial({color:0xffffff}); lineMat.transparent=true; lineMat.opacity=0.85;
+    function line(w,d,x,z){ var m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),lineMat); m.rotation.x=-Math.PI/2; m.position.set(x,0.012,z); scene.add(m); }
+    line(44,0.14,0,0); line(40.3,0.14,0,16.5); line(0.14,16.5,-20.15,8.25); line(0.14,16.5,20.15,8.25);
+    line(18.3,0.14,0,5.5); line(0.14,5.5,-9.15,2.75); line(0.14,5.5,9.15,2.75);
+    var spot=new THREE.Mesh(new THREE.CircleGeometry(0.16,18),lineMat); spot.rotation.x=-Math.PI/2; spot.position.set(0,0.013,11); scene.add(spot);
+    var arc=new THREE.Mesh(new THREE.RingGeometry(9.0,9.16,40,1,Math.PI*0.62,Math.PI*0.76),lineMat); arc.rotation.x=-Math.PI/2; arc.position.set(0,0.012,11); scene.add(arc);
+
+    // goal
+    goalGroup=new THREE.Group(); var pr=0.06, postMat=mat(0xffffff,{roughness:0.35,metalness:0.1});
+    function post(x){ var m=new THREE.Mesh(new THREE.CylinderGeometry(pr,pr,CONFIG.goalH,14),postMat); m.position.set(x,CONFIG.goalH/2,0); m.castShadow=true; goalGroup.add(m); }
+    post(-GOAL_HALF); post(GOAL_HALF);
+    var bar=new THREE.Mesh(new THREE.CylinderGeometry(pr,pr,CONFIG.goalW+pr*2,14),postMat); bar.rotation.z=Math.PI/2; bar.position.set(0,CONFIG.goalH,0); bar.castShadow=true; goalGroup.add(bar);
+    var nt=netTex(); function netPlane(w,h,nx,ny,nz,rotY){ nt=nt.clone(); nt.wrapS=nt.wrapT=THREE.RepeatWrapping; nt.repeat.set(w,h);
+      var nm=new THREE.MeshStandardMaterial({map:nt,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false});
+      var m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),nm); m.position.set(nx,ny,nz); if(rotY)m.rotation.y=rotY; goalGroup.add(m); }
+    netPlane(CONFIG.goalW,CONFIG.goalH,0,CONFIG.goalH/2,-1.6,0);
+    netPlane(1.6,CONFIG.goalH,-GOAL_HALF,CONFIG.goalH/2,-0.8,Math.PI/2);
+    netPlane(1.6,CONFIG.goalH,GOAL_HALF,CONFIG.goalH/2,-0.8,Math.PI/2);
+    var topNet=new THREE.Mesh(new THREE.PlaneGeometry(CONFIG.goalW,1.6),new THREE.MeshStandardMaterial({map:netTex(),transparent:true,opacity:0.5,side:THREE.DoubleSide,depthWrite:false}));
+    topNet.rotation.x=Math.PI/2; topNet.position.set(0,CONFIG.goalH,-0.8); goalGroup.add(topNet);
+    scene.add(goalGroup);
+
+    // stadium: stands + ad boards + floodlights
+    var crowd=crowdTex();
+    function stand(w,hh,x,y,z,rotY){ crowd=crowd.clone(); crowd.wrapS=crowd.wrapT=THREE.RepeatWrapping; crowd.repeat.set(w/6,hh/6);
+      var m=new THREE.Mesh(new THREE.PlaneGeometry(w,hh),new THREE.MeshBasicMaterial({map:crowd})); m.position.set(x,y,z); if(rotY)m.rotation.y=rotY; scene.add(m); }
+    stand(80,16,0,8,-12,0); stand(60,14,-34,7,12,Math.PI/2); stand(60,14,34,7,12,-Math.PI/2);
+    // ad boards
+    var ads=['FREE KICK','CLUB WORLD'];
+    for(var a=0;a<2;a++){ var ad=new THREE.Mesh(new THREE.PlaneGeometry(13,1.1),new THREE.MeshBasicMaterial({map:adTex(ads[a])}));
+      ad.position.set(a?9:-9,0.6,-2.6); scene.add(ad); }
+    var ad2=new THREE.Mesh(new THREE.BoxGeometry(40,1.1,0.2),new THREE.MeshStandardMaterial({color:0x0b1f3a})); ad2.position.set(0,0.55,-3.2); scene.add(ad2);
+    // floodlight pylons
+    [[-26,-10],[26,-10],[-22,14],[22,14]].forEach(function(p){
+      var pole=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,20,8),mat(0x10151f)); pole.position.set(p[0],10,p[1]); scene.add(pole);
+      var lamp=new THREE.Mesh(new THREE.BoxGeometry(3.4,1.1,0.5),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xfff0d0,emissiveIntensity:1.4}));
+      lamp.position.set(p[0],19.5,p[1]); scene.add(lamp); });
+
+    // players
+    wallGroup=new THREE.Group(); scene.add(wallGroup);
+    var n=CONFIG.wallCount, sp=0.55, sx=CONFIG.wallCenterX-(n-1)*sp/2, skins=[0xe3a978,0xcaa07a,0x8d5a3b,0xe8b48c];
+    players.wall=[];
+    for(var i=0;i<n;i++){ var p=makePlayer({shirtTex:kitTex('#1c3fa0','#9b1b30',null), shorts:0x1c3fa0, socks:0x9b1b30, skin:skins[i%4], hair:0x241a12});
+      p.position.set(sx+i*sp,0,WALL_Z); p.rotation.y=Math.PI; wallGroup.add(p); players.wall.push(p); }
+    keeperGroup=makePlayer({shirt:0x16c8b7, shorts:0x0c3b3b, socks:0x16c8b7, skin:0xe3a978, hair:0x1a130c, glove:true});
+    keeperGroup.position.set(0,0,0.4); keeperGroup.rotation.y=Math.PI; scene.add(keeperGroup); players.keeper=keeperGroup;
+    kickerGroup=makePlayer({shirtTex:kitTex('#f2f2f5',null,'7'), shorts:0xf2f2f5, socks:0xf2f2f5, skin:0xe3a978, hair:0x3a2a18, accent:0x163a8c});
+    kickerGroup.position.set(-0.9,0,CONFIG.ballZ+0.7); scene.add(kickerGroup); players.kicker=kickerGroup;
+
+    // ball
+    var bt=ballTex(); ballMesh=new THREE.Mesh(new THREE.SphereGeometry(CONFIG.ballR,24,24), mat(0xffffff,{map:bt,roughness:0.42}));
+    ballMesh.castShadow=true; ballMesh.position.set(0,CONFIG.ballR,CONFIG.ballZ); scene.add(ballMesh);
+
+    // curl tracer (glowing tube, rebuilt each frame in flight)
+    tracer=new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({color:0xfff2a8})); scene.add(tracer);
+    tracerGlow=new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({color:0xfff7c0,transparent:true,opacity:0.25,blending:THREE.AdditiveBlending,depthWrite:false})); scene.add(tracerGlow);
+  }
+
+  // a procedural footballer with posable limbs
+  function makePlayer(kit){
+    var g=new THREE.Group();
+    var skinMat=mat(kit.skin||0xe3a978), hairMat=mat(kit.hair||0x241a12), bootMat=mat(0x16161b,{roughness:0.5});
+    var shirtMat = kit.shirtTex ? new THREE.MeshStandardMaterial({map:kit.shirtTex,roughness:0.7}) : mat(kit.shirt||0xd8282f);
+    var shortsMat=mat(kit.shorts||0xffffff), socksMat=mat(kit.socks||0x16203a), gloveMat=mat(0xf2c94c);
+    function part(geo,m,x,y,z){ var me=new THREE.Mesh(geo,m); me.position.set(x,y,z); me.castShadow=true; return me; }
+    // pelvis + torso
+    g.add(part(new THREE.CylinderGeometry(0.18,0.16,0.26,12),shortsMat,0,0.92,0));
+    var torso=part(new THREE.CylinderGeometry(0.15,0.19,0.66,14),shirtMat,0,1.32,0); g.add(torso);
+    g.add(part(new THREE.SphereGeometry(0.21,14,12),shirtMat,0,1.62,0)); // shoulders
+    // neck + head + hair
+    g.add(part(new THREE.CylinderGeometry(0.06,0.06,0.1,8),skinMat,0,1.7,0));
+    var head=part(new THREE.SphereGeometry(0.135,18,16),skinMat,0,1.83,0); g.add(head);
+    var hair=part(new THREE.SphereGeometry(0.142,16,12,0,TAU,0,Math.PI*0.62),hairMat,0,1.845,-0.01); g.add(hair);
+    // arm factory (subgroup pivot at shoulder)
+    function arm(side){ var s=new THREE.Group(); s.position.set(side*0.24,1.55,0);
+      var up=part(new THREE.CylinderGeometry(0.052,0.05,0.32,8),shirtMat,0,-0.16,0); s.add(up);
+      var fore=new THREE.Group(); fore.position.set(0,-0.32,0);
+      fore.add(part(new THREE.CylinderGeometry(0.048,0.044,0.3,8),skinMat,0,-0.15,0));
+      fore.add(part(new THREE.SphereGeometry(kit.glove?0.07:0.055,10,8),kit.glove?gloveMat:skinMat,0,-0.31,0));
+      s.add(fore); g.add(s); s.userData.fore=fore; return s; }
+    // leg factory (subgroup pivot at hip)
+    function leg(side){ var s=new THREE.Group(); s.position.set(side*0.1,0.9,0);
+      s.add(part(new THREE.CylinderGeometry(0.075,0.06,0.44,10),skinMat,0,-0.22,0));
+      var shin=new THREE.Group(); shin.position.set(0,-0.44,0);
+      shin.add(part(new THREE.CylinderGeometry(0.06,0.05,0.4,10),socksMat,0,-0.2,0));
+      shin.add(part(new THREE.BoxGeometry(0.12,0.07,0.26),bootMat,0,-0.42,0.06));
+      s.add(shin); g.add(s); s.userData.shin=shin; return s; }
+    g.userData={ armL:arm(1), armR:arm(-1), legL:leg(1), legR:leg(-1), torso:torso, head:head };
+    g.traverse(function(o){ if(o.isMesh) o.castShadow=true; });
+    return g;
+  }
+
+  // poses
+  function poseStand(p){ var u=p.userData; u.legL.rotation.x=0.04; u.legR.rotation.x=-0.04; u.legL.userData.shin.rotation.x=0; u.legR.userData.shin.rotation.x=0;
+    u.armL.rotation.set(0,0,0.12); u.armR.rotation.set(0,0,-0.12); u.armL.userData.fore.rotation.x=0; u.armR.userData.fore.rotation.x=0; p.position.y=0; p.rotation.z=0; }
+  function poseWall(p){ poseStand(p); var u=p.userData; // arms crossed in front
+    u.armL.rotation.set(1.4,0,0.5); u.armR.rotation.set(1.4,0,-0.5); u.armL.userData.fore.rotation.x=-1.5; u.armR.userData.fore.rotation.x=-1.5; }
+  function poseJump(p,j){ poseWall(p); p.position.y=j; var u=p.userData; u.legL.rotation.x=0.5; u.legR.rotation.x=0.5; u.armL.rotation.set(-2.6,0,0.4); u.armR.rotation.set(-2.6,0,-0.4); u.armL.userData.fore.rotation.x=-0.4; u.armR.userData.fore.rotation.x=-0.4; }
+  function poseKeeper(p,dive,dir){ var u=p.userData;
+    if(dive<0.1){ poseStand(p); u.armL.rotation.set(-0.5,0,0.7); u.armR.rotation.set(-0.5,0,-0.7); }
+    else { poseStand(p); p.rotation.z=-dir*dive*1.0; p.position.y=dive*0.4; p.position.x=keeper.x;
+      u.armL.rotation.set(-2.5,0,0.3); u.armR.rotation.set(-2.5,0,-0.3); } }
+  function poseRun(p,phase){ var u=p.userData; var s=Math.sin(phase);
+    u.legL.rotation.x=s*0.7; u.legR.rotation.x=-s*0.7; u.legL.userData.shin.rotation.x=Math.max(0,-s)*0.9; u.legR.userData.shin.rotation.x=Math.max(0,s)*0.9;
+    u.armL.rotation.set(-s*0.6,0,0.15); u.armR.rotation.set(s*0.6,0,-0.15); p.position.y=Math.abs(s)*0.04; }
+
+  // ===================================================================
+  //  STATE
+  // ===================================================================
+  var ST={SETUP:'SETUP',CHARGE:'CHARGE',RUNUP:'RUNUP',FLIGHT:'FLIGHT',RESULT:'RESULT'};
+  var state=ST.SETUP, started=false;
+  var aim={x:0.5,y:1.5}, power=0, chargeT=0, perfect=false;
+  var ball={x:0,y:CONFIG.ballR,z:CONFIG.ballZ}, vel={x:0,y:0,z:0}, spin={x:0,y:0}, spinInput={x:0,y:0};
+  var ballRot=0, distFrac=0, path=[];
+  var keeper={x:0,dive:0,dir:1,react:0,decide:0,targetX:0,committed:false,parry:0};
+  var wall={jump:0,t:0}, runup=0, kicker={x:-0.9,z:CONFIG.ballZ+0.7,step:0};
+  var result=null, resultT=0, goals=0, shots=0, streak=0, clock=2640;
+  var keys={}, last=performance.now();
+  var camPos=new THREE.Vector3(0,2.5,CONFIG.ballZ+5), camTgt=new THREE.Vector3(0,1.2,0), camFov=50, shake=0, timeScale=1;
+
+  // ===================================================================
+  //  PHYSICS (ported)
+  // ===================================================================
+  function strike(){
+    if(state!==ST.CHARGE)return;
+    perfect = power>=CONFIG.timedLo && power<=CONFIG.timedHi; chargeT=performance.now();
+    var miss=perfect?0:Math.min(0.7,Math.abs(power-(CONFIG.timedLo+CONFIG.timedHi)/2))*1.6;
+    var ax=aim.x+rand(-miss,miss)*1.3, ay=aim.y+rand(-miss,miss)*0.7+(power>CONFIG.timedHi?power*0.5:0);
+    var speed=lerp(CONFIG.minSpeed,CONFIG.maxSpeed,power), t=CONFIG.ballZ/speed;
+    vel={x:(ax-0)/t, y:(ay-CONFIG.ballR)/t+0.5*CONFIG.gravity*t, z:-speed};
+    spin={x:0,y:0}; spinInput={x:0,y:0}; ball={x:0,y:CONFIG.ballR,z:CONFIG.ballZ}; path=[]; distFrac=0;
+    keeper.react=CONFIG.keeperReact; keeper.decide=CONFIG.keeperDecide; keeper.committed=false; keeper.targetX=0; keeper.dive=0; keeper.parry=0;
+    wall.t=0; wall.jump=0; runup=0; kicker.step=0; state=ST.RUNUP; Snd.kick();
+  }
+  function authority(){ return clamp(1-(distFrac-CONFIG.authNear)/(CONFIG.authFar-CONFIG.authNear),0,1); }
+  function stepFlight(dt){ var sub=1/240, steps=Math.max(1,Math.round(dt/sub));
+    for(var s=0;s<steps;s++){
+      spin.x=clamp(lerp(spin.x,spinInput.x,1-Math.pow(0.0001,sub)),-1,1); spin.y=clamp(lerp(spin.y,spinInput.y,1-Math.pow(0.0001,sub)),-1,1);
+      var au=authority(), ax=spin.x*CONFIG.curlStrength*au, ay=spin.y*CONFIG.dipStrength*au-CONFIG.gravity;
+      vel.x+=(ax-vel.x*CONFIG.drag)*sub; vel.y+=(ay-vel.y*CONFIG.drag)*sub; vel.z+=(-vel.z*CONFIG.drag)*sub;
+      var pz=ball.z; ball.x+=vel.x*sub; ball.y+=vel.y*sub; ball.z+=vel.z*sub;
+      ballRot+=Math.hypot(vel.x,vel.y,vel.z)*sub*1.1; distFrac=clamp((CONFIG.ballZ-ball.z)/CONFIG.ballZ,0,1);
+      if(pz>WALL_Z && ball.z<=WALL_Z){ var wt=CONFIG.wallBaseH+wall.jump+CONFIG.wallMargin;
+        if(Math.abs(ball.x-CONFIG.wallCenterX)<=CONFIG.wallHalfW && ball.y<=wt && ball.y>0) return settle('block'); }
+      if(ball.z<=0.4 && ball.z>0 && !keeper.parry){ if(Math.abs(ball.x-keeper.x)<CONFIG.keeperCatchR && ball.y<CONFIG.keeperReachY && ball.y>0){ keeper.parry=1; return settle('save'); } }
+      if(pz>0 && ball.z<=0){ var x=ball.x,y=ball.y;
+        if(Math.abs(x)<GOAL_HALF-CONFIG.ballR && y>0 && y<CONFIG.goalH-CONFIG.ballR){
+          if(Math.abs(x-keeper.x)<CONFIG.keeperCatchR && y<CONFIG.keeperReachY) return settle('save'); return settle('goal'); }
+        if(Math.abs(Math.abs(x)-GOAL_HALF)<CONFIG.ballR+0.05 && y<CONFIG.goalH) return settle('post');
+        return settle('miss'); }
+      if(ball.y<CONFIG.ballR){ ball.y=CONFIG.ballR; vel.y=Math.abs(vel.y)*0.4; vel.x*=0.8; vel.z*=0.8; if(Math.hypot(vel.x,vel.z)<2&&ball.z>1) return settle('miss'); }
+      if(ball.z<-2) return settle('miss');
+    }
+    path.push(new THREE.Vector3(ball.x,ball.y,ball.z));
+  }
+  function predictX(){ if(vel.z>=0)return keeper.x; var tg=ball.z/(-vel.z); return clamp(ball.x+vel.x*tg,-CONFIG.keeperRange,CONFIG.keeperRange); }
+  function updateKeeper(dt){ if(keeper.react>0){ keeper.react-=dt; return; }
+    if(!keeper.committed){ keeper.targetX=predictX(); keeper.dir=keeper.targetX<0?-1:1; keeper.decide-=dt; if(keeper.decide<=0)keeper.committed=true; }
+    var dx=keeper.targetX-keeper.x, mv=CONFIG.keeperSpeed*dt; keeper.x+=clamp(dx,-mv,mv);
+    keeper.dive=clamp(keeper.dive+(Math.abs(keeper.targetX)>0.6?dt*3:-dt*2),0,1); }
+  function updateWall(dt){ wall.t+=dt; wall.jump=Math.max(0,Math.sin(clamp(wall.t/0.42,0,1)*Math.PI))*CONFIG.wallJump; }
+
+  function settle(kind){ result=kind; resultT=0; state=ST.RESULT; shots++;
+    if(kind==='goal'){ goals++; streak++; showBanner('GOAL!','#46e08a'); shake=0.5; timeScale=0.35; Snd.goal(); say(SAY.goal); }
+    else if(kind==='save'){ streak=0; shake=0.25; timeScale=0.5; Snd.save(); say(SAY.save); }
+    else if(kind==='block'){ streak=0; shake=0.2; vel.x*=-0.3; vel.z*=-0.4; Snd.kick(); say(SAY.block); }
+    else if(kind==='post'){ streak=0; shake=0.3; Snd.post(); say(SAY.post); }
+    else { streak=0; Snd.miss(); say(SAY.miss); } return true; }
+
+  // ===================================================================
+  //  AUDIO (procedural)
+  // ===================================================================
+  var Snd=(function(){ var ac=null,master=null,cg=null,on=false;
+    function init(){ if(ac)return; try{ac=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+      master=ac.createGain(); master.gain.value=0.85; master.connect(ac.destination);
+      var b=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate),d=b.getChannelData(0); for(var i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.5;
+      var c=ac.createBufferSource(); c.buffer=b; c.loop=true; var f=ac.createBiquadFilter(); f.type='bandpass'; f.frequency.value=480;
+      cg=ac.createGain(); cg.gain.value=0.06; c.connect(f); f.connect(cg); cg.connect(master); c.start(); on=true; }
+    function tone(fr,du,ty,gn,sl){ if(!on)return; var o=ac.createOscillator(),g=ac.createGain(); o.type=ty||'sine'; o.frequency.setValueAtTime(fr,ac.currentTime);
+      if(sl)o.frequency.exponentialRampToValueAtTime(sl,ac.currentTime+du); g.gain.setValueAtTime(gn||0.2,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+du);
+      o.connect(g); g.connect(master); o.start(); o.stop(ac.currentTime+du+0.02); }
+    function nb(du,fr,q,gn){ if(!on)return; var n=ac.createBufferSource(),l=(ac.sampleRate*du)|0,b=ac.createBuffer(1,l,ac.sampleRate),d=b.getChannelData(0);
+      for(var i=0;i<l;i++)d[i]=Math.random()*2-1; n.buffer=b; var f=ac.createBiquadFilter(); f.type='bandpass'; f.frequency.value=fr; f.Q.value=q||1;
+      var g=ac.createGain(); g.gain.setValueAtTime(gn,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+du); n.connect(f); f.connect(g); g.connect(master); n.start(); }
+    function sw(t,tm){ if(on)cg.gain.linearRampToValueAtTime(t,ac.currentTime+tm); }
+    return { init:init, whistle:function(){tone(2100,0.18,'sine',0.18,2600);}, kick:function(){nb(0.06,180,0.6,0.5);tone(90,0.12,'sine',0.5,55);},
+      post:function(){tone(1200,0.5,'triangle',0.4,420);}, save:function(){nb(0.08,300,0.6,0.4);sw(0.16,0.2);setTimeout(function(){sw(0.06,1.2);},400);},
+      goal:function(){sw(0.42,0.25);tone(220,0.7,'sawtooth',0.25);tone(330,0.7,'sawtooth',0.2);tone(440,0.9,'sawtooth',0.18);setTimeout(function(){sw(0.09,2.5);},2200);},
+      miss:function(){sw(0.12,0.15);setTimeout(function(){sw(0.06,1);},500);}, ambient:function(){sw(0.06,1.5);} }; })();
+
+  var SAY={ goal:["GOLAZO! He's bent it in!","Top corner — unstoppable!","The keeper had NO chance!","What a free kick!"],
+    save:["Brilliant save!","Strong hand to it!","Denied!"], block:["The wall does its job!","Charged down!"],
+    post:["Off the woodwork!","Rattles the post!"], miss:["It's flown over!","Wide!","He'll want that back."] };
+  function say(a){ var c=$('caption'); c.textContent=a[(Math.random()*a.length)|0]; c.classList.add('on'); clearTimeout(say._t); say._t=setTimeout(function(){c.classList.remove('on');},2600); }
+  function showBanner(t,c){ var b=$('banner'); b.textContent=t; b.style.color=c; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); setTimeout(function(){b.classList.remove('show');},1800); }
+
+  // ===================================================================
+  //  CAMERA
+  // ===================================================================
+  function updateCam(dt){
+    var we=new THREE.Vector3(), wt=new THREE.Vector3(), wf=50;
+    if(state===ST.SETUP||state===ST.CHARGE||state===ST.RUNUP){ we.set(aim.x*0.2,2.5,CONFIG.ballZ+5); wt.set(aim.x*0.4,1.3,2); wf=50; }
+    else if(state===ST.FLIGHT){ we.set(ball.x*0.4,clamp(2.3+ball.y*0.2,2.2,3.6),clamp(ball.z+4.5,5,CONFIG.ballZ+5)); wt.set(ball.x*0.6,clamp(ball.y*0.7+0.6,0.7,2.4),Math.max(-1,ball.z-3)); wf=48; }
+    else { if(result==='goal'){ we.set(ball.x*0.5,1.7,3.4); wt.set(ball.x,1.1,-0.6); wf=38; } else { we.set(ball.x*0.4,2.3,6); wt.set(ball.x*0.6,1,0); wf=46; } }
+    var k=1-Math.pow(0.0011,dt);
+    camPos.lerp(we,k); camTgt.lerp(wt,k); camFov=lerp(camFov,wf,k);
+    shake=Math.max(0,shake-dt*1.4); timeScale=lerp(timeScale,1,1-Math.pow(0.2,dt));
+    camera.position.copy(camPos); if(shake>0)camera.position.x+=rand(-shake,shake), camera.position.y+=rand(-shake,shake);
+    camera.lookAt(camTgt); camera.fov=camFov; camera.updateProjectionMatrix();
+  }
+
+  // ===================================================================
+  //  TRACER
+  // ===================================================================
+  function updateTracer(){
+    if(state===ST.FLIGHT && path.length>2){
+      var curve=new THREE.CatmullRomCurve3(path);
+      var geo=new THREE.TubeGeometry(curve,Math.min(64,path.length*2),0.06,8,false);
+      tracer.geometry.dispose(); tracer.geometry=geo;
+      var geo2=new THREE.TubeGeometry(curve,Math.min(64,path.length*2),0.16,8,false);
+      tracerGlow.geometry.dispose(); tracerGlow.geometry=geo2;
+      tracer.visible=tracerGlow.visible=true;
+    } else if(state===ST.SETUP){ tracer.visible=tracerGlow.visible=false; }
+  }
+
+  // ===================================================================
+  //  INPUT
+  // ===================================================================
+  function beginCharge(){ if(!started||state!==ST.SETUP)return; state=ST.CHARGE; power=0; chargeT=performance.now(); $('power').classList.add('on'); }
+  function aimFromMouse(e){ var nx=(e.clientX/window.innerWidth)*2-1, ny=-((e.clientY/window.innerHeight)*2-1);
+    aim.x=clamp(nx*CONFIG.aimRangeX,-CONFIG.aimRangeX,CONFIG.aimRangeX); aim.y=clamp(lerp(CONFIG.aimYmin,CONFIG.aimYmax,(ny+1)/2),CONFIG.aimYmin,CONFIG.aimYmax); }
+  function bindInput(){
+    window.addEventListener('mousemove',function(e){ if(!started)return; if(state===ST.SETUP)aimFromMouse(e);
+      else if(state===ST.FLIGHT){ spinInput.x=clamp(spinInput.x+e.movementX*CONFIG.spinMouseSens,-1,1); spinInput.y=clamp(spinInput.y-e.movementY*CONFIG.spinMouseSens,-1,1); } });
+    window.addEventListener('mousedown',function(e){ if(e.button!==0||!started)return; if(state===ST.SETUP)beginCharge(); else if(state===ST.RESULT)nextKick(); });
+    window.addEventListener('mouseup',function(e){ if(e.button===0&&state===ST.CHARGE)strike(); });
+    window.addEventListener('keydown',function(e){ keys[e.code]=true; if(e.code==='Space'){e.preventDefault();
+      if(state===ST.SETUP)beginCharge(); else if(state===ST.CHARGE)strike(); else if(state===ST.RESULT)nextKick(); } });
+    window.addEventListener('keyup',function(e){ keys[e.code]=false; });
+    $('startBtn').addEventListener('click',function(){ started=true; $('start').classList.add('hidden'); Snd.init(); Snd.whistle(); Snd.ambient(); });
+    window.addEventListener('resize',function(){ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); });
+  }
+  function flightKeys(dt){ if(keys['KeyA']||keys['ArrowLeft'])spinInput.x=clamp(spinInput.x-CONFIG.spinKeySens*dt,-1,1);
+    if(keys['KeyD']||keys['ArrowRight'])spinInput.x=clamp(spinInput.x+CONFIG.spinKeySens*dt,-1,1);
+    if(keys['KeyW']||keys['ArrowUp'])spinInput.y=clamp(spinInput.y+CONFIG.spinKeySens*dt,-1,1);
+    if(keys['KeyS']||keys['ArrowDown'])spinInput.y=clamp(spinInput.y-CONFIG.spinKeySens*dt,-1,1); }
+
+  function nextKick(){ state=ST.SETUP; result=null; ball={x:0,y:CONFIG.ballR,z:CONFIG.ballZ}; vel={x:0,y:0,z:0}; spin={x:0,y:0}; spinInput={x:0,y:0}; path=[];
+    keeper={x:0,dive:0,dir:1,react:0,decide:0,targetX:0,committed:false,parry:0}; wall={jump:0,t:0}; kicker.step=0; power=0; clock+=rand(20,45);
+    $('power').classList.remove('on'); $('spin').classList.remove('on'); tracer.visible=tracerGlow.visible=false; }
+
+  // ===================================================================
+  //  HUD
+  // ===================================================================
+  function fmtClock(){ var m=(clock/60)|0,s=(clock%60)|0; return (m<10?'0':'')+m+':'+(s<10?'0':'')+s; }
+  function updateHUD(){
+    $('sGoals').textContent=goals; $('sShots').textContent=shots; $('sStreak').textContent=streak; $('clk').textContent=fmtClock();
+    if(state===ST.CHARGE){ $('power').classList.add('on'); var z=$('power').querySelector('.zone');
+      z.style.bottom=(CONFIG.timedLo*100)+'%'; z.style.height=((CONFIG.timedHi-CONFIG.timedLo)*100)+'%'; $('power').querySelector('.fill').style.height=(power*100)+'%'; }
+    else if(state!==ST.RUNUP) $('power').classList.remove('on');
+    if(state===ST.FLIGHT){ $('spin').classList.add('on'); var d=$('spin').querySelector('.dot'); d.style.left=(50+spin.x*38)+'%'; d.style.top=(50-spin.y*38)+'%'; }
+    else $('spin').classList.remove('on');
+  }
+
+  // ===================================================================
+  //  LOOP
+  // ===================================================================
+  var tSec=0;
+  function frame(now){
+    requestAnimationFrame(frame);
+    var dtReal=Math.min(0.05,(now-last)/1000); last=now; tSec+=dtReal; var dt=dtReal*timeScale;
+    if(started){
+      if(state===ST.CHARGE) power=clamp((now-chargeT)/1000/CONFIG.chargeTime,0,1);
+      if(state===ST.RUNUP){ runup+=dtReal; kicker.step+=dtReal*22; kicker.x=lerp(-0.9,-0.12,clamp(runup/0.28,0,1)); kicker.z=lerp(CONFIG.ballZ+0.7,CONFIG.ballZ+0.25,clamp(runup/0.28,0,1)); if(runup>=0.28)state=ST.FLIGHT; }
+      if(state===ST.FLIGHT){ flightKeys(dtReal); updateWall(dt); updateKeeper(dt); stepFlight(dt); }
+      if(state===ST.RESULT){ resultT+=dtReal; if(resultT>(result==='goal'?2.6:1.9))nextKick(); }
+    }
+    // drive meshes
+    ballMesh.position.set(ball.x,ball.y,ball.z); ballMesh.rotation.x=ballRot; ballMesh.rotation.y=spin.x*ballRot*0.1;
+    for(var i=0;i<players.wall.length;i++){ if(wall.jump>0.03)poseJump(players.wall[i],wall.jump); else poseWall(players.wall[i]); }
+    players.keeper.position.x=keeper.x; poseKeeper(players.keeper,keeper.dive,keeper.dir);
+    players.kicker.position.set(kicker.x,0,kicker.z); if(state===ST.RUNUP||state===ST.FLIGHT)poseRun(players.kicker,kicker.step); else poseStand(players.kicker);
+    updateTracer(); updateCam(dtReal); updateHUD();
+    renderer.render(scene,camera);
+  }
+
+  // ===================================================================
+  //  GO
+  // ===================================================================
+  buildWorld();
+  console.log('[freekick] 3D world built');
+  bindInput();
+  camera.position.copy(camPos); camera.lookAt(camTgt);
+  requestAnimationFrame(frame);
+
+  // deterministic test hook
+  window.__fk={ shoot:function(ax,ay,p,sx,sy,after){ started=true; aim.x=ax; aim.y=ay; power=p; state=ST.CHARGE; strike(); state=ST.FLIGHT;
+      for(var i=0;i<1200&&state===ST.FLIGHT;i++){ var go=(after==null)||(distFrac>=after); spinInput.x=go?(sx||0):0; spinInput.y=go?(sy||0):0; updateWall(1/120); updateKeeper(1/120); stepFlight(1/120); }
+      return {result:result,x:+ball.x.toFixed(2),y:+ball.y.toFixed(2)}; },
+    reset:function(){ goals=shots=streak=0; nextKick(); } };
+  }
+  </script>
+</body>
+</html>

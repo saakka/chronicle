@@ -195,3 +195,9 @@ Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
   country+era and FILTERED to works whose museum metadata (department/culture/country) matches the country
   so they're on-topic; deduped within and across eras; captioned with the real artwork title. Verified:
   Egypt/Sudan eras show relevant Met pieces (e.g., "Archer's ring", "Drinking Cup"), all unique.
+- EPIC LANDING (Ahmad: more striking, change the blue, make it epic, nicer prompt). Replaced the flat
+  Radio-Garden blue with a cinematic deep-space backdrop on #globe-view (luminous indigo core glow behind
+  the globe, violet/teal nebula wisps + a warm gold wisp, starfield, vignette to near-black). 2D canvas now
+  clears transparent so that CSS backdrop shows around the planet; globe atmosphere halo widened/brightened
+  (1.42R) for an epic glow. 3D globe restored to the night-sky starfield. New prompt: "Every country hides
+  an epic. Spin the world, rest on any land, and step into its story." Verified via screenshot.

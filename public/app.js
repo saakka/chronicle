@@ -239,7 +239,7 @@ function initGlobe() {
 
   try {
     world = Globe()(el)
-      .backgroundColor("#3b34dd")     // Radio-Garden blue backdrop (no starfield)
+      .backgroundImageUrl("https://unpkg.com/three-globe/example/img/night-sky.png")   // epic starfield
       .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
       .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
       .showAtmosphere(true)
@@ -454,12 +454,13 @@ function initGlobe2D() {
 
   // --- drawing (Radio-Garden look: real textured Earth on bright blue) ---
   function renderSphere() {
-    // soft atmosphere halo
-    const glow = ctx.createRadialGradient(s.cx, s.cy, s.R * 0.94, s.cx, s.cy, s.R * 1.14);
-    glow.addColorStop(0, "rgba(170,195,255,0.45)");
-    glow.addColorStop(1, "rgba(170,195,255,0)");
+    // luminous atmosphere halo (wider, brighter — epic glow into the cosmos)
+    const glow = ctx.createRadialGradient(s.cx, s.cy, s.R * 0.86, s.cx, s.cy, s.R * 1.42);
+    glow.addColorStop(0, "rgba(150,190,255,0.58)");
+    glow.addColorStop(0.5, "rgba(120,150,255,0.20)");
+    glow.addColorStop(1, "rgba(120,150,255,0)");
     ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R * 1.14, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R * 1.42, 0, 6.2832); ctx.fill();
 
     if (!tex) {                                  // texture not ready yet → plain sphere
       const oc = ctx.createRadialGradient(s.cx - s.R * 0.3, s.cy - s.R * 0.3, s.R * 0.1, s.cx, s.cy, s.R);
@@ -535,7 +536,7 @@ function initGlobe2D() {
         setHover(g ? featureAt(g.lng, g.lat) : null, g);
         s.pendingHover = null;
       }
-      ctx.fillStyle = "#3b34dd"; ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);   // Radio-Garden blue
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);   // transparent → the epic CSS backdrop shows around the globe
       const now = performance.now();
       const dt = s.lastT ? Math.min(60, now - s.lastT) : 16; s.lastT = now;
       const moving = s.dragging || Math.abs(s.vel) > 0.0008 || (s.autoRotate && !s.hoverFeat && !busy);
