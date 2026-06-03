@@ -201,3 +201,11 @@ Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
   clears transparent so that CSS backdrop shows around the planet; globe atmosphere halo widened/brightened
   (1.42R) for an epic glow. 3D globe restored to the night-sky starfield. New prompt: "Every country hides
   an epic. Spin the world, rest on any land, and step into its story." Verified via screenshot.
+- DIRECT-TO-TIMELINE + FASTER (Ahmad: skip the per-country info page, go straight to the timeline; faster).
+  enterCountry now calls startJourney() instead of showDossier() — selecting a country goes straight to
+  the era timeline (no dossier stop, and no blocking profile fetch). The dossier stays one tap away: the
+  country name in the journey header (with an ⓘ) opens it; its button is relabelled "Back to the timeline"
+  and just closes it. Speed: museum (Met) art is now LAZY + non-blocking — fetchVariedImages is Wikimedia-only
+  (fast first paint via renderAlbumCovers); ensureEraArt() fetches the public-domain piece(s) separately and
+  weaves them in when ready (re-render), deduped across eras. Verified: lands on journey (dossier never shown),
+  5 covers incl. 2 Met pieces woven in after, header opens dossier, Back closes it.

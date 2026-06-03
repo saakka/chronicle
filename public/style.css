@@ -330,7 +330,10 @@ body {
   font-family: ui-sans-serif, system-ui, sans-serif;
   letter-spacing: 0.32em; text-transform: uppercase; font-size: 0.78rem;
   color: var(--gold-soft); text-shadow: 0 1px 10px rgba(0,0,0,0.6);
+  pointer-events: auto; cursor: pointer; transition: color 0.15s;   /* tap → country info */
 }
+.j-country::after { content: " ⓘ"; opacity: 0.6; letter-spacing: 0; }
+.j-country:hover { color: #fff; }
 
 .nav-arrow {
   position: fixed; top: 46%; z-index: 48;

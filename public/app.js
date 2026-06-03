@@ -711,12 +711,12 @@ async function enterCountry(country) {
   }
 
   currentEras = data.eras;
-  ensureEraImages(0);   // warm the first era while the dossier is open → instant timeline
+  ensureEraImages(0);   // first era already warming → instant timeline
   if (data.demo) toast("Demo mode — built-in Egypt sample. Add an API key for any country.");
 
-  // Arrive on the country dossier first; the timeline is one click away.
+  // Go STRAIGHT into the timeline (skip the country page — it's a tap away from the header).
   globeView.style.display = "none";
-  showDossier(country);
+  startJourney();
   endPortal();
 }
 
@@ -980,8 +980,16 @@ function warmAllEras() {
   });
 }
 
-dossierBegin.addEventListener("click", startJourney);
+// The dossier is now reached from inside the journey, so its button just returns
+// to the timeline (closes the info); only start a fresh journey if none is open.
+dossierBegin.addEventListener("click", () => {
+  if (!journey.hidden) dossier.hidden = true;
+  else startJourney();
+});
 dossierExit.addEventListener("click", exitJourney);
+
+// Tap the country name in the timeline header to open its info page.
+jCountry.addEventListener("click", () => { if (currentCountry) showDossier(currentCountry); });
 
 /* ====================== ERA JOURNEY ====================== */
 
@@ -1027,19 +1035,16 @@ async function fetchMetArt(query, country, max) {
   return result;
 }
 
-// One DISTINCT photo per subject — never the same picture (or subject) twice —
-// woven together with a striking museum artwork or two.
-async function fetchVariedImages(queries, max, artQuery) {
+// One DISTINCT photo per subject — never the same picture (or subject) twice.
+// Wikimedia only, so the album appears fast; museum art is added separately.
+async function fetchVariedImages(queries, max) {
   const qs = [], seenQ = new Set();
   for (const q of queries) {                          // drop duplicate/blank queries
     const c = (q || "").trim().toLowerCase();
     if (c && !seenQ.has(c)) { seenQ.add(c); qs.push(q); }
   }
   const use = qs.slice(0, Math.max(max, 8));
-  const [lists, art] = await Promise.all([
-    Promise.all(use.map((q) => fetchImages(q, 4))),
-    fetchMetArt(artQuery || use[0], currentCountry, 2),   // museum art, filtered to this country's own works
-  ]);
+  const lists = await Promise.all(use.map((q) => fetchImages(q, 4)));
   const out = [], seen = new Set();
   for (let k = 0; k < lists.length && out.length < max; k++) {
     for (const im of lists[k]) {                      // first not-yet-used photo for this subject
@@ -1049,15 +1054,6 @@ async function fetchVariedImages(queries, max, artQuery) {
       out.push(Object.assign({}, im, { caption: subjectCaption(use[k]) }));
       break;                                          // exactly one per subject
     }
-  }
-  // weave museum pieces in near the front (first becomes the hero + backdrop);
-  // artUsed dedupes across eras so the same artwork never shows twice in a journey
-  let at = 0;
-  for (const a of art) {
-    if (seen.has(a.id) || artUsed.has(a.id)) continue;
-    seen.add(a.id); artUsed.add(a.id);
-    out.splice(Math.min(at, out.length), 0, a);
-    at += 2;
   }
   return out;
 }
@@ -1080,10 +1076,22 @@ function ensureEraImages(i) {
     const qs = (Array.isArray(era.imageQueries) && era.imageQueries.length)
       ? [era.imageQuery].concat(era.imageQueries).filter(Boolean)
       : [era.imageQuery, era.title + " " + currentCountry, currentCountry + " " + (era.period || ""), era.title].filter(Boolean);
-    const artQ = (currentCountry + " " + (era.title || "")).trim();   // broad query that hits the museum collection
-    era._imgPromise = fetchVariedImages(qs, 7, artQ).then((imgs) => { era.images = imgs; return imgs; });
+    era._imgPromise = fetchVariedImages(qs, 7).then((imgs) => { era.images = imgs; return imgs; });
   }
   return era._imgPromise;
+}
+
+// Lazily fetch a striking public-domain museum piece or two for an era (separate
+// from the fast Wikimedia path, so it never delays the photos appearing).
+function ensureEraArt(i) {
+  const era = currentEras[i];
+  if (!era) return Promise.resolve([]);
+  if (era._art) return Promise.resolve(era._art);
+  if (!era._artPromise) {
+    const artQ = (currentCountry + " " + (era.title || "")).trim();
+    era._artPromise = fetchMetArt(artQ, currentCountry, 2).then((a) => { era._art = a || []; return era._art; });
+  }
+  return era._artPromise;
 }
 
 let storyWarmTimer = null;
@@ -1113,25 +1121,41 @@ async function goToEra(index) {
   await fillAlbum(era, index);
 }
 
-async function fillAlbum(era, index) {
-  const imgs = Array.isArray(era.images) ? era.images : await ensureEraImages(index);
-  if (currentEra !== index || journey.hidden) return;   // user moved on — drop this stale fill
+function renderAlbumCovers(era, index) {
+  const imgs = Array.isArray(era.images) ? era.images : [];
   const album = document.getElementById("era-album");
   if (!album) return;
   setBackdrop(imgs[0] ? imgs[0].thumb : null);
-  if (!imgs.length) {
-    album.outerHTML = '<p class="album-empty">No archive images found for this era.</p>';
-    return;
-  }
+  if (!imgs.length) { album.innerHTML = '<p class="album-empty">No archive images found for this era.</p>'; return; }
   album.innerHTML = imgs.map((im, i) => coverHtml(im, i === 0)).join("");
   const update = () => applyCoverflow(album);
-  album.addEventListener("scroll", () => requestAnimationFrame(update), { passive: true });
+  album.onscroll = () => requestAnimationFrame(update);   // assignment (not addEventListener) so re-renders don't stack
   album.querySelectorAll("img").forEach((img) => {
     const done = () => { img.classList.add("loaded"); update(); };
     if (img.complete) done(); else { img.addEventListener("load", done); img.addEventListener("error", done); }
   });
   requestAnimationFrame(update);
   setTimeout(update, 350);
+}
+
+async function fillAlbum(era, index) {
+  if (!Array.isArray(era.images)) await ensureEraImages(index);
+  if (currentEra !== index || journey.hidden) return;   // user moved on — drop this stale fill
+  renderAlbumCovers(era, index);                         // Wikimedia photos — fast, no waiting on the museum
+
+  // Weave a striking public-domain museum piece or two in WHEN it arrives (never blocks the photos).
+  ensureEraArt(index).then((art) => {
+    if (!art || !art.length || era._artWoven) return;
+    if (currentEra !== index || journey.hidden || !Array.isArray(era.images)) return;
+    let at = 0, added = false;
+    for (const a of art) {
+      if (artUsed.has(a.id) || era.images.some((im) => (im.id || im.thumb) === a.id)) continue;
+      artUsed.add(a.id);
+      era.images.splice(Math.min(at, era.images.length), 0, a); at += 2; added = true;
+    }
+    era._artWoven = true;
+    if (added && currentEra === index && !journey.hidden) renderAlbumCovers(era, index);   // re-render with art woven in
+  });
 }
 
 function stageHtml(era, index) {

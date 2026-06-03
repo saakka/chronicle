@@ -235,31 +235,38 @@
       ctx.closePath(); ctx.fill(); ctx.stroke(); }
   }
   // oriented box (a "bone") between two world points, cross-section 2*wr x 2*hr
-  function bone(p0,p1,wr,hr,col){
+  // oriented prism (rounder limbs/posts) — sides defaults to 6
+  function bone(p0,p1,wr,hr,col,sides){
+    sides=sides||6;
     var ax=p1[0]-p0[0],ay=p1[1]-p0[1],az=p1[2]-p0[2],al=Math.hypot(ax,ay,az)||1; ax/=al;ay/=al;az/=al;
     var ref=(Math.abs(ay)>0.9)?[0,0,1]:[0,1,0];
     var rx=ay*ref[2]-az*ref[1], ry=az*ref[0]-ax*ref[2], rz=ax*ref[1]-ay*ref[0], rl=Math.hypot(rx,ry,rz)||1; rx/=rl;ry/=rl;rz/=rl;
     var ux=ay*rz-az*ry, uy=az*rx-ax*rz, uz=ax*ry-ay*rx;
-    function C(p,s,u){ return [p[0]+rx*wr*s+ux*hr*u, p[1]+ry*wr*s+uy*hr*u, p[2]+rz*wr*s+uz*hr*u]; }
-    var a0=C(p0,-1,-1),a1=C(p0,1,-1),a2=C(p0,1,1),a3=C(p0,-1,1);
-    var b0=C(p1,-1,-1),b1=C(p1,1,-1),b2=C(p1,1,1),b3=C(p1,-1,1);
     var cen=[(p0[0]+p1[0])/2,(p0[1]+p1[1])/2,(p0[2]+p1[2])/2];
-    pushFace([a3,a2,a1,a0],col,cen); pushFace([b0,b1,b2,b3],col,cen);
-    pushFace([a0,a1,b1,b0],col,cen); pushFace([a1,a2,b2,b1],col,cen);
-    pushFace([a2,a3,b3,b2],col,cen); pushFace([a3,a0,b0,b3],col,cen);
+    function ring(p){ var arr=new Array(sides); for(var k=0;k<sides;k++){ var a=k/sides*TAU, c=Math.cos(a)*wr, s=Math.sin(a)*hr;
+      arr[k]=[p[0]+rx*c+ux*s, p[1]+ry*c+uy*s, p[2]+rz*c+uz*s]; } return arr; }
+    var A=ring(p0), B=ring(p1);
+    for(var k=0;k<sides;k++){ var k2=(k+1)%sides; pushFace([A[k],A[k2],B[k2],B[k]],col,cen); }
+    pushFace(A.slice().reverse(),col,cen); pushFace(B,col,cen);
   }
-  // icosphere (20 faces) — heads & ball
+  // icosphere — 20 faces, or subdivided to 80 (detail) for the ball & heads
   var ICOV=(function(){ var p=1.618033, v=[[-1,p,0],[1,p,0],[-1,-p,0],[1,-p,0],[0,-1,p],[0,1,p],[0,-1,-p],[0,1,-p],[p,0,-1],[p,0,1],[-p,0,-1],[-p,0,1]];
     return v.map(function(a){var l=Math.hypot(a[0],a[1],a[2]);return[a[0]/l,a[1]/l,a[2]/l];}); })();
   var ICOF=[[0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],[1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],[3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],[4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]];
+  var ICOV2,ICOF2;
+  (function(){ var verts=ICOV.map(function(v){return v.slice();}), faces=[], mid={};
+    function mp(i,j){ var key=i<j?i+'_'+j:j+'_'+i; if(mid[key]!=null)return mid[key]; var a=verts[i],b=verts[j];
+      var m=[(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2], l=Math.hypot(m[0],m[1],m[2]); verts.push([m[0]/l,m[1]/l,m[2]/l]); return mid[key]=verts.length-1; }
+    for(var f=0;f<ICOF.length;f++){ var t=ICOF[f], a=t[0],b=t[1],c=t[2], ab=mp(a,b),bc=mp(b,c),ca=mp(c,a);
+      faces.push([a,ab,ca],[ab,b,bc],[ca,bc,c],[ab,bc,ca]); } ICOV2=verts; ICOF2=faces; })();
   function rotX(a){var c=Math.cos(a),s=Math.sin(a);return[[1,0,0],[0,c,-s],[0,s,c]];}
   function rotY(a){var c=Math.cos(a),s=Math.sin(a);return[[c,0,s],[0,1,0],[-s,0,c]];}
   function mm(a,b){var r=[[0,0,0],[0,0,0],[0,0,0]];for(var i=0;i<3;i++)for(var j=0;j<3;j++)r[i][j]=a[i][0]*b[0][j]+a[i][1]*b[1][j]+a[i][2]*b[2][j];return r;}
   function mv(m,v){return[m[0][0]*v[0]+m[0][1]*v[1]+m[0][2]*v[2],m[1][0]*v[0]+m[1][1]*v[1]+m[1][2]*v[2],m[2][0]*v[0]+m[2][1]*v[1]+m[2][2]*v[2]];}
-  function icoMesh(cx3,cy3,cz3,r,colFn,rot){
-    var cen=[cx3,cy3,cz3], vs=new Array(12), i;
-    for(i=0;i<12;i++){ var p=ICOV[i]; if(rot)p=mv(rot,p); vs[i]=[cx3+p[0]*r,cy3+p[1]*r,cz3+p[2]*r]; }
-    for(var f=0;f<20;f++){ var fa=ICOF[f]; var ay=(ICOV[fa[0]][1]+ICOV[fa[1]][1]+ICOV[fa[2]][1])/3;
+  function icoMesh(cx3,cy3,cz3,r,colFn,rot,detail){
+    var V=detail?ICOV2:ICOV, F=detail?ICOF2:ICOF, cen=[cx3,cy3,cz3], vs=new Array(V.length), i;
+    for(i=0;i<V.length;i++){ var p=V[i]; if(rot)p=mv(rot,p); vs[i]=[cx3+p[0]*r,cy3+p[1]*r,cz3+p[2]*r]; }
+    for(var f=0;f<F.length;f++){ var fa=F[f]; var ay=(V[fa[0]][1]+V[fa[1]][1]+V[fa[2]][1])/3;
       pushFace([vs[fa[0]],vs[fa[1]],vs[fa[2]]], colFn(ay,f), cen); }
   }
 
@@ -453,7 +460,7 @@
     // neck + head
     var hX=x+dvx*1.1, hY=headY+jump+dvy, hZ=z+face*lean*0.5;
     bone(shMid,[hX,neckY+jump+dvy,hZ],0.052*sc,0.058*sc,skin);
-    icoMesh(hX,hY,hZ,headR,function(ay){ return ay>0.22?hair:skin; });
+    icoMesh(hX,hY,hZ,headR,function(ay){ return ay>0.22?hair:skin; },null,true);
   }
   function drawWall(){
     var n=CONFIG.wallCount, sp=0.52, sx=CONFIG.wallCenterX-(n-1)*sp/2, hairs=['#241a12','#3a2a18','#16110b','#4a3522'];
@@ -488,7 +495,7 @@
       ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(p.x,p.y,r*2.2,0,TAU); ctx.fill(); }
     // 3D ball mesh
     var rot=mm(rotY(spin.x*2.6+ballRot*0.3),rotX(ballRot));
-    icoMesh(ball.x,ball.y,ball.z,CONFIG.ballR,function(ay,f){ return (f===3||f===8||f===13||f===17)?[26,26,30]:[244,244,247]; },rot);
+    icoMesh(ball.x,ball.y,ball.z,CONFIG.ballR,function(ay,f){ return (f%9===0)?[28,28,34]:[246,246,249]; },rot,true);
   }
 
   function drawScene(t){
@@ -647,7 +654,6 @@
     keeper.react=CONFIG.keeperReact; keeper.decide=CONFIG.keeperDecide; keeper.committed=false; keeper.targetX=0; keeper.dive=0; keeper.parry=0;
     wall.t=0; wall.jump=0; runup=0; kicker.step=0;
     state=ST.RUNUP;
-    Snd.kick(power);
   }
   function authority(){ return clamp(1-(distFrac-CONFIG.authNear)/(CONFIG.authFar-CONFIG.authNear),0,1); }
   function stepFlight(dt){
@@ -803,7 +809,7 @@
     if(started){
       if(state===ST.CHARGE){ power=clamp((now-chargeT)/1000/CONFIG.chargeTime,0,1); }
       if(state===ST.RUNUP){ runup+=dtReal; kicker.step+=dtReal*22; kicker.x=lerp(-0.9,-0.12,clamp(runup/0.28,0,1)); kicker.z=lerp(CONFIG.ballZ+0.85,CONFIG.ballZ+0.25,clamp(runup/0.28,0,1));
-        if(runup>=0.28){ state=ST.FLIGHT; } }
+        if(runup>=0.28){ state=ST.FLIGHT; cam.flash=0.28; cam.shake=0.35; Snd.kick(power); } }   // contact boom
       if(state===ST.FLIGHT){ flightKeys(dtReal); updateWall(dt); updateKeeper(dt); stepFlight(dt); }
       if(state===ST.RESULT){ resultT+=dtReal; bigT=Math.max(0,bigT-dtReal*0.5);
         if(result==='goal'){ if(resultT>2.4 && path.length){ startReplay(); } }
