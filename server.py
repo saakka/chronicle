@@ -229,12 +229,12 @@ def fetch_country_profile(country):
 # --- Story mode: the flagship anecdote of an era, as scroll-through beats ---
 STORY_CACHE = {}
 STORY_PROMPT = (
-    "Recount the single most famous, captivating true story or well-known legend from this country's "
-    "given historical era — the flagship tale a history lover would instantly recognise. Use ENTIRELY "
-    "your own vivid, original wording (do not copy any book, show, or article). Make it cinematic but "
-    "historically grounded. Break it into 6 sequential BEATS; each beat is 2-3 sentences that move the "
-    "story forward, plus an 'imageQuery': a short search phrase for a concrete, photographable subject "
-    "(a monument, artifact, artwork, place, or historical figure) that best illustrates that beat. "
+    "Recount the single most famous true story or legend from this country's given historical era — "
+    "the flagship tale a history lover would instantly recognise. Use ENTIRELY your own original wording "
+    "(do not copy any book, show, or article). Be TIGHT, vivid and cinematic with NO filler or throat-clearing. "
+    "Break it into 6 sequential BEATS. Each beat is ONE punchy sentence (about 18-28 words; never more than two "
+    "very short sentences) that moves the story forward, plus an 'imageQuery': a short search phrase for a "
+    "concrete, photographable subject (a monument, artifact, artwork, place, or historical figure) for that beat. "
     "Country and era: "
 )
 STORY_SCHEMA = {
