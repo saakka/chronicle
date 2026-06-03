@@ -1441,24 +1441,36 @@ function esc(value) {
   const closeBtn = document.getElementById("phone-close");
   const qr = document.getElementById("phone-qr");
   const urlEl = document.getElementById("phone-url");
+  const noteEl = card && card.querySelector(".phone-note");
   if (!btn || !card) return;
-  let tries = 0;
-  function probe() {
-    fetch("/api/lan").then((r) => r.json()).then((d) => {
-      if (d && d.url) {
-        btn.hidden = false;
-        btn.onclick = () => {
-          qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=12&data=" + encodeURIComponent(d.url);
-          urlEl.textContent = d.url;
-          card.hidden = false; btn.hidden = true;
-        };
-        closeBtn.onclick = () => { card.hidden = true; btn.hidden = false; };
-      } else if (tries++ < 4) {
-        setTimeout(probe, 800);                // retry if the server wasn't ready yet
-      }
-    }).catch(() => { if (tries++ < 4) setTimeout(probe, 800); });
+
+  function enable(url, local) {
+    if (!url) return;
+    btn.hidden = false;
+    btn.onclick = () => {
+      qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=12&data=" + encodeURIComponent(url);
+      urlEl.textContent = url;
+      if (noteEl) noteEl.textContent = local
+        ? "Point your phone camera here. Phone must be on the same Wi‑Fi."
+        : "Point your phone camera here — opens anywhere.";
+      card.hidden = false; btn.hidden = true;
+    };
+    closeBtn.onclick = () => { card.hidden = true; btn.hidden = false; };
   }
-  probe();
+
+  const host = location.hostname;
+  if (host && host !== "localhost" && host !== "127.0.0.1") {
+    enable(location.origin, false);          // published site → the QR just shares this URL
+    return;
+  }
+  // running locally → ask the server for the Wi-Fi address (for same-network phones)
+  let tries = 0;
+  (function probe() {
+    fetch("/api/lan").then((r) => r.json()).then((d) => {
+      if (d && d.url) enable(d.url, true);
+      else if (tries++ < 4) setTimeout(probe, 800);   // retry if the server wasn't ready yet
+    }).catch(() => { if (tries++ < 4) setTimeout(probe, 800); });
+  })();
 })();
 
 /* ====================== START ====================== */

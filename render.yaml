@@ -1,0 +1,19 @@
+# Render blueprint — publishes Chronicle as a free, always-on web service.
+#
+# In Render:  New +  ▸  Blueprint  ▸  connect your GitHub repo.
+# Render reads this file, then asks you to paste your two API keys
+# (they are NOT stored here — Render keeps them as secret env vars).
+services:
+  - type: web
+    name: chronicle
+    runtime: python
+    plan: free
+    buildCommand: "echo 'no build step — Python standard library only'"
+    startCommand: "python server.py"
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false          # you paste this in the Render dashboard
+      - key: GEMINI_API_KEY
+        sync: false          # you paste this in the Render dashboard
+      - key: PYTHON_VERSION
+        value: "3.12.4"

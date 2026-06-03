@@ -21,6 +21,8 @@ import json
 import os
 import socket
 import sys
+import threading
+import time
 import urllib.request
 import urllib.error
 import webbrowser
@@ -68,6 +70,31 @@ API_KEY = load_api_key()
 # Cache results so we don't re-pay / re-fetch for the same country.
 CACHE = {}
 PROFILE_CACHE = {}
+
+# --- Simple rate limiting (protects your API bill when the link is public) ---
+RATE_WINDOW = 60.0          # seconds
+RATE_PER_IP = int(os.environ.get("RATE_PER_IP", "20"))      # AI calls per window, per visitor
+RATE_GLOBAL = int(os.environ.get("RATE_GLOBAL", "80"))      # AI calls per window, everyone combined
+_RATE_LOCK = threading.Lock()
+_RATE_BY_IP = {}            # ip -> [timestamps]
+_RATE_GLOBAL = []           # [timestamps]
+
+
+def rate_ok(ip):
+    """True if this visitor (and the app overall) is under the per-minute AI-call cap."""
+    now = time.monotonic()
+    with _RATE_LOCK:
+        _RATE_GLOBAL[:] = [t for t in _RATE_GLOBAL if now - t < RATE_WINDOW]
+        if len(_RATE_GLOBAL) >= RATE_GLOBAL:
+            return False
+        hits = [t for t in _RATE_BY_IP.get(ip, []) if now - t < RATE_WINDOW]
+        if len(hits) >= RATE_PER_IP:
+            _RATE_BY_IP[ip] = hits
+            return False
+        hits.append(now)
+        _RATE_BY_IP[ip] = hits
+        _RATE_GLOBAL.append(now)
+        return True
 
 
 def load_gemini_key():
@@ -405,8 +432,16 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass  # keep the terminal quiet
 
+    def client_ip(self):
+        xff = self.headers.get("X-Forwarded-For", "")
+        return xff.split(",")[0].strip() if xff else self.client_address[0]
+
     def do_GET(self):
         parsed = urlparse(self.path)
+        # Cap the AI-backed endpoints so a public link can't run up the bill.
+        if parsed.path in ("/api/history", "/api/profile", "/api/story") and not rate_ok(self.client_ip()):
+            self.send_json(429, {"error": "Lots of explorers right now — please wait a minute and try again."})
+            return
         if parsed.path == "/api/history":
             self.handle_history(parse_qs(parsed.query))
         elif parsed.path == "/api/profile":
