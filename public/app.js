@@ -38,6 +38,10 @@ const dossierFunfacts = document.getElementById("dossier-funfacts");
 const dossierHeroBg = document.getElementById("dossier-hero-bg");
 const galleryTitle = document.getElementById("dossier-gallery-title");
 
+const story = document.getElementById("story");
+const storyRail = document.getElementById("story-rail");
+const storyExit = document.getElementById("story-exit");
+
 const lightbox = document.getElementById("lightbox");
 const lightboxImg = document.getElementById("lightbox-img");
 const lightboxCaption = document.getElementById("lightbox-caption");
@@ -544,6 +548,75 @@ dossier.addEventListener("click", (e) => {
   if (fig) openLightbox(fig.getAttribute("data-full"), fig.getAttribute("data-caption"));
 });
 
+/* ====================== STORY (level 3) ====================== */
+
+eraStage.addEventListener("click", (e) => {
+  const s = e.target.closest("[data-story]");
+  if (s) openStory(parseInt(s.getAttribute("data-story"), 10));
+});
+
+storyExit.addEventListener("click", () => { story.hidden = true; });
+
+async function openStory(index) {
+  const era = currentEras[index];
+  if (!era) return;
+  story.hidden = false;
+  story.scrollTop = 0;
+  storyRail.innerHTML =
+    '<section class="beat in"><div class="beat-scrim"></div><div class="beat-inner">' +
+    '<p class="beat-text" style="opacity:1;transform:none">Summoning the legend…</p></div></section>';
+  let data = null;
+  try {
+    const res = await fetch(
+      "/api/story?country=" + encodeURIComponent(currentCountry) +
+      "&era=" + encodeURIComponent(era.title || "") +
+      "&period=" + encodeURIComponent(era.period || "")
+    );
+    const j = await res.json();
+    if (res.ok) data = j.story;
+  } catch (e) {}
+  if (!data || !Array.isArray(data.beats) || !data.beats.length) {
+    storyRail.innerHTML =
+      '<section class="beat in"><div class="beat-scrim"></div><div class="beat-inner">' +
+      '<p class="beat-text" style="opacity:1;transform:none">The legend could not be summoned. Try again.</p></div></section>';
+    return;
+  }
+  renderStory(data, era);
+}
+
+function renderStory(data, era) {
+  storyRail.innerHTML = data.beats
+    .map((b, i) =>
+      '<section class="beat" data-beat="' + i + '">' +
+        '<div class="beat-bg"></div><div class="beat-scrim"></div>' +
+        '<div class="beat-inner">' +
+          (i === 0
+            ? '<p class="beat-kicker">' + esc(era.title || "") + ' · the legend</p><h2 class="beat-storytitle">' + esc(data.title || "") + "</h2>"
+            : "") +
+          '<p class="beat-num">' + (i + 1) + " / " + data.beats.length + "</p>" +
+          '<p class="beat-text">' + esc(b.text || "") + "</p>" +
+        "</div>" +
+      "</section>")
+    .join("");
+  story.scrollTop = 0;
+
+  const beats = storyRail.querySelectorAll(".beat");
+  const io = new IntersectionObserver(
+    (entries) => entries.forEach((en) => { if (en.isIntersecting) en.target.classList.add("in"); }),
+    { root: story, threshold: 0.55 }
+  );
+  beats.forEach((el, i) => {
+    io.observe(el);
+    fetchImages(data.beats[i].imageQuery, 1).then((imgs) => {
+      if (imgs[0]) {
+        el.querySelector(".beat-bg").style.backgroundImage =
+          "url('" + (imgs[0].full || imgs[0].thumb).replace(/'/g, "%27") + "')";
+      }
+    });
+  });
+  if (beats[0]) beats[0].classList.add("in");
+}
+
 function startJourney() {
   dossier.hidden = true;
   journey.hidden = false;
@@ -600,7 +673,8 @@ function stageHtml(era, index) {
     "</div>" +
     (images.length
       ? '<div class="album">' + images.map(coverHtml).join("") + "</div>"
-      : '<p class="album-empty">No archive images found for this era.</p>')
+      : '<p class="album-empty">No archive images found for this era.</p>') +
+    '<button class="story-cta" data-story="' + index + '">❧ &nbsp;Hear the legend of this era</button>'
   );
 }
 

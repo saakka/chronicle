@@ -150,6 +150,65 @@ def fetch_country_profile(country):
         print("Gemini error: %r" % err, file=sys.stderr)
         return None, "Could not reach the profile service."
 
+
+# --- Story mode: the flagship anecdote of an era, as scroll-through beats ---
+STORY_CACHE = {}
+STORY_PROMPT = (
+    "Recount the single most famous, captivating true story or well-known legend from this country's "
+    "given historical era — the flagship tale a history lover would instantly recognise. Use ENTIRELY "
+    "your own vivid, original wording (do not copy any book, show, or article). Make it cinematic but "
+    "historically grounded. Break it into 6 sequential BEATS; each beat is 2-3 sentences that move the "
+    "story forward, plus an 'imageQuery': a short search phrase for a concrete, photographable subject "
+    "(a monument, artifact, artwork, place, or historical figure) that best illustrates that beat. "
+    "Country and era: "
+)
+STORY_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "title": {"type": "STRING"},
+        "beats": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {"text": {"type": "STRING"}, "imageQuery": {"type": "STRING"}},
+                "required": ["text", "imageQuery"],
+            },
+        },
+    },
+    "required": ["title", "beats"],
+}
+
+
+def fetch_story(subject):
+    """subject = 'Country — Era (period)'. Returns (data, error)."""
+    if not GEMINI_KEY:
+        return None, "No Gemini key set (add gemini-key.txt)."
+    body = {
+        "contents": [{"parts": [{"text": STORY_PROMPT + subject}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": STORY_SCHEMA,
+            "temperature": 0.9,
+        },
+    }
+    request = urllib.request.Request(
+        GEMINI_URL + "?key=" + GEMINI_KEY,
+        data=json.dumps(body).encode("utf-8"),
+        headers={"content-type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        text = payload["candidates"][0]["content"]["parts"][0]["text"]
+        return json.loads(text), None
+    except urllib.error.HTTPError as err:
+        print("Story failed (%s): %s" % (err.code, err.read().decode("utf-8", "replace")), file=sys.stderr)
+        return None, "The story service rejected the request."
+    except Exception as err:  # noqa: BLE001
+        print("Story error: %r" % err, file=sys.stderr)
+        return None, "Could not reach the story service."
+
 # ---------------------------------------------------------------------------
 # The instructions and output shape we send to the AI
 # ---------------------------------------------------------------------------
@@ -285,6 +344,8 @@ class Handler(BaseHTTPRequestHandler):
             self.handle_history(parse_qs(parsed.query))
         elif parsed.path == "/api/profile":
             self.handle_profile(parse_qs(parsed.query))
+        elif parsed.path == "/api/story":
+            self.handle_story(parse_qs(parsed.query))
         else:
             self.serve_static(parsed.path)
 
@@ -348,6 +409,26 @@ class Handler(BaseHTTPRequestHandler):
             return
         result = {"country": country, "profile": data}
         PROFILE_CACHE[key] = result
+        self.send_json(200, result)
+
+    def handle_story(self, query):
+        country = (query.get("country", [""])[0] or "").strip()
+        era = (query.get("era", [""])[0] or "").strip()
+        period = (query.get("period", [""])[0] or "").strip()
+        if not country or not era:
+            self.send_json(400, {"error": "Need a country and an era."})
+            return
+        key = (country + "|" + era).lower()
+        if key in STORY_CACHE:
+            self.send_json(200, STORY_CACHE[key])
+            return
+        subject = "%s — %s%s" % (country, era, (" (" + period + ")") if period else "")
+        data, error = fetch_story(subject)
+        if error:
+            self.send_json(502, {"error": error})
+            return
+        result = {"country": country, "era": era, "story": data}
+        STORY_CACHE[key] = result
         self.send_json(200, result)
 
     def serve_static(self, path):
