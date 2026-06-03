@@ -58,6 +58,22 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- AUDIT (5 iterations, Ahmad asked to find+fix bugs) — read whole codebase, checked runtime console
+  (only expected WebGL-sandbox errors), fixed + verified each:
+  1. goToEra() async race (slow image fetch clobbered a newer era) → bail if currentEra/journey changed.
+     Story keyboard trap: Escape exited the whole journey leaving story stuck; arrows leaked to eras
+     underneath → Escape now closes only the story, arrows blocked; IntersectionObserver disconnected.
+  2. Dossier stale-overwrite: added a dossierToken so a slow profile/photo fetch for a previous country
+     can't paint over a newer one (renderDossier + loadGallery both guarded); clear stale _sections.
+  3. JUNK_IMAGE regex over-matched substrings (dropped Chartres, flagship, Mapuche, Planalto, Charter Oak;
+     "Chartres Cathedral" returned ZERO images) → word boundaries. Lightbox now opens a 1280px derived
+     thumb not the multi-MB original. Empty captions no longer render an empty dark bar. Verified live.
+  4. 2D canvas globe: reset drag on pointercancel/lostpointercapture (could freeze the globe); throttle
+     hover hit-testing to 1/frame; stop the render loop when canvas is replaced by chip fallback.
+     Verified: cancelled drag still auto-rotates.
+  5. Server: don't cache empty/garbled AI answers (history/profile/story) so a retry can recover;
+     harden static path check (defence-in-depth, verified traversal blocked); /favicon.ico → 204;
+     more content types; thematic 🌍 favicon. Verified: live /api/history Egypt = 200, 10 eras.
 - iter9 — INTERACTIVE 2D-CANVAS GLOBE FALLBACK (Ahmad: "the landing needs to be like it was 3 hours
   ago, when it was interactive like radio garden"). Root cause confirmed: the in-app preview pane has
   WebGL DISABLED (canvas.getContext('webgl') === null), so globe.gl can't draw there — the user only

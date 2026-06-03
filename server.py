@@ -334,6 +334,13 @@ CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".js": "application/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".ico": "image/x-icon",
+    ".txt": "text/plain; charset=utf-8",
 }
 
 
@@ -389,7 +396,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(502, {"error": error})
             return
 
-        eras = data.get("eras", [])
+        eras = data.get("eras") if isinstance(data, dict) else None
+        if not isinstance(eras, list) or not eras:
+            # Don't cache an empty/garbled answer — let the next attempt retry.
+            self.send_json(502, {"error": "The AI's answer was incomplete. Please try again."})
+            return
         result = {"demo": False, "country": data.get("country", country), "eras": eras}
         CACHE[cache_key] = result
         self.send_json(200, result)
@@ -409,6 +420,9 @@ class Handler(BaseHTTPRequestHandler):
         data, error = fetch_country_profile(country)
         if error:
             self.send_json(502, {"error": error})
+            return
+        if not isinstance(data, dict) or not data.get("overview"):
+            self.send_json(502, {"error": "The profile came back empty. Please try again."})
             return
         result = {"country": country, "profile": data}
         PROFILE_CACHE[key] = result
@@ -430,6 +444,10 @@ class Handler(BaseHTTPRequestHandler):
         if error:
             self.send_json(502, {"error": error})
             return
+        beats = data.get("beats") if isinstance(data, dict) else None
+        if not isinstance(beats, list) or not beats:
+            self.send_json(502, {"error": "The story came back empty. Please try again."})
+            return
         result = {"country": country, "era": era, "story": data}
         STORY_CACHE[key] = result
         self.send_json(200, result)
@@ -437,9 +455,15 @@ class Handler(BaseHTTPRequestHandler):
     def serve_static(self, path):
         if path in ("", "/"):
             path = "/index.html"
+        if path == "/favicon.ico":
+            self.send_response(204)  # no icon file — silence the browser's 404
+            self.end_headers()
+            return
+        public_root = os.path.abspath(PUBLIC_DIR)
         safe = os.path.normpath(path).lstrip("/\\")
-        full = os.path.join(PUBLIC_DIR, safe)
-        if not os.path.abspath(full).startswith(PUBLIC_DIR) or not os.path.isfile(full):
+        full = os.path.abspath(os.path.join(public_root, safe))
+        # must resolve to something strictly inside public/ (defence-in-depth)
+        if not (full == public_root or full.startswith(public_root + os.sep)) or not os.path.isfile(full):
             self.send_error(404, "Not found")
             return
         ext = os.path.splitext(full)[1]
