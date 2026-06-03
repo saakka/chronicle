@@ -27,11 +27,12 @@ Run autonomously for ~6 hours following this process:
 ## State / checklist (update each iteration)
 - [x] Phase 1: all-countries globe coverage (removed Arab-only filter; all 177 polys hoverable)
 - [~] Phase 1: palette + motif + label mapping (22 Arab + ~22 major world countries bespoke; rest = sensible default). EXPAND more during Phase 2.
-- [ ] Phase 1: spot-check 3–4 non-Arab countries end to end (verify portal + journey render)
+- [~] Phase 1: spot-check non-Arab countries end to end — Greece ✓ (Minoan era, 6 photos, 10-era timeline). Do 2–3 more.
 - [ ] Phase 1 TODO: add fallback hover-points for micro-states missing from the 110m dataset
 - [ ] Phase 2 cycles begin
 
 ## CHANGELOG (newest first — append every iteration)
+- iter2 — Spot-checked Greece end to end via DOM: portal→journey renders (eras, Cover Flow, timeline) for a non-Arab country. All-countries pipeline validated. Next: more spot-checks, then Phase 2 audit cycles.
 - iter1 — Opened globe to ALL countries (no filter); centroid-based zoom for any country;
   added ~22 bespoke world themes; default theme for the rest. Verified themeFor + no JS errors. Committing.
 - baseline — Committed 672bdaf (portal + journey + themes + sound). Loop armed.
