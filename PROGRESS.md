@@ -58,6 +58,12 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- iter6 — ALL COUNTRIES COVERED, no exception: added 9 sub-region silhouettes (mosque, pagoda, temple,
+  acacia, cathedral, castle, palm, mountains, cedars) + LANDMARK_BY_SUBREGION (all 22 UN sub-regions) +
+  PALETTE_BY_CONTINENT. themeFor now resolves bespoke→sub-region→default and captures SUBREGION/CONTINENT
+  on hover, so every country shows a fitting landmark. Verified West Africa → acacia. LOOP TODO: keep
+  promoting sub-region defaults into UNIQUE per-country icons (Statue of Liberty, Sagrada Família,
+  Brandenburg Gate, Machu Picchu, Hagia Sophia, Pisa, Stonehenge, Petronas, Moai, Sphinx, etc.).
 - iter5 — BESPOKE PER-COUNTRY PORTALS: new SVG landmark library (LANDMARKS) + LANDMARK_BY_COUNTRY map; portal renders the country's own landmark (falls back to regional motif). ~18 iconic landmarks done; verified France (Eiffel) + India (Taj) visually. Loop should keep adding landmarks toward full coverage.
 - iter4 — LIVING PLANET: starfield background + blue atmosphere glow; continuous slow auto-rotation with damping that PAUSES on country-hover and resumes on leave (interactive). Portal delay set to 2.2s with a smoother 2s zoom-into-country. Recorded content/design direction (Civ-V / history-geek) above.
 - iter3 — WOW pass on the portal: god-rays (rotating conic light), drifting embers, slow zoom-push, flourished label (✦ … ✦). Smarter photo selection: fetch 40 candidates, drop maps/flags/crests/diagrams, rank by size + aspect + relevance → striking images first. Verified visually (Egypt portal) + fetchImages returns clean results. Next Phase-2 ideas: per-era backdrop = best image (not just [0]); zoom globe-out on exit; richer era transition; "wow" audit.

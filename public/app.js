@@ -138,6 +138,16 @@ const LANDMARKS = {
   angkor:    "<path d='M50 6 Q46 16 48 26 L52 26 Q54 16 50 6 Z'/><rect x='47' y='26' width='6' height='18'/><path d='M34 13 Q31 20 33 28 L37 28 Q39 20 36 13 Z'/><rect x='33' y='28' width='4' height='16'/><path d='M66 13 Q64 20 67 28 L71 28 Q69 20 66 13 Z'/><rect x='64' y='28' width='4' height='16'/><path d='M22 20 Q20 26 22 31 L26 31 Q28 26 26 20 Z'/><rect x='22' y='31' width='4' height='13'/><path d='M78 20 Q76 26 78 31 L82 31 Q84 26 82 20 Z'/><rect x='78' y='31' width='4' height='13'/>",
   burj:      "<path d='M50 3 L47 22 L44 44 L56 44 L53 22 Z'/><rect x='30' y='28' width='8' height='16'/><rect x='40' y='34' width='5' height='10'/><rect x='60' y='32' width='6' height='12'/><rect x='70' y='26' width='7' height='18'/>",
   skyline:   "<rect x='4' y='28' width='9' height='16'/><rect x='15' y='22' width='8' height='22'/><rect x='25' y='32' width='7' height='12'/><rect x='34' y='18' width='9' height='26'/><rect x='45' y='26' width='8' height='18'/><rect x='55' y='14' width='9' height='30'/><rect x='66' y='24' width='7' height='20'/><rect x='75' y='30' width='8' height='14'/><rect x='85' y='20' width='9' height='24'/>",
+  // sub-region fallbacks — so every country gets a fitting silhouette
+  mosque:    "<rect x='34' y='30' width='32' height='14'/><path d='M50 12 Q38 20 40 30 L60 30 Q62 20 50 12 Z'/><rect x='49' y='6' width='2' height='6'/><rect x='26' y='16' width='3' height='28'/><path d='M27.5 12 Q25 15 26 16 L29 16 Q30 15 27.5 12 Z'/><rect x='71' y='16' width='3' height='28'/><path d='M72.5 12 Q70 15 71 16 L74 16 Q75 15 72.5 12 Z'/>",
+  pagoda:    "<rect x='47' y='12' width='6' height='32'/><polygon points='34,18 50,12 66,18 60,20 50,16 40,20'/><polygon points='31,28 50,22 69,28 62,30 50,26 38,30'/><polygon points='28,38 50,32 72,38 64,40 50,36 36,40'/><rect x='49' y='8' width='2' height='4'/>",
+  temple:    "<path d='M38 44 L40 22 L44 22 L45 14 L55 14 L56 22 L60 22 L62 44 Z'/><polygon points='48,14 50,9 52,14'/><rect x='42' y='20' width='16' height='2'/><rect x='40' y='28' width='20' height='2'/><rect x='39' y='36' width='22' height='2'/>",
+  acacia:    "<rect x='48' y='28' width='4' height='16'/><path d='M30 26 Q50 15 70 26 Q70 30 50 29 Q30 30 30 26 Z'/><rect x='75' y='34' width='2' height='10'/><path d='M67 32 Q76 25 85 32 Q85 35 76 34 Q67 35 67 32 Z'/>",
+  cathedral: "<rect x='38' y='20' width='24' height='24'/><rect x='40' y='10' width='6' height='34'/><polygon points='40,10 43,2 46,10'/><rect x='54' y='10' width='6' height='34'/><polygon points='54,10 57,2 60,10'/><circle cx='50' cy='22' r='2.5'/>",
+  castle:    "<path d='M30 44 V24 H32 V20 H35 V24 H38 V20 H41 V24 H59 V20 H62 V24 H65 V20 H68 V24 H70 V44 Z'/><path d='M26 44 V16 H28 V13 H30 V16 H32 V13 H34 V16 H36 V44 Z'/><path d='M64 44 V16 H66 V13 H68 V16 H70 V13 H72 V16 H74 V44 Z'/><path d='M46 44 V32 Q50 28 54 32 V44 Z'/>",
+  palm:      "<path d='M0 44 Q50 40 100 44 Z'/><polygon points='39,44 41,44 43,24 41,24'/><polygon points='42,24 30,18 44,22'/><polygon points='42,24 54,18 42,22'/><polygon points='42,23 34,14 44,21'/><polygon points='42,23 50,14 42,21'/><polygon points='59,44 61,44 59,26 57,26'/><polygon points='58,26 46,21 60,24'/><polygon points='58,26 70,21 58,24'/>",
+  mountains: "<polygon points='0,44 20,16 34,32 50,8 66,30 82,18 100,44'/>",
+  cedars:    "<rect x='48' y='32' width='4' height='12'/><polygon points='50,8 38,22 62,22'/><polygon points='50,16 34,30 66,30'/><polygon points='50,24 30,38 70,38'/>",
 };
 
 /* Country → its iconic landmark (expanded by the loop toward full coverage). */
@@ -147,12 +157,40 @@ const LANDMARK_BY_COUNTRY = {
   "France": "eiffel", "United Kingdom": "bigben", "India": "taj", "Japan": "fuji",
   "China": "greatwall", "Russia": "stbasil", "Brazil": "redeemer", "Australia": "opera",
   "Cambodia": "angkor", "United Arab Emirates": "burj", "United States of America": "skyline",
+  "Lebanon": "cedars",
+};
+
+// Every UN sub-region gets a fitting landmark, so NO country is left without one.
+const LANDMARK_BY_SUBREGION = {
+  "Northern Africa": "mosque", "Eastern Africa": "acacia", "Middle Africa": "acacia",
+  "Western Africa": "acacia", "Southern Africa": "acacia",
+  "Northern America": "skyline", "Central America": "pyramids", "Caribbean": "palm",
+  "South America": "mountains",
+  "Northern Europe": "cathedral", "Western Europe": "cathedral", "Southern Europe": "parthenon",
+  "Eastern Europe": "castle",
+  "Western Asia": "mosque", "Central Asia": "mosque", "Southern Asia": "temple",
+  "Eastern Asia": "pagoda", "South-Eastern Asia": "temple",
+  "Australia and New Zealand": "skyline", "Melanesia": "palm",
+  "Antarctica": "mountains", "Seven seas (open ocean)": "palm",
+};
+
+const PALETTE_BY_CONTINENT = {
+  "Africa": "sand", "Asia": "clay", "Europe": "dusk",
+  "North America": "gulf", "South America": "cedar", "Oceania": "gulf",
 };
 
 function themeFor(country) {
-  const t = COUNTRY_THEME[country] || { palette: "dusk", motif: "mountains", label: "Into " + country };
-  const p = PALETTES[t.palette] || PALETTES.dusk;
-  return { sky: p.sky, sun: p.sun, accent: p.accent, motif: t.motif, label: t.label, landmark: LANDMARK_BY_COUNTRY[country] || null };
+  const t = COUNTRY_THEME[country] || {};
+  const palette = t.palette || PALETTE_BY_CONTINENT[lastHoverContinent] || "dusk";
+  const p = PALETTES[palette] || PALETTES.dusk;
+  // bespoke icon → sub-region icon → safe default. Always returns a landmark.
+  const landmark = LANDMARK_BY_COUNTRY[country] || LANDMARK_BY_SUBREGION[lastHoverSubregion] || "mountains";
+  return {
+    sky: p.sky, sun: p.sun, accent: p.accent,
+    motif: t.motif || "mountains",
+    label: t.label || ("Into " + country),
+    landmark: landmark,
+  };
 }
 
 let world = null;
@@ -167,6 +205,8 @@ let polyHoverFeat = null;
 let polyHoverCountry = null;
 let pointHoverCountry = null;
 let lastHoverLatLng = null;
+let lastHoverSubregion = null;
+let lastHoverContinent = null;
 let dwellCountry = null;
 let dwellTimer = null;
 
@@ -191,7 +231,11 @@ function initGlobe() {
       .pointLabel("country")
       .onPointHover((pt) => {
         pointHoverCountry = pt ? pt.country : null;
-        if (pt) lastHoverLatLng = { lat: pt.lat, lng: pt.lng };
+        if (pt) {
+          lastHoverLatLng = { lat: pt.lat, lng: pt.lng };
+          lastHoverSubregion = pt.country === "Bahrain" ? "Western Asia" : "Eastern Africa";
+          lastHoverContinent = pt.country === "Bahrain" ? "Asia" : "Africa";
+        }
         recomputeHover();
       });
   } catch (err) {
@@ -229,7 +273,11 @@ function loadCountryShapes() {
         .onPolygonHover((feat) => {
           polyHoverFeat = feat || null;
           polyHoverCountry = feat ? feat.properties.ADMIN : null;
-          if (feat) lastHoverLatLng = centroid(feat);
+          if (feat) {
+            lastHoverLatLng = centroid(feat);
+            lastHoverSubregion = feat.properties.SUBREGION || null;
+            lastHoverContinent = feat.properties.CONTINENT || null;
+          }
           refreshPolygonStyles();
           recomputeHover();
         });
