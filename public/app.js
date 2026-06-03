@@ -238,7 +238,7 @@ function initGlobe() {
 
   try {
     world = Globe()(el)
-      .backgroundImageUrl("https://unpkg.com/three-globe/example/img/night-sky.png")
+      .backgroundColor("#3b34dd")     // Radio-Garden blue backdrop (no starfield)
       .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
       .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
       .showAtmosphere(true)
@@ -337,6 +337,23 @@ function initGlobe2D() {
     features: [], cx: 0, cy: 0, R: 0, dwell: null,
   };
 
+  // Earth texture, sampled per-pixel to paint a real rotating globe (no WebGL).
+  let tex = null;                                   // { data, w, h }
+  let buf = null, bufCtx = null, bufImg = null, bufD = 0;   // low-res sphere buffer
+  (function loadTexture() {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const tw = 1024, th = 512;
+      const oc = document.createElement("canvas"); oc.width = tw; oc.height = th;
+      const octx = oc.getContext("2d");
+      octx.drawImage(img, 0, 0, tw, th);
+      try { tex = { data: octx.getImageData(0, 0, tw, th).data, w: tw, h: th }; }
+      catch (e) { tex = null; }                     // tainted → plain-shaded fallback
+    };
+    img.src = "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg";
+  })();
+
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = window.innerWidth, h = window.innerHeight;
@@ -344,6 +361,10 @@ function initGlobe2D() {
     canvas.style.width = w + "px"; canvas.style.height = h + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     s.cx = w / 2; s.cy = h / 2; s.R = Math.min(w, h) * 0.34;
+    bufD = Math.max(80, Math.min(Math.round(2 * s.R), 420));   // sphere render resolution (capped for speed)
+    buf = document.createElement("canvas"); buf.width = bufD; buf.height = bufD;
+    bufCtx = buf.getContext("2d");
+    bufImg = bufCtx.createImageData(bufD, bufD);
   }
   resize();
   window.addEventListener("resize", resize);
@@ -419,43 +440,76 @@ function initGlobe2D() {
     return null;
   }
 
-  // --- drawing ---
-  function drawSphere() {
-    const glow = ctx.createRadialGradient(s.cx, s.cy, s.R * 0.82, s.cx, s.cy, s.R * 1.2);
-    glow.addColorStop(0, "rgba(96,156,255,0.20)");
-    glow.addColorStop(1, "rgba(96,156,255,0)");
+  // --- drawing (Radio-Garden look: real textured Earth on bright blue) ---
+  function renderSphere() {
+    // soft atmosphere halo
+    const glow = ctx.createRadialGradient(s.cx, s.cy, s.R * 0.94, s.cx, s.cy, s.R * 1.14);
+    glow.addColorStop(0, "rgba(170,195,255,0.45)");
+    glow.addColorStop(1, "rgba(170,195,255,0)");
     ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R * 1.2, 0, 2 * Math.PI); ctx.fill();
-    const oc = ctx.createRadialGradient(s.cx - s.R * 0.32, s.cy - s.R * 0.34, s.R * 0.08, s.cx, s.cy, s.R);
-    oc.addColorStop(0, "#15324f"); oc.addColorStop(0.7, "#0b2036"); oc.addColorStop(1, "#06121e");
-    ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R, 0, 2 * Math.PI); ctx.fillStyle = oc; ctx.fill();
+    ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R * 1.14, 0, 6.2832); ctx.fill();
+
+    if (!tex) {                                  // texture not ready yet → plain sphere
+      const oc = ctx.createRadialGradient(s.cx - s.R * 0.3, s.cy - s.R * 0.3, s.R * 0.1, s.cx, s.cy, s.R);
+      oc.addColorStop(0, "#1b3e63"); oc.addColorStop(1, "#08203a");
+      ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R, 0, 6.2832); ctx.fillStyle = oc; ctx.fill();
+      return;
+    }
+    // paint the textured sphere into the low-res buffer (sin c = rho, cos c = z → only 2 trig/px)
+    const D = bufD, half = D / 2, out = bufImg.data;
+    const td = tex.data, tw = tex.w, th = tex.h;
+    const p0 = s.rotLat * DEG, sinP0 = Math.sin(p0), cosP0 = Math.cos(p0), rot = s.rotLng;
+    let o = 0;
+    for (let j = 0; j < D; j++) {
+      const ny = (j - half) / half, yW = -ny, ny2 = ny * ny;
+      for (let i = 0; i < D; i++, o += 4) {
+        const nx = (i - half) / half;
+        const rho2 = nx * nx + ny2;
+        if (rho2 > 1) { out[o + 3] = 0; continue; }
+        const z = Math.sqrt(1 - rho2);
+        let v1 = z * sinP0 + yW * cosP0;
+        v1 = v1 < -1 ? -1 : v1 > 1 ? 1 : v1;
+        const lat = Math.asin(v1) / DEG;
+        let lng = rot + Math.atan2(nx, z * cosP0 - yW * sinP0) / DEG;
+        lng = ((lng + 180) % 360 + 360) % 360;
+        let tu = (lng / 360 * tw) | 0; if (tu >= tw) tu = tw - 1;
+        let tv = ((90 - lat) / 180 * th) | 0; if (tv < 0) tv = 0; else if (tv >= th) tv = th - 1;
+        const ti = (tv * tw + tu) << 2;
+        const shade = 0.5 + 0.5 * z;             // gentle limb darkening
+        out[o] = td[ti] * shade;
+        out[o + 1] = td[ti + 1] * shade;
+        out[o + 2] = td[ti + 2] * shade;
+        out[o + 3] = rho2 > 0.98 ? (1 - Math.sqrt(rho2)) / (1 - Math.sqrt(0.98)) * 255 : 255;
+      }
+    }
+    bufCtx.putImageData(bufImg, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(buf, s.cx - s.R, s.cy - s.R, s.R * 2, s.R * 2);
   }
-  // Radio-Garden-style stippled land: a field of small dots, the hovered country in gold.
-  function drawDots() {
+
+  // green "station" dots over land, like Radio Garden
+  function drawStations() {
     if (!s.dots || !s.dots.length) return;
-    const r = Math.max(1, s.R * 0.0045);
-    const hoverF = s.hoverFeat;
-    ctx.fillStyle = "rgba(150,188,214,0.55)";
+    const r = Math.max(0.8, s.R * 0.0038);
+    ctx.fillStyle = "rgba(74,238,116,0.72)";
     ctx.beginPath();
     for (const d of s.dots) {
-      if (d.f === hoverF) continue;
       const p = project(d.lng, d.lat);
       if (!p.vis) continue;
       ctx.moveTo(p.x + r, p.y); ctx.arc(p.x, p.y, r, 0, 6.2832);
     }
     ctx.fill();
-    if (hoverF) {
-      ctx.fillStyle = "rgba(243,220,150,0.98)";
-      const r2 = r * 1.8;
-      ctx.beginPath();
-      for (const d of s.dots) {
-        if (d.f !== hoverF) continue;
-        const p = project(d.lng, d.lat);
-        if (!p.vis) continue;
-        ctx.moveTo(p.x + r2, p.y); ctx.arc(p.x, p.y, r2, 0, 6.2832);
-      }
-      ctx.fill();
-    }
+  }
+
+  // pale focus ring around the hovered country (Radio Garden's selector circle)
+  function drawRing() {
+    if (!s.hoverFeat) return;
+    const c = centroid(s.hoverFeat.feat);
+    if (!c) return;
+    const p = project(c.lng, c.lat);
+    if (!p.vis) return;
+    ctx.strokeStyle = "rgba(225,245,215,0.95)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(13, s.R * 0.075), 0, 6.2832); ctx.stroke();
   }
   function render() {
     if (s.dead) return;                       // canvas was torn down (chip fallback) — stop ticking
@@ -466,10 +520,11 @@ function initGlobe2D() {
         setHover(g ? featureAt(g.lng, g.lat) : null, g);
         s.pendingHover = null;
       }
-      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      ctx.fillStyle = "#3b34dd"; ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);   // Radio-Garden blue
       if (s.autoRotate && !s.dragging && !s.hoverFeat && !busy) s.rotLng += 0.11;
-      drawSphere();
-      drawDots();
+      renderSphere();
+      drawStations();
+      drawRing();
     }
     requestAnimationFrame(render);
   }
@@ -737,13 +792,17 @@ function renderDossier(country, facts, profile) {
 async function loadGallery(queries) {
   const token = dossierToken;
   dossierGallery.innerHTML = '<span class="dossier-loading">Gathering photos…</span>';
-  const results = await Promise.all(queries.slice(0, 6).map((q) => fetchImages(q, 2)));
+  const qs = queries.slice(0, 6);
+  const results = await Promise.all(qs.map((q) => fetchImages(q, 2)));
   if (token !== dossierToken) return;   // dossier changed while photos loaded
   const imgs = [];
   const seen = new Set();
-  results.flat().forEach((im) => {
-    if (im && im.thumb && !seen.has(im.thumb)) { seen.add(im.thumb); imgs.push(im); }
-  });
+  qs.forEach((q, k) => (results[k] || []).forEach((im) => {
+    if (im && im.thumb && !seen.has(im.thumb)) {
+      seen.add(im.thumb);
+      imgs.push(Object.assign({}, im, { caption: cleanSubject(q) }));
+    }
+  }));
   if (!imgs.length) { dossierGallery.innerHTML = ""; if (galleryTitle) galleryTitle.hidden = true; return; }
   // big cinematic header image = first striking photo
   if (dossierHeroBg) dossierHeroBg.style.backgroundImage = "url('" + (imgs[0].full || imgs[0].thumb).replace(/'/g, "%27") + "')";
@@ -875,16 +934,26 @@ dossierExit.addEventListener("click", exitJourney);
 /* ====================== ERA JOURNEY ====================== */
 
 // Fetch several queries and interleave them so the gallery mixes subjects.
+// Turn a search query into a clean, simple caption (the subject of the photo).
+function cleanSubject(q) {
+  const s = String(q || "").replace(/\s+/g, " ").trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+}
+
 async function fetchVariedImages(queries, max) {
-  const lists = await Promise.all(queries.slice(0, 5).map((q) => fetchImages(q, 3)));
+  const qs = queries.slice(0, 5);
+  const lists = await Promise.all(qs.map((q) => fetchImages(q, 3)));
   const out = [], seen = new Set();
   let idx = 0, added = true;
   while (added && out.length < max) {
     added = false;
-    for (const list of lists) {
-      const im = list[idx];
+    for (let k = 0; k < lists.length; k++) {
+      const im = lists[k][idx];
       if (im && im.thumb && !seen.has(im.thumb)) {
-        seen.add(im.thumb); out.push(im); added = true;
+        seen.add(im.thumb);
+        // caption = the English subject we searched for (not the raw filename)
+        out.push(Object.assign({}, im, { caption: cleanSubject(qs[k]) }));
+        added = true;
         if (out.length >= max) break;
       }
     }

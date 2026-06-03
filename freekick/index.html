@@ -36,9 +36,9 @@
   #title .t2 { font-size: 11px; letter-spacing: 4px; opacity: .65; margin-top: 2px; }
 
   /* Center result banner */
-  #banner { position: absolute; top: 34%; left: 50%; transform: transl(-50%,-50%) scale(.6);
+  #banner { position: absolute; top: 34%; left: 50%;
     font-size: 84px; font-weight: 900; letter-spacing: 4px; opacity: 0;
-    text-shadow: 0 6px 30px rgba(0,0,0,.6); transition: none; white-space: nowrap;
+    text-shadow: 0 6px 30px rgba(0,0,0,.6); white-space: nowrap;
     transform: translate(-50%,-50%) scale(.6); }
   #banner.show { animation: pop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
   @keyframes pop { 0%{opacity:0; transform:translate(-50%,-50%) scale(.5) rotate(-4deg);}
@@ -140,10 +140,9 @@
 
   <div id="err"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
   "use strict";
-  (function () {
+  function boot() {
   // ===================================================================
   //  CONFIG  — tweak these to change feel; we iterate here.
   // ===================================================================
@@ -224,12 +223,21 @@
   function init() {
     if (typeof THREE === 'undefined') throw new Error('Three.js failed to load (no internet?).');
 
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    const forceNoGL = /[?&]nogl/.test(location.search);  // diagnostics: run setup without a GPU
+    try {
+      if (forceNoGL) throw new Error('forced nogl');
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputEncoding = THREE.sRGBEncoding;
+    } catch (glErr) {
+      if (!forceNoGL) throw glErr;
+      const cv = document.createElement('canvas');
+      renderer = { domElement: cv, setSize(){}, setPixelRatio(){}, render(){},
+                   shadowMap: {}, outputEncoding: 0 };
+    }
     $('app').appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
@@ -812,6 +820,65 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
+  }
+  // expose so the loader can start the game once Three.js is ready
+  window.__bootFreeKick = boot;
+  </script>
+
+  <script>
+  // ---- Resilient Three.js loader: try several CDNs, then give a clear reason ----
+  (function () {
+    var SOURCES = [
+      "https://unpkg.com/three@0.128.0/build/three.min.js",
+      "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
+    ];
+
+    function fail(title, detail){
+      var el = document.getElementById('err');
+      el.style.display = 'flex';
+      el.innerHTML = '<div style="max-width:620px"><div style="font-size:22px;color:#ffd9d9;margin-bottom:14px">'
+        + title + '</div><div style="opacity:.85;line-height:1.6;font-size:14px">' + detail + '</div></div>';
+    }
+
+    function webglOK(){
+      try { var c = document.createElement('canvas');
+        return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl')));
+      } catch (e) { return false; }
+    }
+
+    function start(){
+      var forceNoGL = /[?&]nogl/.test(location.search);  // diagnostics bypass
+      if (!forceNoGL && !webglOK()){
+        fail('This device can&rsquo;t start WebGL (3D graphics).',
+          'The game itself loaded fine, but your browser couldn&rsquo;t open a 3D canvas. Usually one of these fixes it:<br><br>'
+          + '• Open it in <b>Google Chrome</b> (most reliable for WebGL).<br>'
+          + '• Turn on <b>hardware acceleration</b> in your browser settings, then reload.<br>'
+          + '• If you&rsquo;re on a remote/virtual machine, it may have no GPU.<br><br>'
+          + 'Tell me which browser you used and I can tailor the fix.');
+        return;
+      }
+      try { window.__bootFreeKick(); }
+      catch (e){ fail('Something broke while starting the game.', '<pre style="white-space:pre-wrap">'+(e&&e.stack?e.stack:e)+'</pre>'); }
+    }
+
+    function load(i){
+      if (typeof THREE !== 'undefined') return start();
+      if (i >= SOURCES.length){
+        fail('Couldn&rsquo;t load the 3D engine (Three.js).',
+          'Every graphics CDN we tried was blocked or unreachable from your network:<br><br>'
+          + SOURCES.map(function(s){return '• '+s;}).join('<br>')
+          + '<br><br>Check your internet/firewall, or tell me and I&rsquo;ll bundle Three.js locally so it needs no internet at all.');
+        return;
+      }
+      var s = document.createElement('script');
+      s.src = SOURCES[i];
+      s.onload = function(){ start(); };
+      s.onerror = function(){ load(i+1); };
+      document.head.appendChild(s);
+    }
+
+    load(0);
   })();
   </script>
 </body>

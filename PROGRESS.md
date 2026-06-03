@@ -58,6 +58,17 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- REAL RADIO-GARDEN GLOBE + CLEAN CAPTIONS (Ahmad shared a Radio Garden screenshot: realistic Earth +
+  green dots + bright blue bg; and captions were in foreign languages).
+  (a) GLOBE: 2D fallback rewritten from dots to a REAL textured Earth — per-pixel orthographic sampling
+      of the (CORS-ok) NASA Blue-Marble texture into a capped 420px buffer, scaled to display; bright blue
+      #3b34dd backdrop; green "station" dots over land; pale focus ring on the hovered country. Trig cut
+      to 2/px (sin c = rho, cos c = z) → 3.8ms/frame at full size. 3D globe.gl bg also set to the blue.
+      Verified: textured Africa/Europe + green dots + blue bg render (preview viewport stuck at 168px wide,
+      so it shows small — full size on a real machine).
+  (b) CAPTIONS: now the ENGLISH search subject that found the photo (cleanSubject) instead of the raw
+      Wikimedia filename — fixes foreign-language/cryptic captions. Verified: "Narmer Palette", "Saqqara
+      mastaba tomb", etc. Applies to era covers + dossier gallery.
 - LEGENDS TIGHTER + RADIO-GARDEN DOTTED GLOBE + MORE FLUID (Ahmad: legends too wordy; globe should look
   like Radio Garden not the outlined one; even more fluid).
   (a) STORY_PROMPT now = one punchy sentence/beat (~18-28 words, no filler). Verified ~23 words/beat.
