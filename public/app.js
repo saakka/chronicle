@@ -720,7 +720,7 @@ async function loadGallery(queries) {
     .map((im) =>
       '<figure class="gallery-photo" data-full="' + esc(im.full || im.thumb) + '" data-caption="' + esc(im.caption || "") + '">' +
         '<img loading="lazy" src="' + esc(im.thumb) + '" alt="' + esc(im.caption || "") + '"/>' +
-        "<span>" + esc(im.caption || "") + "</span>" +
+        (im.caption ? "<span>" + esc(im.caption) + "</span>" : "") +
       "</figure>")
     .join("");
 }
@@ -985,7 +985,10 @@ document.addEventListener("click", (e) => {
 
 // Drop the dull stuff (maps, flags, crests, diagrams, locator dots) — we want
 // striking photographs and artworks.
-const JUNK_IMAGE = /(map|locator|flag|coat[\s_-]?of[\s_-]?arms|\bseal\b|emblem|logo|diagram|chart|\bicon\b|orthographic|\blocation\b|topograph|administ|blank|outline|gpx|wikimedia|spreadsheet|\bsignature\b|\bplan\b|schematic|\bsketch\b)/i;
+// Word-boundaried so it drops the dull stuff WITHOUT nuking legitimate photos
+// whose names merely contain a substring (e.g. "chart" in Chartres, "flag" in
+// flagship, "map" in Mapuche, "plan" in Planalto).
+const JUNK_IMAGE = /(\bmaps?\b|locator|\bflags?\b|coat[\s_-]?of[\s_-]?arms|\bseal\b|\bemblem|\blogo|\bdiagram|\bcharts?\b|flowchart|\bicon\b|orthographic|\blocation\b|topograph|administ|\bblank\b|\boutline\b|\bgpx\b|wikimedia|spreadsheet|\bsignature\b|\bplan\b|schematic|\bsketch\b)/i;
 const IMG_CACHE = new Map();   // cache searches so pages don't refetch the same query
 
 async function fetchImages(query, max = 6) {
@@ -1014,6 +1017,11 @@ async function fetchImages(query, max = 6) {
     if (!mime.startsWith("image/") || mime === "image/svg+xml") return;
     const thumb = info.thumburl || info.url;
     if (!thumb) return;
+    // Lightbox image: a 1280px thumb (derived from the thumb URL) rather than the
+    // raw original, which can be many megabytes and slow to open.
+    const full = (info.thumburl && /\/\d+px-/.test(info.thumburl))
+      ? info.thumburl.replace(/\/\d+px-/, "/1280px-")
+      : (info.url || thumb);
     const title = page.title || "";
     if (JUNK_IMAGE.test(title)) return;
     const w = info.width || 0, h = info.height || 0;
@@ -1028,7 +1036,7 @@ async function fetchImages(query, max = 6) {
       .replace(/\([^)]*\d[^)]*\)/g, "")                   // drop "(47902649251)" code parens
       .replace(/,?\s*photo\s+\d+\s+of\s+\d+/i, "")        // drop "photo 3 of 8"
       .replace(/\s{2,}/g, " ").replace(/[,\s]+$/, "").trim();
-    candidates.push({ thumb, full: info.url || thumb, caption, score });
+    candidates.push({ thumb, full, caption, score });
   });
 
   candidates.sort((a, b) => b.score - a.score);
@@ -1042,7 +1050,7 @@ function coverHtml(img) {
   return (
     '<figure class="cover" data-full="' + esc(img.full || img.thumb) + '" data-caption="' + caption + '">' +
       '<img loading="lazy" src="' + esc(img.thumb) + '" alt="' + caption + '" />' +
-      "<figcaption>" + caption + "</figcaption>" +
+      (caption ? "<figcaption>" + caption + "</figcaption>" : "") +
     "</figure>"
   );
 }
