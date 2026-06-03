@@ -57,22 +57,30 @@
   <!-- ====================== COUNTRY DOSSIER ====================== -->
   <section id="dossier" class="dossier" hidden>
     <button id="dossier-exit" class="exit-btn">← &nbsp;Globe</button>
-    <div class="dossier-inner">
-      <header class="dossier-head">
+    <div class="dossier-hero">
+      <div class="hero-bg" id="dossier-hero-bg"></div>
+      <div class="hero-shade"></div>
+      <div class="hero-content">
         <img id="dossier-flag" class="dossier-flag" alt="" />
-        <div>
+        <div class="hero-text">
+          <span class="hero-kicker">Country</span>
           <h2 id="dossier-name" class="dossier-name"></h2>
           <p id="dossier-region" class="dossier-region"></p>
         </div>
-      </header>
+      </div>
+    </div>
+    <div class="dossier-body">
+      <div class="dossier-actions">
+        <button id="dossier-begin" class="play-btn"><span class="play-ico">▶</span> Enter the timeline</button>
+      </div>
       <p id="dossier-overview" class="dossier-overview"></p>
-      <div id="dossier-gallery" class="dossier-gallery"></div>
+      <div id="dossier-facts" class="chip-row"></div>
+      <h3 class="shelf-title" id="dossier-gallery-title" hidden>In pictures</h3>
+      <div id="dossier-gallery" class="shelf"></div>
       <div id="dossier-flagmeaning" class="flag-meaning"></div>
-      <div id="dossier-facts" class="dossier-facts"></div>
       <div id="dossier-tabs" class="dossier-tabs"></div>
       <div id="dossier-tabbody" class="dossier-tabbody"></div>
       <div id="dossier-funfacts" class="dossier-funfacts"></div>
-      <button id="dossier-begin" class="big-btn">Enter the timeline &rarr;</button>
     </div>
   </section>
 

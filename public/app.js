@@ -35,6 +35,8 @@ const dossierFacts = document.getElementById("dossier-facts");
 const dossierTabs = document.getElementById("dossier-tabs");
 const dossierTabbody = document.getElementById("dossier-tabbody");
 const dossierFunfacts = document.getElementById("dossier-funfacts");
+const dossierHeroBg = document.getElementById("dossier-hero-bg");
+const galleryTitle = document.getElementById("dossier-gallery-title");
 
 const lightbox = document.getElementById("lightbox");
 const lightboxImg = document.getElementById("lightbox-img");
@@ -429,6 +431,8 @@ async function showDossier(country) {
   dossierTabs.innerHTML = "";
   dossierTabbody.innerHTML = "";
   dossierFunfacts.innerHTML = "";
+  if (dossierHeroBg) dossierHeroBg.style.backgroundImage = "none";
+  if (galleryTitle) galleryTitle.hidden = true;
 
   const [facts, profileResp] = await Promise.all([
     fetchCountryFacts(country),
@@ -476,7 +480,7 @@ function renderDossier(country, facts, profile) {
     if (facts.currencies) rows.push(["Currency", Object.values(facts.currencies).map((c) => c.name).join(", ")]);
     if (facts.region) rows.push(["Region", facts.region]);
     dossierFacts.innerHTML = rows
-      .map(([l, v]) => '<div class="fact"><span class="fact-label">' + esc(l) + '</span><span class="fact-value">' + esc(v) + "</span></div>")
+      .map(([l, v]) => '<span class="chip"><b>' + esc(l) + "</b>" + esc(v) + "</span>")
       .join("");
   }
 
@@ -515,8 +519,11 @@ async function loadGallery(queries) {
   results.flat().forEach((im) => {
     if (im && im.thumb && !seen.has(im.thumb)) { seen.add(im.thumb); imgs.push(im); }
   });
-  if (!imgs.length) { dossierGallery.innerHTML = ""; return; }
-  dossierGallery.innerHTML = imgs.slice(0, 8)
+  if (!imgs.length) { dossierGallery.innerHTML = ""; if (galleryTitle) galleryTitle.hidden = true; return; }
+  // big cinematic header image = first striking photo
+  if (dossierHeroBg) dossierHeroBg.style.backgroundImage = "url('" + (imgs[0].full || imgs[0].thumb).replace(/'/g, "%27") + "')";
+  if (galleryTitle) galleryTitle.hidden = false;
+  dossierGallery.innerHTML = imgs.slice(0, 10)
     .map((im) =>
       '<figure class="gallery-photo" data-full="' + esc(im.full || im.thumb) + '" data-caption="' + esc(im.caption || "") + '">' +
         '<img loading="lazy" src="' + esc(im.thumb) + '" alt="' + esc(im.caption || "") + '"/>' +
