@@ -19,6 +19,7 @@ Then open:     http://localhost:8000
 
 import json
 import os
+import socket
 import sys
 import urllib.request
 import urllib.error
@@ -533,11 +534,27 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
+def local_ip():
+    """Best-effort LAN IP so phones on the same Wi-Fi can reach the app."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))   # no packets are actually sent
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return None
+
+
 def main():
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    # Listen on all interfaces so other devices (your phone) on the same Wi-Fi can connect.
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     url = "http://localhost:%d" % PORT
+    ip = local_ip()
     print("\n  📜  Chronicle — an illustrated history explorer")
-    print("  Running at: %s" % url)
+    print("  On this Mac:        %s" % url)
+    if ip:
+        print("  On your phone:      http://%s:%d   (same Wi-Fi)" % (ip, PORT))
     if API_KEY:
         print("  Mode: LIVE — real histories + images for any country.\n")
     else:

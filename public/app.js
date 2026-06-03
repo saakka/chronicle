@@ -300,6 +300,14 @@ function loadCountryShapes() {
           }
           refreshPolygonStyles();
           recomputeHover();
+        })
+        // tap/click a country to enter — essential on phones, which can't hover
+        .onPolygonClick((feat) => {
+          if (!feat || busy) return;
+          lastHoverLatLng = centroid(feat);
+          lastHoverSubregion = feat.properties.SUBREGION || null;
+          lastHoverContinent = feat.properties.CONTINENT || null;
+          enterCountry(feat.properties.ADMIN);
         });
     })
     .catch((err) => console.error("Country shapes failed to load:", err));
