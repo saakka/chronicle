@@ -413,6 +413,9 @@ class Handler(BaseHTTPRequestHandler):
             self.handle_profile(parse_qs(parsed.query))
         elif parsed.path == "/api/story":
             self.handle_story(parse_qs(parsed.query))
+        elif parsed.path == "/api/lan":
+            ip = local_ip()
+            self.send_json(200, {"ip": ip or "", "url": ("http://%s:%d" % (ip, PORT)) if ip else ""})
         else:
             self.serve_static(parsed.path)
 

@@ -98,6 +98,33 @@ body {
 }
 .globe-canvas:active { cursor: grabbing; }
 
+/* Open on phone — QR */
+.phone-btn {
+  position: absolute; right: 20px; bottom: 20px; z-index: 6;
+  padding: 11px 18px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.85rem;
+  color: var(--gold-soft); background: rgba(8,12,30,0.6); border: 1px solid var(--line);
+  border-radius: 999px; cursor: pointer; backdrop-filter: blur(6px);
+}
+.phone-btn:hover { border-color: var(--gold); color: #fff; }
+.phone-btn[hidden] { display: none; }
+.phone-card {
+  position: absolute; right: 20px; bottom: 20px; z-index: 6;
+  width: 300px; max-width: 86vw; padding: 18px 18px 16px; text-align: center;
+  background: linear-gradient(180deg, #15324f, #0c2138); color: var(--ink);
+  border: 1px solid var(--gold); border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+}
+.phone-card[hidden] { display: none; }
+.phone-close {
+  position: absolute; top: 6px; right: 12px; background: none; border: none;
+  color: var(--muted); font-size: 1.6rem; line-height: 1; cursor: pointer;
+}
+.phone-close:hover { color: #fff; }
+.phone-title { font-family: var(--display); color: var(--gold-soft); margin: 0 0 12px; font-size: 1.02rem; }
+.phone-qr { width: 220px; height: 220px; max-width: 76vw; border-radius: 10px; background: #fff; padding: 8px; display: block; margin: 0 auto 10px; }
+.phone-url { font-family: ui-monospace, "SF Mono", monospace; font-size: 0.86rem; color: #fff; margin: 0 0 8px; word-break: break-all; }
+.phone-note { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.76rem; color: var(--muted); margin: 0; line-height: 1.4; }
+
 .fallback-inner { max-width: 720px; text-align: center; padding: 40px 0; }
 
 /* 2D planet — a spinning Earth for environments without WebGL */

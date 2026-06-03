@@ -1434,6 +1434,33 @@ function esc(value) {
   );
 }
 
+/* ====================== OPEN ON PHONE (QR) ====================== */
+(function setupPhoneQR() {
+  const btn = document.getElementById("phone-btn");
+  const card = document.getElementById("phone-card");
+  const closeBtn = document.getElementById("phone-close");
+  const qr = document.getElementById("phone-qr");
+  const urlEl = document.getElementById("phone-url");
+  if (!btn || !card) return;
+  let tries = 0;
+  function probe() {
+    fetch("/api/lan").then((r) => r.json()).then((d) => {
+      if (d && d.url) {
+        btn.hidden = false;
+        btn.onclick = () => {
+          qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=12&data=" + encodeURIComponent(d.url);
+          urlEl.textContent = d.url;
+          card.hidden = false; btn.hidden = true;
+        };
+        closeBtn.onclick = () => { card.hidden = true; btn.hidden = false; };
+      } else if (tries++ < 4) {
+        setTimeout(probe, 800);                // retry if the server wasn't ready yet
+      }
+    }).catch(() => { if (tries++ < 4) setTimeout(probe, 800); });
+  }
+  probe();
+})();
+
 /* ====================== START ====================== */
 
 initGlobe();

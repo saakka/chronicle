@@ -30,6 +30,16 @@
     </p>
 
     <div class="globe-fallback" id="globe-fallback" hidden></div>
+
+    <!-- Open on phone: scannable QR of the Wi-Fi link -->
+    <button id="phone-btn" class="phone-btn" hidden>📱 &nbsp;Open on phone</button>
+    <div id="phone-card" class="phone-card" hidden>
+      <button class="phone-close" id="phone-close" aria-label="Close">&times;</button>
+      <p class="phone-title">Scan to open on your phone</p>
+      <img id="phone-qr" class="phone-qr" alt="QR code for the phone link" />
+      <p class="phone-url" id="phone-url"></p>
+      <p class="phone-note">Point your phone camera here. Phone must be on the same Wi‑Fi.</p>
+    </div>
   </section>
 
   <!-- ====================== PORTAL TRANSITION ====================== -->
