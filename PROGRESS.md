@@ -40,6 +40,13 @@ Run autonomously following this process:
 - [ ] Phase 2 cycles begin
 
 ## NEXT PRIORITIES — content + design tailored to HISTORY GEEKS (Civ-V vibe), set ~by Ahmad
+0. **Bespoke per-country landmark portals (TOP PRIORITY, ongoing):** every country should get its
+   OWN landmark silhouette. System built: `LANDMARKS` (SVG) + `LANDMARK_BY_COUNTRY` in app.js + `.landmark`
+   CSS. ~18 iconic done (Eiffel, Taj, Big Ben, Colosseum, Fuji, Great Wall, St Basil's, Christ Redeemer,
+   Opera House, Petra, Angkor, Burj, Parthenon, ziggurat, pyramids, skyline). EXPAND: add more landmark
+   SVGs (Statue of Liberty, Sagrada Família/Alhambra, Brandenburg Gate, Machu Picchu, Hagia Sophia,
+   Leaning Tower, Stonehenge, Christ the King, Petronas, etc.) and map many more countries. Keep regional
+   motif as fallback only where no landmark exists yet.
 Wikimedia is broad/generic. Make it richer and more curated:
 1. **Curated image sources** (better than generic Wikimedia): query open cultural-heritage APIs —
    Art Institute of Chicago (free, CORS, no key) + The Met Open Access (free, CORS, no key) for
@@ -51,6 +58,7 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- iter5 — BESPOKE PER-COUNTRY PORTALS: new SVG landmark library (LANDMARKS) + LANDMARK_BY_COUNTRY map; portal renders the country's own landmark (falls back to regional motif). ~18 iconic landmarks done; verified France (Eiffel) + India (Taj) visually. Loop should keep adding landmarks toward full coverage.
 - iter4 — LIVING PLANET: starfield background + blue atmosphere glow; continuous slow auto-rotation with damping that PAUSES on country-hover and resumes on leave (interactive). Portal delay set to 2.2s with a smoother 2s zoom-into-country. Recorded content/design direction (Civ-V / history-geek) above.
 - iter3 — WOW pass on the portal: god-rays (rotating conic light), drifting embers, slow zoom-push, flourished label (✦ … ✦). Smarter photo selection: fetch 40 candidates, drop maps/flags/crests/diagrams, rank by size + aspect + relevance → striking images first. Verified visually (Egypt portal) + fetchImages returns clean results. Next Phase-2 ideas: per-era backdrop = best image (not just [0]); zoom globe-out on exit; richer era transition; "wow" audit.
 - iter2 — Spot-checked Greece end to end via DOM: portal→journey renders (eras, Cover Flow, timeline) for a non-Arab country. All-countries pipeline validated. Next: more spot-checks, then Phase 2 audit cycles.

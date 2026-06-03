@@ -119,10 +119,40 @@ Object.assign(COUNTRY_THEME, {
   "Australia":     { palette: "gulf",  motif: "skyline",  label: "Into the great south land" },
 });
 
+/* Recognizable landmark silhouettes (SVG, viewBox 0 0 100 44, baseline y=44).
+   Rendered as a dark silhouette at the foot of the portal scene. */
+const LANDMARKS = {
+  pyramids:  "<polygon points='0,44 16,15 32,44'/><polygon points='27,44 50,5 73,44'/><polygon points='63,44 80,18 98,44'/>",
+  ziggurat:  "<path d='M30 44 V38 H36 V32 H42 V26 H46 V20 H54 V26 H58 V32 H64 V38 H70 V44 Z'/>",
+  eiffel:    "<path d='M50 2 L48.6 9 L51.4 9 Z'/><path d='M47.5 9 L52.5 9 L51 18 L49 18 Z'/><path d='M45 18 L55 18 L57 29 L43 29 Z'/><rect x='42' y='28' width='16' height='2'/><path d='M43 30 L37 44 L42.5 44 L49 33 L51 33 L57.5 44 L63 44 L57 30 Z'/>",
+  taj:       "<rect x='34' y='30' width='32' height='14'/><path d='M50 11 Q39 19 41 30 L59 30 Q61 19 50 11 Z'/><rect x='49' y='5' width='2' height='7'/><rect x='27' y='18' width='3' height='26'/><path d='M28.5 14 Q26 17 27 18 L30 18 Q31 17 28.5 14 Z'/><rect x='70' y='18' width='3' height='26'/><path d='M71.5 14 Q69 17 70 18 L73 18 Q74 17 71.5 14 Z'/>",
+  bigben:    "<rect x='44' y='15' width='12' height='29'/><polygon points='44,15 50,6 56,15'/><rect x='48.5' y='3' width='3' height='3'/><circle cx='50' cy='23' r='3'/>",
+  parthenon: "<polygon points='28,16 50,7 72,16'/><rect x='28' y='16' width='44' height='3'/><rect x='30' y='19' width='4' height='23'/><rect x='38' y='19' width='4' height='23'/><rect x='46' y='19' width='4' height='23'/><rect x='54' y='19' width='4' height='23'/><rect x='62' y='19' width='4' height='23'/><rect x='28' y='42' width='44' height='2'/>",
+  colosseum: "<path d='M18 44 V27 Q50 17 82 27 V44 Z M26 31 h6 v8 h-6 Z M38 29 h6 v9 h-6 Z M50 28 h6 v9 h-6 Z M62 29 h6 v9 h-6 Z M74 31 h6 v8 h-6 Z'/>",
+  fuji:      "<polygon points='16,44 40,15 60,15 84,44'/><rect x='24' y='31' width='2' height='13'/><rect x='34' y='31' width='2' height='13'/><rect x='21' y='29' width='18' height='2'/><rect x='22.5' y='32' width='15' height='1.4'/>",
+  greatwall: "<path d='M0 44 V33 L18 31 V27 L23 27 V31 L46 28 V24 L51 24 V28 L74 26 V22 L79 22 V26 L100 25 V44 Z'/>",
+  stbasil:   "<rect x='44' y='22' width='12' height='22'/><path d='M50 6 Q42 16 44 22 L56 22 Q58 16 50 6 Z'/><rect x='49' y='2' width='2' height='4'/><rect x='30' y='28' width='9' height='16'/><path d='M34.5 16 Q28 24 30 28 L39 28 Q41 24 34.5 16 Z'/><rect x='61' y='28' width='9' height='16'/><path d='M65.5 16 Q59 24 61 28 L70 28 Q72 24 65.5 16 Z'/>",
+  redeemer:  "<polygon points='22,44 50,27 78,44'/><rect x='49' y='9' width='2' height='19'/><rect x='40' y='14' width='20' height='2'/><circle cx='50' cy='8' r='1.6'/>",
+  opera:     "<path d='M18 44 Q24 25 38 44 Z'/><path d='M32 44 Q41 20 55 44 Z'/><path d='M49 44 Q57 27 69 44 Z'/><path d='M63 44 Q71 31 82 44 Z'/>",
+  petra:     "<polygon points='34,14 50,6 66,14'/><rect x='34' y='14' width='32' height='2'/><rect x='36' y='16' width='3' height='28'/><rect x='44' y='16' width='3' height='28'/><rect x='53' y='16' width='3' height='28'/><rect x='61' y='16' width='3' height='28'/><path d='M47 30 V22 Q50 18 53 22 V30 Z'/>",
+  angkor:    "<path d='M50 6 Q46 16 48 26 L52 26 Q54 16 50 6 Z'/><rect x='47' y='26' width='6' height='18'/><path d='M34 13 Q31 20 33 28 L37 28 Q39 20 36 13 Z'/><rect x='33' y='28' width='4' height='16'/><path d='M66 13 Q64 20 67 28 L71 28 Q69 20 66 13 Z'/><rect x='64' y='28' width='4' height='16'/><path d='M22 20 Q20 26 22 31 L26 31 Q28 26 26 20 Z'/><rect x='22' y='31' width='4' height='13'/><path d='M78 20 Q76 26 78 31 L82 31 Q84 26 82 20 Z'/><rect x='78' y='31' width='4' height='13'/>",
+  burj:      "<path d='M50 3 L47 22 L44 44 L56 44 L53 22 Z'/><rect x='30' y='28' width='8' height='16'/><rect x='40' y='34' width='5' height='10'/><rect x='60' y='32' width='6' height='12'/><rect x='70' y='26' width='7' height='18'/>",
+  skyline:   "<rect x='4' y='28' width='9' height='16'/><rect x='15' y='22' width='8' height='22'/><rect x='25' y='32' width='7' height='12'/><rect x='34' y='18' width='9' height='26'/><rect x='45' y='26' width='8' height='18'/><rect x='55' y='14' width='9' height='30'/><rect x='66' y='24' width='7' height='20'/><rect x='75' y='30' width='8' height='14'/><rect x='85' y='20' width='9' height='24'/>",
+};
+
+/* Country → its iconic landmark (expanded by the loop toward full coverage). */
+const LANDMARK_BY_COUNTRY = {
+  "Egypt": "pyramids", "Sudan": "pyramids", "Mexico": "pyramids",
+  "Iraq": "ziggurat", "Jordan": "petra", "Greece": "parthenon", "Italy": "colosseum",
+  "France": "eiffel", "United Kingdom": "bigben", "India": "taj", "Japan": "fuji",
+  "China": "greatwall", "Russia": "stbasil", "Brazil": "redeemer", "Australia": "opera",
+  "Cambodia": "angkor", "United Arab Emirates": "burj", "United States of America": "skyline",
+};
+
 function themeFor(country) {
   const t = COUNTRY_THEME[country] || { palette: "dusk", motif: "mountains", label: "Into " + country };
   const p = PALETTES[t.palette] || PALETTES.dusk;
-  return { sky: p.sky, sun: p.sun, accent: p.accent, motif: t.motif, label: t.label };
+  return { sky: p.sky, sun: p.sun, accent: p.accent, motif: t.motif, label: t.label, landmark: LANDMARK_BY_COUNTRY[country] || null };
 }
 
 let world = null;
@@ -254,7 +284,12 @@ function playPortal(country) {
   portalScene.style.background = theme.sky;
   portal.style.setProperty("--accent", theme.accent);
   portal.style.setProperty("--sun", theme.sun);
-  portalScene.innerHTML = '<div class="sun"></div><div class="motif motif-' + theme.motif + '"></div>';
+  const landmark = theme.landmark && LANDMARKS[theme.landmark];
+  portalScene.innerHTML =
+    '<div class="sun"></div>' +
+    (landmark
+      ? '<svg class="landmark" viewBox="0 0 100 44" preserveAspectRatio="xMidYMax meet">' + landmark + "</svg>"
+      : '<div class="motif motif-' + theme.motif + '"></div>');
   portalLabel.textContent = theme.label;
 
   portal.hidden = false;
