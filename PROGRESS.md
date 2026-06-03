@@ -2,8 +2,16 @@
 
 This file is the source of truth for the unattended loop. Read it first every iteration.
 
+## STANDING EMPHASIS (added by Ahmad, ~02:30 — applies to EVERY iteration)
+The north star is the **WOW effect**. With every change ask: does this make the
+experience more breathtaking? Specifically:
+- **Portals more epic** — cinematic light, motion, depth, drama (don't overdo to the point of slow/garish).
+- **Most intriguing photos** — pick the most striking, surprising, beautiful images per era; cut the dull/generic.
+- Polish transitions, typography, pacing, sound for an emotional, cinematic feel.
+Run for ~8 more hours from 02:30.
+
 ## Mission (set by Ahmad, ~02:00)
-Run autonomously for ~6 hours following this process:
+Run autonomously following this process:
 
 1. **Phase 1 — Coverage:** Add **all countries on Earth** to the globe (not just Arab
    League). Give each a **bespoke portal** (palette + landmark silhouette + arrival
@@ -32,6 +40,7 @@ Run autonomously for ~6 hours following this process:
 - [ ] Phase 2 cycles begin
 
 ## CHANGELOG (newest first — append every iteration)
+- iter3 — WOW pass on the portal: god-rays (rotating conic light), drifting embers, slow zoom-push, flourished label (✦ … ✦). Smarter photo selection: fetch 40 candidates, drop maps/flags/crests/diagrams, rank by size + aspect + relevance → striking images first. Verified visually (Egypt portal) + fetchImages returns clean results. Next Phase-2 ideas: per-era backdrop = best image (not just [0]); zoom globe-out on exit; richer era transition; "wow" audit.
 - iter2 — Spot-checked Greece end to end via DOM: portal→journey renders (eras, Cover Flow, timeline) for a non-Arab country. All-countries pipeline validated. Next: more spot-checks, then Phase 2 audit cycles.
 - iter1 — Opened globe to ALL countries (no filter); centroid-based zoom for any country;
   added ~22 bespoke world themes; default theme for the rest. Verified themeFor + no JS errors. Committing.

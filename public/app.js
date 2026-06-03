@@ -440,12 +440,16 @@ document.addEventListener("click", (e) => {
 
 /* ====================== WIKIMEDIA IMAGES (browser-side) ====================== */
 
+// Drop the dull stuff (maps, flags, crests, diagrams, locator dots) — we want
+// striking photographs and artworks.
+const JUNK_IMAGE = /(map|locator|flag|coat[\s_-]?of[\s_-]?arms|\bseal\b|emblem|logo|diagram|chart|\bicon\b|orthographic|\blocation\b|topograph|administ|blank|outline|gpx|wikimedia|spreadsheet|\bsignature\b)/i;
+
 async function fetchImages(query, max = 6) {
   if (!query) return [];
   const params = new URLSearchParams({
     action: "query", format: "json", origin: "*",
-    generator: "search", gsrsearch: query, gsrnamespace: "6", gsrlimit: "18",
-    prop: "imageinfo", iiprop: "url|mime", iiurlwidth: "800",
+    generator: "search", gsrsearch: query, gsrnamespace: "6", gsrlimit: "40",
+    prop: "imageinfo", iiprop: "url|mime|size", iiurlwidth: "1000",
   });
   let data;
   try {
@@ -456,19 +460,28 @@ async function fetchImages(query, max = 6) {
   const ordered = Object.values(pages).sort(
     (a, b) => (a.index == null ? 9999 : a.index) - (b.index == null ? 9999 : b.index)
   );
-  const out = [];
-  for (const page of ordered) {
+
+  const candidates = [];
+  ordered.forEach((page, i) => {
     const info = (page.imageinfo && page.imageinfo[0]) || {};
     const mime = info.mime || "";
-    if (!mime.startsWith("image/") || mime === "image/svg+xml") continue;
+    if (!mime.startsWith("image/") || mime === "image/svg+xml") return;
     const thumb = info.thumburl || info.url;
-    if (!thumb) continue;
+    if (!thumb) return;
     const title = page.title || "";
+    if (JUNK_IMAGE.test(title)) return;
+    const w = info.width || 0, h = info.height || 0;
+    if (w && w < 500) return;                         // skip tiny / thumbnail-only
+    const area = w && h ? w * h : 500 * 500;
+    const ratio = w && h ? Math.min(w, h) / Math.max(w, h) : 0.6; // 1 = square, →0 = sliver
+    // favour big, well-proportioned, still-relevant images ("most intriguing")
+    const score = Math.log(area) + ratio * 1.4 - i * 0.04;
     const caption = title.split(":").slice(1).join(":").replace(/\.[^.]+$/, "").replace(/_/g, " ").trim();
-    out.push({ thumb: thumb, full: info.url || thumb, caption: caption });
-    if (out.length >= max) break;
-  }
-  return out;
+    candidates.push({ thumb, full: info.url || thumb, caption, score });
+  });
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates.slice(0, max).map(({ thumb, full, caption }) => ({ thumb, full, caption }));
 }
 
 function coverHtml(img) {
