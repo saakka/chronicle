@@ -133,7 +133,7 @@
   var canvas=document.createElement('canvas'); canvas.style.display='block'; $('app').appendChild(canvas);
   var ctx=canvas.getContext('2d');
   var W=0,H=0,DPR=1,focal=0,cx=0,cy=0;
-  var cam={ eye:{x:0,y:2.55,z:CONFIG.ballZ+4.4}, tgt:{x:0,y:1.25,z:0}, fov:46, shake:0, flash:0, time:1 };
+  var cam={ eye:{x:13,y:10,z:27}, tgt:{x:-3,y:0.7,z:7}, fov:38, shake:0, flash:0, time:1 };
   var camWant={ eye:{x:0,y:2.55,z:CONFIG.ballZ+4.4}, tgt:{x:0,y:1.25,z:0}, fov:46 };
   var bF,bR,bU;
   function vsub(a,b){return{x:a.x-b.x,y:a.y-b.y,z:a.z-b.z};}
@@ -296,21 +296,9 @@
     ctx.lineWidth=Math.max(0.6,w); ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.globalAlpha=1; }
 
   function drawSky(){
-    var g=ctx.createLinearGradient(0,0,0,H*0.66);
-    g.addColorStop(0,'#070b16'); g.addColorStop(0.5,'#0d1830'); g.addColorStop(1,'#16294a');
+    var g=ctx.createLinearGradient(0,0,0,H*0.55);
+    g.addColorStop(0,'#4f8fc9'); g.addColorStop(0.72,'#9ec8e8'); g.addColorStop(1,'#d2e7f3');
     ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-    // floodlight pylons at the four back corners, with lamp banks + glow + soft beams
-    [[-30,-21],[30,-21],[-22,7],[22,7]].forEach(function(c){
-      var fx=c[0], fz=c[1], base=P(fx,0,fz), top=P(fx,18,fz), lamp=P(fx,17,fz); if(!top||!lamp)return;
-      strokeW(base,top,Math.max(2,(top.s||4)*0.12),'#070a12',0.9);                 // pole
-      var lw=Math.max(10,lamp.s*1.5), lh=Math.max(5,lamp.s*0.5);
-      var beam=ctx.createRadialGradient(lamp.x,lamp.y,2,lamp.x,lamp.y,260);          // glow
-      beam.addColorStop(0,'rgba(220,235,255,0.45)'); beam.addColorStop(0.4,'rgba(180,205,255,0.12)'); beam.addColorStop(1,'rgba(180,205,255,0)');
-      ctx.fillStyle=beam; ctx.beginPath(); ctx.arc(lamp.x,lamp.y,260,0,TAU); ctx.fill();
-      ctx.fillStyle='#0a0e18'; roundRect(lamp.x-lw/2,lamp.y-lh/2,lw,lh,3); ctx.fill();   // lamp housing
-      for(var i=0;i<8;i++){ ctx.fillStyle='rgba(245,250,255,0.95)';                 // bulbs
-        ctx.beginPath(); ctx.arc(lamp.x-lw/2+lw*(i+0.5)/8,lamp.y,Math.max(1.4,lh*0.28),0,TAU); ctx.fill(); }
-    });
   }
   function drawStands(t){
     if(!crowdTex) crowdTex=makeCrowd(1024,256);
@@ -346,32 +334,25 @@
       ctx.restore(); }
   }
   function drawPitch(t){
-    var Xw=42, zN=eyeR.z-0.4, zF=-19;
-    // mow stripes (broadcast): alternating shades, brighter near the lit centre
+    var Xw=95, zN=eyeR.z-0.3, zF=-42;
+    // base green fills the whole visible field (bright daytime)
+    quad(P(-Xw,0,zF),P(Xw,0,zF),P(Xw,0,zN),P(-Xw,0,zN),'#43a047');
+    // mow stripes across the play area
     var k=0; for(var z=zF; z<zN; z+=2.4){ var z2=Math.min(z+2.4,zN);
-      quad(P(-Xw,0,z),P(Xw,0,z),P(Xw,0,z2),P(-Xw,0,z2),(k++%2===0)?'#3a9a40':'#2e8235'); }
-    // floodlit pools — soft light on the turf (screen-space radial gradients)
-    [[0,3],[ -7,12],[7,12]].forEach(function(c){ var lp=P(c[0],0,c[1]); if(!lp)return;
-      var rr=lp.s*8; var rg=ctx.createRadialGradient(lp.x,lp.y,2,lp.x,lp.y,rr);
-      rg.addColorStop(0,'rgba(225,245,210,0.16)'); rg.addColorStop(1,'rgba(225,245,210,0)');
-      ctx.fillStyle=rg; ctx.beginPath(); ctx.ellipse(lp.x,lp.y,rr,rr*0.5,0,0,TAU); ctx.fill(); });
-    // grass grain
+      quad(P(-Xw,0,z),P(Xw,0,z),P(Xw,0,z2),P(-Xw,0,z2),(k++%2===0)?'#4cab50':'#3f9c43'); }
+    // grass grain (subtle, over the turf only)
     if(!grainTex) grainTex=makeGrain(128);
-    ctx.globalAlpha=0.5; var gy=P(0,0,zN); var hor=P(0,0,zF);
-    if(gy&&hor){ var top=Math.min(gy.y,hor.y); ctx.drawImage(grainTex,0,top,W, H-top); } ctx.globalAlpha=1;
-    // lines — white with a soft dark base so they sit on the turf
+    var hor=P(0,0,zF-2); ctx.globalAlpha=0.28; ctx.drawImage(grainTex,0,(hor?hor.y:0),W,H-(hor?hor.y:0)); ctx.globalAlpha=1;
+    // lines
     function seg(ax,az,bx,bz,wm){ var a=P(ax,0,az),b=P(bx,0,bz); if(!a||!b)return; var w=(a.s+b.s)*0.5*(wm||0.1);
-      strokeW({x:a.x,y:a.y+w*0.5},{x:b.x,y:b.y+w*0.5},w*1.3,'rgba(0,0,0,0.18)',1); strokeW(a,b,w,'#eef5ee',0.9); }
+      strokeW(a,b,w,'#f3faf3',0.95); }
     var penD=16.5,penW=40.3,sixD=5.5,sixW=18.3;
-    seg(-24,0,24,0,0.12); seg(-penW/2,penD,penW/2,penD); seg(-penW/2,0,-penW/2,penD); seg(penW/2,0,penW/2,penD);
+    seg(-34,0,34,0,0.14); seg(-penW/2,penD,penW/2,penD); seg(-penW/2,0,-penW/2,penD); seg(penW/2,0,penW/2,penD);
     seg(-sixW/2,sixD,sixW/2,sixD); seg(-sixW/2,0,-sixW/2,sixD); seg(sixW/2,0,sixW/2,sixD);
-    ctx.strokeStyle='rgba(238,245,238,0.85)'; ctx.lineWidth=2.2; ctx.beginPath(); var sa=false;
+    ctx.strokeStyle='rgba(243,250,243,0.92)'; ctx.lineWidth=2.4; ctx.beginPath(); var sa=false;
     for(var a=-0.95;a<=0.95;a+=0.1){ var pp=P(Math.sin(a)*9.15,0,11-Math.cos(a)*9.15); if(!pp){sa=false;continue;}
       if(!sa){ctx.moveTo(pp.x,pp.y);sa=true;} else ctx.lineTo(pp.x,pp.y);} ctx.stroke();
-    var sp=P(0,0,11); if(sp){ ctx.fillStyle='rgba(238,245,238,0.9)'; ctx.beginPath(); ctx.ellipse(sp.x,sp.y,sp.s*0.13,sp.s*0.055,0,0,TAU); ctx.fill(); }
-    // far edge darkening
-    var ev=ctx.createLinearGradient(0,cy-40,0,cy+90); ev.addColorStop(0,'rgba(3,8,12,0.45)'); ev.addColorStop(1,'rgba(3,8,12,0)');
-    var hp=P(0,0,zF); if(hp){ ctx.fillStyle=ev; ctx.fillRect(0,hp.y-6,W,120); }
+    var sp=P(0,0,11); if(sp){ ctx.fillStyle='rgba(243,250,243,0.95)'; ctx.beginPath(); ctx.ellipse(sp.x,sp.y,sp.s*0.13,sp.s*0.055,0,0,TAU); ctx.fill(); }
   }
 
   // net with deformable grid
@@ -526,7 +507,7 @@
   function postFX(){
     // vignette
     var vg=ctx.createRadialGradient(W/2,H*0.45,Math.min(W,H)*0.28,W/2,H*0.52,Math.max(W,H)*0.78);
-    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(2,4,10,0.6)');
+    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(10,30,40,0.22)');
     ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
     // film grain (tiled, jittered)
     if(!grainTex) grainTex=makeGrain(128);
@@ -736,16 +717,16 @@
   //  CAMERA director
   // ===================================================================
   function setCam(dt){
+    // fixed isometric/broadcast diagonal — ball low, wall centre, goal upper-right
     if(state===ST.SETUP||state===ST.CHARGE||state===ST.RUNUP){
-      camWant.eye={x:aim.x*0.25,y:2.55,z:CONFIG.ballZ+4.4}; camWant.tgt={x:aim.x*0.4,y:1.3,z:2}; camWant.fov=46;
+      camWant.eye={x:13,y:10,z:27}; camWant.tgt={x:-3,y:0.7,z:7}; camWant.fov=38;
     } else if(state===ST.FLIGHT){
-      camWant.eye={x:ball.x*0.45,y:clamp(2.4+ball.y*0.2,2.3,3.4),z:clamp(ball.z+4.2,5,CONFIG.ballZ+4.4)};
-      camWant.tgt={x:ball.x*0.6,y:clamp(ball.y*0.7+0.6,0.7,2.4),z:Math.max(0,ball.z-3)}; camWant.fov=44;
+      camWant.eye={x:13+ball.x*0.15,y:10,z:27}; camWant.tgt={x:lerp(-3,ball.x,0.45),y:clamp(0.7+ball.y*0.45,0.7,3),z:lerp(7,ball.z,0.55)}; camWant.fov=38;
     } else if(state===ST.RESULT){
-      if(result==='goal'){ camWant.eye={x:ball.x*0.5,y:1.8,z:3.2}; camWant.tgt={x:ball.x,y:1.1,z:-0.5}; camWant.fov=34; }
-      else { camWant.eye={x:ball.x*0.4,y:2.2,z:5.5}; camWant.tgt={x:ball.x*0.6,y:1,z:0}; camWant.fov=42; }
+      if(result==='goal'){ camWant.eye={x:5,y:6,z:13}; camWant.tgt={x:ball.x,y:1.1,z:0}; camWant.fov=32; }
+      else { camWant.eye={x:13,y:10,z:27}; camWant.tgt={x:-3,y:0.7,z:7}; camWant.fov=38; }
     } else if(state===ST.REPLAY){
-      camWant.eye={x:13,y:4.5,z:7}; camWant.tgt={x:0,y:1.1,z:4}; camWant.fov=40;
+      camWant.eye={x:-15,y:5.5,z:9}; camWant.tgt={x:0,y:1.1,z:4}; camWant.fov=36;
     }
     var k=1-Math.pow(state===ST.REPLAY?0.000001:0.0009,dt);
     cam.eye.x=lerp(cam.eye.x,camWant.eye.x,k); cam.eye.y=lerp(cam.eye.y,camWant.eye.y,k); cam.eye.z=lerp(cam.eye.z,camWant.eye.z,k);

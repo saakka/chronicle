@@ -291,6 +291,14 @@ body {
 .journey { position: fixed; inset: 0; z-index: 40; overflow: hidden; color: #fff; }
 .journey[hidden] { display: none; }
 
+/* the current era's legend scrolls vertically through full-screen beats */
+.era-legend {
+  position: absolute; inset: 0; overflow-y: scroll; scroll-snap-type: y mandatory;
+  background: #07131f; -webkit-overflow-scrolling: touch;
+}
+.era-legend::-webkit-scrollbar { display: none; }
+.era-legend { scrollbar-width: none; }
+
 .journey-bg { position: absolute; inset: 0; }
 .bg-layer {
   position: absolute; inset: 0;
@@ -334,6 +342,10 @@ body {
 }
 .j-country::after { content: " ⓘ"; opacity: 0.6; letter-spacing: 0; }
 .j-country:hover { color: #fff; }
+.j-era {
+  display: block; margin-top: 5px; font-family: var(--display); color: #fff;
+  font-size: 0.98rem; letter-spacing: 0.03em; text-shadow: 0 1px 14px rgba(0,0,0,0.8);
+}
 
 .nav-arrow {
   position: fixed; top: 46%; z-index: 48;

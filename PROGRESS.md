@@ -209,3 +209,12 @@ Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
   (fast first paint via renderAlbumCovers); ensureEraArt() fetches the public-domain piece(s) separately and
   weaves them in when ready (re-render), deduped across eras. Verified: lands on journey (dossier never shown),
   5 covers incl. 2 Met pieces woven in after, header opens dossier, Back closes it.
+- TIMELINE = LEGENDS (Ahmad: take out the slideshow; show the legend directly per era; 1 legend per era,
+  right pictures + text). Major restructure: the journey is now the legend itself — goToEra() loads that
+  era's /api/story legend and renders it as full-screen scroll beats (one picture + narration each) into
+  #era-legend; the era dots switch legends, ←/→ too. Removed: Cover Flow slideshow (album/coverHtml/
+  applyCoverflow), the "Hear the legend" button, and the separate #story level-3 view (merged in). Header
+  shows country (ⓘ → info) + era label. Neighbour legends warmed for instant prev/next; first era's legend
+  warmed during the portal. Verified: Egypt lands straight on Era I legend "Narmer: The Uniter of Two Lands"
+  (6 beats, picture+text), 10 era dots, no slideshow. (Minor: one beat pulled a historical map — could
+  tighten beat image filtering next.)

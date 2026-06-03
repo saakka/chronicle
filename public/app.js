@@ -13,14 +13,13 @@ const portalScene = document.getElementById("portal-scene");
 const portalLabel = document.getElementById("portal-label");
 
 const journey = document.getElementById("journey");
-const bgA = document.getElementById("bg-a");
-const bgB = document.getElementById("bg-b");
-const eraStage = document.getElementById("era-stage");
+const eraLegend = document.getElementById("era-legend");
 const timeline = document.getElementById("timeline");
 const navPrev = document.getElementById("nav-prev");
 const navNext = document.getElementById("nav-next");
 const exitBtn = document.getElementById("exit-btn");
 const jCountry = document.getElementById("j-country");
+const jEra = document.getElementById("j-era");
 
 const dossier = document.getElementById("dossier");
 const dossierExit = document.getElementById("dossier-exit");
@@ -37,10 +36,6 @@ const dossierTabbody = document.getElementById("dossier-tabbody");
 const dossierFunfacts = document.getElementById("dossier-funfacts");
 const dossierHeroBg = document.getElementById("dossier-hero-bg");
 const galleryTitle = document.getElementById("dossier-gallery-title");
-
-const story = document.getElementById("story");
-const storyRail = document.getElementById("story-rail");
-const storyExit = document.getElementById("story-exit");
 
 const lightbox = document.getElementById("lightbox");
 const lightboxImg = document.getElementById("lightbox-img");
@@ -711,7 +706,7 @@ async function enterCountry(country) {
   }
 
   currentEras = data.eras;
-  ensureEraImages(0);   // first era already warming → instant timeline
+  ensureEraStory(0);   // warm the first era's legend during the portal → instant timeline
   if (data.demo) toast("Demo mode — built-in Egypt sample. Add an API key for any country.");
 
   // Go STRAIGHT into the timeline (skip the country page — it's a tap away from the header).
@@ -868,25 +863,16 @@ dossier.addEventListener("click", (e) => {
   if (fig) openLightbox(fig.getAttribute("data-full"), fig.getAttribute("data-caption"));
 });
 
-/* ====================== STORY (level 3) ====================== */
+/* ====================== LEGENDS — one illustrated story per era ====================== */
 
-eraStage.addEventListener("click", (e) => {
-  const s = e.target.closest("[data-story]");
-  if (s) openStory(parseInt(s.getAttribute("data-story"), 10));
-});
+let legendObserver = null;
 
-let storyObserver = null;
-function closeStory() {
-  story.hidden = true;
-  if (storyObserver) { storyObserver.disconnect(); storyObserver = null; }
-}
-storyExit.addEventListener("click", closeStory);
-
-// Prefetch + cache an era's legend so opening it feels instant. Dedupes via a
-// shared promise on the era object; safe to call on hover and on click.
-function prefetchStory(index) {
+// Fetch + cache an era's legend (its flagship story). Dedupes via a shared promise;
+// retries on failure. Used both for the current era and to warm neighbours.
+function ensureEraStory(index) {
   const era = currentEras[index];
-  if (!era || era._story) return Promise.resolve(era && era._story);
+  if (!era) return Promise.resolve(null);
+  if (era._story) return Promise.resolve(era._story);
   if (!era._storyPromise) {
     era._storyPromise = fetch(
       "/api/story?country=" + encodeURIComponent(currentCountry) +
@@ -894,67 +880,48 @@ function prefetchStory(index) {
       "&period=" + encodeURIComponent(era.period || "")
     )
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { era._story = (j && j.story) || null; return era._story; })
-      .catch(() => { era._story = null; return null; });
+      .then((j) => { era._story = (j && j.story) || null; era._storyPromise = null; return era._story; })
+      .catch(() => { era._story = null; era._storyPromise = null; return null; });
   }
   return era._storyPromise;
 }
 
-async function openStory(index) {
-  const era = currentEras[index];
-  if (!era) return;
-  story.hidden = false;
-  story.scrollTop = 0;
-  storyRail.innerHTML =
-    '<section class="beat in"><div class="beat-scrim"></div><div class="beat-inner">' +
-    '<p class="beat-text" style="opacity:1;transform:none">Summoning the legend…</p></div></section>';
-
-  if (!era._story) {
-    try { await prefetchStory(index); } catch (e) {}
-  }
-  const data = era._story;
-  if (!data || !Array.isArray(data.beats) || !data.beats.length) {
-    storyRail.innerHTML =
-      '<section class="beat in"><div class="beat-scrim"></div><div class="beat-inner">' +
-      '<p class="beat-text" style="opacity:1;transform:none">The legend could not be summoned. Try again.</p></div></section>';
-    era._story = null; era._storyPromise = null;   // allow a clean retry next time
-    return;
-  }
-  renderStory(data, era);
-}
-
-function renderStory(data, era) {
-  storyRail.innerHTML = data.beats
+// Render the era's legend as full-screen story beats (one picture + narration each).
+function renderLegend(era, data, index) {
+  const n = data.beats.length;
+  eraLegend.innerHTML = data.beats
     .map((b, i) =>
       '<section class="beat" data-beat="' + i + '">' +
         '<div class="beat-bg"></div><div class="beat-scrim"></div>' +
         '<div class="beat-inner">' +
-          (i === 0
-            ? '<p class="beat-kicker">' + esc(era.title || "") + ' · the legend</p><h2 class="beat-storytitle">' + esc(data.title || "") + "</h2>"
-            : "") +
-          '<p class="beat-num">' + (i + 1) + " / " + data.beats.length + "</p>" +
+          '<p class="beat-kicker">Era ' + toRoman(index + 1) + " · " + esc(era.period || "") + "</p>" +
+          (i === 0 ? '<h2 class="beat-storytitle">' + esc(data.title || era.title || "") + "</h2>" : "") +
+          '<p class="beat-num">' + (i + 1) + " / " + n + "</p>" +
           '<p class="beat-text">' + esc(b.text || "") + "</p>" +
         "</div>" +
       "</section>")
     .join("");
-  story.scrollTop = 0;
+  eraLegend.scrollTop = 0;
 
-  const beats = storyRail.querySelectorAll(".beat");
-  if (storyObserver) storyObserver.disconnect();
-  const io = new IntersectionObserver(
+  const beats = eraLegend.querySelectorAll(".beat");
+  if (legendObserver) legendObserver.disconnect();
+  legendObserver = new IntersectionObserver(
     (entries) => entries.forEach((en) => { if (en.isIntersecting) en.target.classList.add("in"); }),
-    { root: story, threshold: 0.55 }
+    { root: eraLegend, threshold: 0.5 }
   );
-  storyObserver = io;
-  const usedIds = new Set();   // so two beats never show the same picture
+  const usedIds = new Set();   // never repeat a picture within the legend
   beats.forEach((el, i) => {
-    io.observe(el);
+    legendObserver.observe(el);
     fetchImages(data.beats[i].imageQuery, 4).then((imgs) => {
+      if (currentEra !== index || journey.hidden) return;            // user moved on
       const pick = imgs.find((im) => !usedIds.has(im.id || im.thumb)) || imgs[0];
-      if (pick) {
-        usedIds.add(pick.id || pick.thumb);
-        el.querySelector(".beat-bg").style.backgroundImage =
-          "url('" + (pick.full || pick.thumb).replace(/'/g, "%27") + "')";
+      if (!pick) return;
+      usedIds.add(pick.id || pick.thumb);
+      const bg = el.querySelector(".beat-bg");
+      if (bg) {
+        const im = new Image();
+        im.onload = () => { bg.style.backgroundImage = "url('" + (pick.full || pick.thumb).replace(/'/g, "%27") + "')"; bg.classList.add("ready"); };
+        im.src = pick.full || pick.thumb;
       }
     });
   });
@@ -965,19 +932,9 @@ function startJourney() {
   dossier.hidden = true;
   journey.hidden = false;
   jCountry.textContent = currentCountry;
-  bgActiveEl = null;
   buildTimeline();
-  goToEra(0);
-  warmAllEras();          // prefetch every era's photos in the background → instant timeline
+  goToEra(0);             // goToEra renders the legend and warms the neighbouring eras
   Sound.startAmbient();
-}
-
-// Quietly warm each era's images, staggered so we don't hammer Wikimedia at once.
-function warmAllEras() {
-  currentEras.forEach((e, i) => {
-    if (Array.isArray(e.images) || e._imgPromise) return;
-    setTimeout(() => { if (!journey.hidden) ensureEraImages(i); }, 700 + i * 450);
-  });
 }
 
 // The dossier is now reached from inside the journey, so its button just returns
@@ -1094,90 +1051,31 @@ function ensureEraArt(i) {
   return era._artPromise;
 }
 
-let storyWarmTimer = null;
 async function goToEra(index) {
   if (index < 0 || index >= currentEras.length) return;
   currentEra = index;
   const era = currentEras[index];
   updateTimeline();
   updateArrows();
+  jEra.textContent = "Era " + toRoman(index + 1) + " · " + (era.period || "");
 
-  // Render the text INSTANTLY (don't wait on images) so navigation feels immediate.
-  eraStage.classList.remove("show");
-  eraStage.innerHTML = stageHtml(era, index);
-  void eraStage.offsetWidth;
-  eraStage.classList.add("show");
+  eraLegend.innerHTML =
+    '<section class="beat in"><div class="beat-scrim"></div><div class="beat-inner">' +
+    '<p class="beat-kicker">Era ' + toRoman(index + 1) + "</p>" +
+    '<p class="beat-text" style="opacity:1;transform:none">Summoning the legend of ' + esc(era.title || "this era") + "…</p></div></section>";
+  eraLegend.scrollTop = 0;
 
-  // Warm neighbours (instant prev/next), wire the legend prefetch, and warm the
-  // legend itself after a short dwell so opening it is near-instant.
-  ensureEraImages(index + 1);
-  ensureEraImages(index - 1);
-  const cta = eraStage.querySelector(".story-cta");
-  if (cta) cta.addEventListener("mouseenter", () => prefetchStory(index), { once: true });
-  clearTimeout(storyWarmTimer);
-  storyWarmTimer = setTimeout(() => { if (currentEra === index && !journey.hidden) prefetchStory(index); }, 1200);
-
-  // Fill the photo album as soon as the images are ready.
-  await fillAlbum(era, index);
-}
-
-function renderAlbumCovers(era, index) {
-  const imgs = Array.isArray(era.images) ? era.images : [];
-  const album = document.getElementById("era-album");
-  if (!album) return;
-  setBackdrop(imgs[0] ? imgs[0].thumb : null);
-  if (!imgs.length) { album.innerHTML = '<p class="album-empty">No archive images found for this era.</p>'; return; }
-  album.innerHTML = imgs.map((im, i) => coverHtml(im, i === 0)).join("");
-  const update = () => applyCoverflow(album);
-  album.onscroll = () => requestAnimationFrame(update);   // assignment (not addEventListener) so re-renders don't stack
-  album.querySelectorAll("img").forEach((img) => {
-    const done = () => { img.classList.add("loaded"); update(); };
-    if (img.complete) done(); else { img.addEventListener("load", done); img.addEventListener("error", done); }
-  });
-  requestAnimationFrame(update);
-  setTimeout(update, 350);
-}
-
-async function fillAlbum(era, index) {
-  if (!Array.isArray(era.images)) await ensureEraImages(index);
-  if (currentEra !== index || journey.hidden) return;   // user moved on — drop this stale fill
-  renderAlbumCovers(era, index);                         // Wikimedia photos — fast, no waiting on the museum
-
-  // Weave a striking public-domain museum piece or two in WHEN it arrives (never blocks the photos).
-  ensureEraArt(index).then((art) => {
-    if (!art || !art.length || era._artWoven) return;
-    if (currentEra !== index || journey.hidden || !Array.isArray(era.images)) return;
-    let at = 0, added = false;
-    for (const a of art) {
-      if (artUsed.has(a.id) || era.images.some((im) => (im.id || im.thumb) === a.id)) continue;
-      artUsed.add(a.id);
-      era.images.splice(Math.min(at, era.images.length), 0, a); at += 2; added = true;
-    }
-    era._artWoven = true;
-    if (added && currentEra === index && !journey.hidden) renderAlbumCovers(era, index);   // re-render with art woven in
-  });
-}
-
-function stageHtml(era, index) {
-  return (
-    '<div class="era-copy">' +
-      '<div class="era-eyebrow">Era ' + toRoman(index + 1) + " · " + esc(era.period || "") + "</div>" +
-      '<h2 class="era-h">' + esc(era.title || "") + "</h2>" +
-      '<p class="era-p">' + esc(era.summary || "") + "</p>" +
-    "</div>" +
-    '<div class="album" id="era-album"></div>' +
-    '<button class="story-cta" data-story="' + index + '">❧ &nbsp;Hear the legend of this era</button>'
-  );
-}
-
-function setBackdrop(url) {
-  const next = bgActiveEl === bgA ? bgB : bgA;
-  next.style.backgroundImage = url ? "url('" + url.replace(/'/g, "%27") + "')" : "none";
-  next.classList.remove("active");
-  void next.offsetWidth;
-  next.classList.add("active");
-  if (bgActiveEl) bgActiveEl.classList.remove("active");
-  bgActiveEl = next;
+  const data = await ensureEraStory(index);
+  if (currentEra !== index || journey.hidden) return;   // user moved on while it loaded
+  if (!data || !Array.isArray(data.beats) || !data.beats.length) {
+    eraLegend.innerHTML =
+      '<section class="beat in"><div class="beat-scrim"></div><div class="beat-inner">' +
+      '<p class="beat-text" style="opacity:1;transform:none">The legend could not be summoned right now. Try another era.</p></div></section>';
+    return;
+  }
+  renderLegend(era, data, index);
+  ensureEraStory(index + 1);   // warm neighbours so prev/next is instant
+  ensureEraStory(index - 1);
 }
 
 function buildTimeline() {
@@ -1205,6 +1103,7 @@ function updateArrows() {
 
 function exitJourney() {
   Sound.stopAmbient();
+  if (legendObserver) { legendObserver.disconnect(); legendObserver = null; }
   journey.hidden = true;
   dossier.hidden = true;
   busy = false;
@@ -1235,21 +1134,17 @@ timeline.addEventListener("click", (e) => {
 
 document.addEventListener("keydown", (e) => {
   if (!lightbox.hidden) { if (e.key === "Escape") closeLightbox(); return; }
-  // Story sits on top of the journey — Escape closes the story; don't let arrows
-  // leak through and change the era underneath it.
-  if (!story.hidden) { if (e.key === "Escape") closeStory(); return; }
   if (journey.hidden) return;
+  // ←/→ switch eras (↑/↓ scroll the legend natively); Esc returns to the globe.
   if (e.key === "ArrowRight") travelTo(currentEra + 1);
   else if (e.key === "ArrowLeft") travelTo(currentEra - 1);
   else if (e.key === "Escape") exitJourney();
 });
 
-/* fallback chips on the globe still route here */
+/* fallback chips on the globe route here */
 document.addEventListener("click", (e) => {
   const c = e.target.closest("[data-country]");
   if (c) return enterCountry(c.getAttribute("data-country"));
-  const fig = e.target.closest(".cover");
-  if (fig && eraStage.contains(fig)) openLightbox(fig.getAttribute("data-full"), fig.getAttribute("data-caption"));
 });
 
 /* ====================== WIKIMEDIA IMAGES (browser-side) ====================== */

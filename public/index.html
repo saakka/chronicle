@@ -52,22 +52,20 @@
     <p class="portal-label" id="portal-label"></p>
   </div>
 
-  <!-- ====================== ERA JOURNEY ====================== -->
+  <!-- ====================== ERA JOURNEY — one illustrated legend per era ====================== -->
   <section id="journey" class="journey" hidden>
-    <div class="journey-bg">
-      <div class="bg-layer" id="bg-a"></div>
-      <div class="bg-layer" id="bg-b"></div>
-    </div>
-    <div class="journey-scrim"></div>
+    <!-- the current era's legend: full-screen story beats (image + narration) -->
+    <div id="era-legend" class="era-legend"></div>
 
     <button id="exit-btn" class="exit-btn">← &nbsp;Globe</button>
     <button id="sound-btn" class="sound-btn" aria-label="Toggle sound">🔊</button>
-    <div class="journey-head"><span id="j-country" class="j-country"></span></div>
+    <div class="journey-head">
+      <span id="j-country" class="j-country"></span>
+      <span id="j-era" class="j-era"></span>
+    </div>
 
     <button class="nav-arrow nav-prev" id="nav-prev" aria-label="Previous era">‹</button>
     <button class="nav-arrow nav-next" id="nav-next" aria-label="Next era">›</button>
-
-    <div class="era-stage" id="era-stage"></div>
 
     <div class="timeline" id="timeline"></div>
   </section>
@@ -100,12 +98,6 @@
       <div id="dossier-tabbody" class="dossier-tabbody"></div>
       <div id="dossier-funfacts" class="dossier-funfacts"></div>
     </div>
-  </section>
-
-  <!-- ====================== STORY (level 3) ====================== -->
-  <section id="story" class="story" hidden>
-    <button id="story-exit" class="exit-btn story-exit">← &nbsp;Back</button>
-    <div id="story-rail" class="story-rail"></div>
   </section>
 
   <!-- ====================== LIGHTBOX ====================== -->
