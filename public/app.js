@@ -605,7 +605,9 @@ async function enterCountry(country) {
 
 /* ====================== COUNTRY DOSSIER ====================== */
 
+let dossierToken = 0;
 async function showDossier(country) {
+  const token = ++dossierToken;   // guards against a stale fetch overwriting a newer country
   dossier.hidden = false;
   window.scrollTo(0, 0);
   dossierName.textContent = country;
@@ -616,6 +618,7 @@ async function showDossier(country) {
   dossierFlagMeaning.innerHTML = "";
   dossierFacts.innerHTML = "";
   dossierTabs.innerHTML = "";
+  dossierTabs._sections = null;
   dossierTabbody.innerHTML = "";
   dossierFunfacts.innerHTML = "";
   if (dossierHeroBg) dossierHeroBg.style.backgroundImage = "none";
@@ -625,6 +628,7 @@ async function showDossier(country) {
     fetchCountryFacts(country),
     fetch("/api/profile?country=" + encodeURIComponent(country)).then((r) => r.json()).catch(() => null),
   ]);
+  if (token !== dossierToken) return;   // a newer dossier opened while we were fetching
   renderDossier(country, facts, profileResp && profileResp.profile);
 }
 
@@ -699,8 +703,10 @@ function renderDossier(country, facts, profile) {
 }
 
 async function loadGallery(queries) {
+  const token = dossierToken;
   dossierGallery.innerHTML = '<span class="dossier-loading">Gathering photos…</span>';
   const results = await Promise.all(queries.slice(0, 6).map((q) => fetchImages(q, 2)));
+  if (token !== dossierToken) return;   // dossier changed while photos loaded
   const imgs = [];
   const seen = new Set();
   results.flat().forEach((im) => {
