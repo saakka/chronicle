@@ -313,8 +313,8 @@ body {
 /* current era content */
 .era-stage {
   position: relative; z-index: 5;
-  max-width: 980px; margin: 0 auto;
-  padding: 20vh 28px 0;
+  max-width: none; margin: 0; text-align: center;
+  padding: 5vh 0 0;
 }
 .era-stage > * {
   opacity: 0; transform: translateY(22px);
@@ -325,14 +325,14 @@ body {
 
 /* readable text panel so words never fight the backdrop */
 .era-copy {
-  max-width: 64ch;
-  background: linear-gradient(135deg, rgba(12, 33, 56, 0.74), rgba(8, 20, 34, 0.56));
+  max-width: 700px; margin: 0 auto; text-align: center;
+  background: linear-gradient(135deg, rgba(12, 33, 56, 0.62), rgba(8, 20, 34, 0.44));
   backdrop-filter: blur(10px) saturate(1.1);
   -webkit-backdrop-filter: blur(10px) saturate(1.1);
   border: 1px solid rgba(212, 175, 82, 0.30);
-  border-radius: 14px;
-  padding: 24px 30px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  padding: 13px 26px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.45);
 }
 
 .era-eyebrow {
@@ -341,36 +341,39 @@ body {
   color: var(--gold-soft); margin-bottom: 8px;
 }
 .era-h {
-  margin: 0 0 12px; font-size: clamp(2rem, 5vw, 3.4rem); font-weight: 600; line-height: 1.1;
+  margin: 0 0 6px; font-size: clamp(1.5rem, 3.4vw, 2.4rem); font-weight: 600; line-height: 1.12;
   color: #fbf3e2; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
 }
 .era-p {
-  margin: 0; font-size: 1.18rem; max-width: 60ch; color: #ece3d2;
+  margin: 0 auto; font-size: 1rem; line-height: 1.5; max-width: 66ch; color: #ece3d2;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 
 /* Cover Flow inside an era */
 .album {
+  --cover: min(58vh, 90vw, 600px);     /* the hero photo size — big & responsive */
   display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
-  perspective: 1700px; padding: 40px 32% 14px; margin-top: 20px;
+  perspective: 2600px; margin-top: 2vh;
+  padding: 3vh calc(50% - var(--cover) / 2) 1vh;
   -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
 .album::-webkit-scrollbar { display: none; }
 .cover {
   position: relative;
-  flex: 0 0 400px; max-width: 82vw; margin: 0; scroll-snap-align: center;
+  flex: 0 0 var(--cover); max-width: 90vw; margin: 0; scroll-snap-align: center;
   transform-style: preserve-3d; will-change: transform; cursor: zoom-in;
   transition: opacity 0.2s ease;
 }
 .cover img {
-  display: block; width: 400px; max-width: 82vw; height: 400px; object-fit: cover;
-  border-radius: 12px; background: #2a2218;
-  box-shadow: 0 26px 60px rgba(0,0,0,0.75);
+  display: block; width: var(--cover); max-width: 90vw; height: var(--cover); object-fit: cover;
+  border-radius: 14px; background: #1a2436;
+  box-shadow: 0 30px 70px rgba(0,0,0,0.78);
 }
 /* readable caption strip overlaid on the photo */
 .cover figcaption {
   position: absolute; left: 0; right: 0; bottom: 0;
-  padding: 34px 16px 14px;
-  font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.95rem; font-weight: 600; color: #fff;
+  padding: 46px 20px 18px;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: 1.05rem; font-weight: 600; color: #fff;
   text-align: left; line-height: 1.3;
   background: linear-gradient(transparent, rgba(4, 3, 8, 0.6) 40%, rgba(4, 3, 8, 0.94));
   border-radius: 0 0 12px 12px; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
@@ -635,7 +638,6 @@ body {
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 @media (max-width: 560px) {
-  .era-stage { padding-top: 16vh; }
-  .album { padding: 24px 28%; }
+  .era-stage { padding-top: 4vh; }
   .nav-arrow { width: 46px; height: 46px; font-size: 1.6rem; }
 }
