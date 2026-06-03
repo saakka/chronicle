@@ -351,15 +351,34 @@ function initGlobe2D() {
   fetch(COUNTRIES_GEOJSON)
     .then((r) => r.json())
     .then((gj) => {
-      s.features = (gj.features || []).map((f) => ({
-        admin: f.properties.ADMIN,
-        sub: f.properties.SUBREGION || null,
-        cont: f.properties.CONTINENT || null,
-        polys: f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates,
-        feat: f,
-      }));
+      s.features = (gj.features || []).map((f) => {
+        const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+        let m0 = 180, m1 = 90, m2 = -180, m3 = -90;   // bbox: minLng,minLat,maxLng,maxLat
+        for (const poly of polys) for (const ring of poly) for (const pt of ring) {
+          if (pt[0] < m0) m0 = pt[0]; if (pt[0] > m2) m2 = pt[0];
+          if (pt[1] < m1) m1 = pt[1]; if (pt[1] > m3) m3 = pt[1];
+        }
+        return {
+          admin: f.properties.ADMIN, sub: f.properties.SUBREGION || null,
+          cont: f.properties.CONTINENT || null, polys: polys, feat: f, bbox: [m0, m1, m2, m3],
+        };
+      });
+      buildDots();
     })
     .catch(() => { s.dead = true; showChips(); });
+
+  // Stipple the land into an evenly-spaced grid of dots (Radio-Garden style).
+  function buildDots() {
+    const STEP = 2.2, dots = [];
+    for (let lat = -82; lat <= 84; lat += STEP) {
+      const lngStep = STEP / Math.max(0.18, Math.cos(lat * DEG));   // even spacing on the sphere
+      for (let lng = -180; lng < 180; lng += lngStep) {
+        const f = featureAt(lng, lat);
+        if (f) dots.push({ lng: lng, lat: lat, f: f });
+      }
+    }
+    s.dots = dots;
+  }
 
   // --- orthographic projection ---
   function project(lng, lat) {
@@ -392,7 +411,11 @@ function initGlobe2D() {
     return inside;
   }
   function featureAt(lng, lat) {
-    for (const f of s.features) for (const poly of f.polys) if (pointInPoly(lng, lat, poly)) return f;
+    for (const f of s.features) {
+      const b = f.bbox;
+      if (b && (lng < b[0] || lng > b[2] || lat < b[1] || lat > b[3])) continue;  // fast reject
+      for (const poly of f.polys) if (pointInPoly(lng, lat, poly)) return f;
+    }
     return null;
   }
 
@@ -407,30 +430,31 @@ function initGlobe2D() {
     oc.addColorStop(0, "#15324f"); oc.addColorStop(0.7, "#0b2036"); oc.addColorStop(1, "#06121e");
     ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R, 0, 2 * Math.PI); ctx.fillStyle = oc; ctx.fill();
   }
-  function strokeMeridians() {
-    ctx.strokeStyle = "rgba(130,170,210,0.10)"; ctx.lineWidth = 1;
-    const lines = [];
-    for (let lat = -60; lat <= 60; lat += 30) { const a = []; for (let lng = -180; lng <= 180; lng += 4) a.push([lng, lat]); lines.push(a); }
-    for (let lng = -180; lng < 180; lng += 30) { const a = []; for (let lat = -90; lat <= 90; lat += 4) a.push([lng, lat]); lines.push(a); }
-    for (const a of lines) {
-      ctx.beginPath(); let on = false;
-      for (const [lng, lat] of a) { const p = project(lng, lat); if (!p.vis) { on = false; continue; } if (!on) { ctx.moveTo(p.x, p.y); on = true; } else ctx.lineTo(p.x, p.y); }
-      ctx.stroke();
+  // Radio-Garden-style stippled land: a field of small dots, the hovered country in gold.
+  function drawDots() {
+    if (!s.dots || !s.dots.length) return;
+    const r = Math.max(1, s.R * 0.0045);
+    const hoverF = s.hoverFeat;
+    ctx.fillStyle = "rgba(150,188,214,0.55)";
+    ctx.beginPath();
+    for (const d of s.dots) {
+      if (d.f === hoverF) continue;
+      const p = project(d.lng, d.lat);
+      if (!p.vis) continue;
+      ctx.moveTo(p.x + r, p.y); ctx.arc(p.x, p.y, r, 0, 6.2832);
     }
-  }
-  function drawCountries() {
-    for (const f of s.features) {
-      const hot = f === s.hoverFeat;
+    ctx.fill();
+    if (hoverF) {
+      ctx.fillStyle = "rgba(243,220,150,0.98)";
+      const r2 = r * 1.8;
       ctx.beginPath();
-      for (const poly of f.polys) for (const ring of poly) {
-        let on = false;
-        for (const pt of ring) { const p = project(pt[0], pt[1]); if (!p.vis) { on = false; continue; } if (!on) { ctx.moveTo(p.x, p.y); on = true; } else ctx.lineTo(p.x, p.y); }
+      for (const d of s.dots) {
+        if (d.f !== hoverF) continue;
+        const p = project(d.lng, d.lat);
+        if (!p.vis) continue;
+        ctx.moveTo(p.x + r2, p.y); ctx.arc(p.x, p.y, r2, 0, 6.2832);
       }
-      ctx.fillStyle = hot ? "rgba(212,175,82,0.62)" : "rgba(120,152,184,0.34)";
-      ctx.fill("evenodd");
-      ctx.lineWidth = hot ? 1.5 : 0.6;
-      ctx.strokeStyle = hot ? "rgba(243,220,160,0.95)" : "rgba(150,186,222,0.42)";
-      ctx.stroke();
+      ctx.fill();
     }
   }
   function render() {
@@ -445,11 +469,7 @@ function initGlobe2D() {
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
       if (s.autoRotate && !s.dragging && !s.hoverFeat && !busy) s.rotLng += 0.11;
       drawSphere();
-      ctx.save();
-      ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R, 0, 2 * Math.PI); ctx.clip();
-      strokeMeridians();
-      drawCountries();
-      ctx.restore();
+      drawDots();
     }
     requestAnimationFrame(render);
   }
@@ -888,6 +908,7 @@ function ensureEraImages(i) {
   return era._imgPromise;
 }
 
+let storyWarmTimer = null;
 async function goToEra(index) {
   if (index < 0 || index >= currentEras.length) return;
   currentEra = index;
@@ -895,51 +916,51 @@ async function goToEra(index) {
   updateTimeline();
   updateArrows();
 
-  if (!Array.isArray(era.images)) {
-    await ensureEraImages(index);
-    // If the user jumped to another era (or left) while we were fetching,
-    // abandon this stale render so it doesn't clobber the current view.
-    if (currentEra !== index || journey.hidden) return;
-  }
-
-  // backdrop (crossfade between two layers + Ken Burns)
-  const bgUrl = era.images[0] ? era.images[0].thumb : null;
-  setBackdrop(bgUrl);
-
-  // stage content, animated in
+  // Render the text INSTANTLY (don't wait on images) so navigation feels immediate.
   eraStage.classList.remove("show");
   eraStage.innerHTML = stageHtml(era, index);
   void eraStage.offsetWidth;
   eraStage.classList.add("show");
 
-  const album = eraStage.querySelector(".album");
-  if (album) {
-    const update = () => applyCoverflow(album);
-    album.addEventListener("scroll", () => requestAnimationFrame(update), { passive: true });
-    album.querySelectorAll("img").forEach((img) => img.addEventListener("load", update));
-    requestAnimationFrame(update);
-    setTimeout(update, 350);
-  }
-
-  // Fluidity: warm the neighbouring eras so prev/next is instant, and prefetch
-  // this era's legend the moment the user reaches for its button.
+  // Warm neighbours (instant prev/next), wire the legend prefetch, and warm the
+  // legend itself after a short dwell so opening it is near-instant.
   ensureEraImages(index + 1);
   ensureEraImages(index - 1);
   const cta = eraStage.querySelector(".story-cta");
   if (cta) cta.addEventListener("mouseenter", () => prefetchStory(index), { once: true });
+  clearTimeout(storyWarmTimer);
+  storyWarmTimer = setTimeout(() => { if (currentEra === index && !journey.hidden) prefetchStory(index); }, 1200);
+
+  // Fill the photo album as soon as the images are ready.
+  await fillAlbum(era, index);
+}
+
+async function fillAlbum(era, index) {
+  const imgs = Array.isArray(era.images) ? era.images : await ensureEraImages(index);
+  if (currentEra !== index || journey.hidden) return;   // user moved on — drop this stale fill
+  const album = document.getElementById("era-album");
+  if (!album) return;
+  setBackdrop(imgs[0] ? imgs[0].thumb : null);
+  if (!imgs.length) {
+    album.outerHTML = '<p class="album-empty">No archive images found for this era.</p>';
+    return;
+  }
+  album.innerHTML = imgs.map(coverHtml).join("");
+  const update = () => applyCoverflow(album);
+  album.addEventListener("scroll", () => requestAnimationFrame(update), { passive: true });
+  album.querySelectorAll("img").forEach((img) => img.addEventListener("load", update));
+  requestAnimationFrame(update);
+  setTimeout(update, 350);
 }
 
 function stageHtml(era, index) {
-  const images = Array.isArray(era.images) ? era.images : [];
   return (
     '<div class="era-copy">' +
       '<div class="era-eyebrow">Era ' + toRoman(index + 1) + " · " + esc(era.period || "") + "</div>" +
       '<h2 class="era-h">' + esc(era.title || "") + "</h2>" +
       '<p class="era-p">' + esc(era.summary || "") + "</p>" +
     "</div>" +
-    (images.length
-      ? '<div class="album">' + images.map(coverHtml).join("") + "</div>"
-      : '<p class="album-empty">No archive images found for this era.</p>') +
+    '<div class="album" id="era-album"></div>' +
     '<button class="story-cta" data-story="' + index + '">❧ &nbsp;Hear the legend of this era</button>'
   );
 }

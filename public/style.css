@@ -355,9 +355,16 @@ body {
   display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
   perspective: 2600px; margin-top: 2vh;
   padding: 3vh calc(50% - var(--cover) / 2) 1vh;
+  min-height: calc(var(--cover) + 4vh);   /* reserve space so the page doesn't jump when photos load */
   -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
 .album::-webkit-scrollbar { display: none; }
+.album:empty { justify-content: center; align-items: center; }
+.album:empty::after {
+  content: "Gathering images…";
+  color: var(--muted); font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.9rem; letter-spacing: 0.08em; opacity: 0.8;
+}
 .cover {
   position: relative;
   flex: 0 0 var(--cover); max-width: 90vw; margin: 0; scroll-snap-align: center;

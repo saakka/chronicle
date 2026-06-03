@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Free Kick</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0b1020; }
+  #app { position: fixed; inset: 0; cursor: none; }
+  canvas { display: block; }
+
+  /* ---------- HUD ---------- */
+  .hud { position: fixed; inset: 0; pointer-events: none;
+         font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+         color: #fff; user-select: none; }
+
+  /* Scoreboard top-left */
+  #scoreboard { position: absolute; top: 18px; left: 18px;
+    background: rgba(8,14,30,0.55); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px; padding: 10px 16px; backdrop-filter: blur(6px);
+    box-shadow: 0 6px 24px rgba(0,0,0,0.35); }
+  #scoreboard .row { display: flex; gap: 18px; align-items: baseline; }
+  #scoreboard .stat { text-align: center; }
+  #scoreboard .num { font-size: 26px; font-weight: 800; letter-spacing: .5px;
+    line-height: 1; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
+  #scoreboard .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 2px;
+    opacity: .7; margin-top: 4px; }
+  #scoreboard .num.green { color: #46e08a; }
+  #scoreboard .num.gold  { color: #ffd34d; }
+
+  /* Title top-right */
+  #title { position: absolute; top: 18px; right: 20px; text-align: right; }
+  #title .t1 { font-size: 22px; font-weight: 800; letter-spacing: 3px;
+    text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+  #title .t2 { font-size: 11px; letter-spacing: 4px; opacity: .65; margin-top: 2px; }
+
+  /* Center result banner */
+  #banner { position: absolute; top: 34%; left: 50%; transform: transl(-50%,-50%) scale(.6);
+    font-size: 84px; font-weight: 900; letter-spacing: 4px; opacity: 0;
+    text-shadow: 0 6px 30px rgba(0,0,0,.6); transition: none; white-space: nowrap;
+    transform: translate(-50%,-50%) scale(.6); }
+  #banner.show { animation: pop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
+  @keyframes pop { 0%{opacity:0; transform:translate(-50%,-50%) scale(.5) rotate(-4deg);}
+                   60%{opacity:1; transform:translate(-50%,-50%) scale(1.08) rotate(1deg);}
+                   100%{opacity:1; transform:translate(-50%,-50%) scale(1) rotate(0);} }
+
+  /* Bottom control cluster */
+  #controls { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+    width: min(560px, 92vw); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+
+  /* Power bar */
+  #powerWrap { width: 100%; height: 22px; border-radius: 12px;
+    background: rgba(8,14,30,0.55); border: 1px solid rgba(255,255,255,0.14);
+    overflow: hidden; position: relative; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+  #powerBar { height: 100%; width: 0%;
+    background: linear-gradient(90deg,#36d97a 0%, #ffe14d 55%, #ff5d5d 100%);
+    transition: width .03s linear; }
+  #powerWrap .ticks { position: absolute; inset: 0; pointer-events: none;
+    background-image: repeating-linear-gradient(90deg, transparent 0 9.9%, rgba(0,0,0,.18) 10% 10.2%); }
+  #powerLabel { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase; opacity: .85; text-shadow: 0 1px 2px #000; }
+
+  /* Curve meter */
+  #curveWrap { width: 60%; height: 8px; border-radius: 6px; position: relative;
+    background: rgba(8,14,30,0.55); border: 1px solid rgba(255,255,255,0.14); }
+  #curveDot { position: absolute; top: 50%; left: 50%; width: 14px; height: 14px;
+    border-radius: 50%; background: #8fd0ff; transform: translate(-50%,-50%);
+    box-shadow: 0 0 10px #8fd0ff, 0 0 2px #fff; }
+  #curveWrap .mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px;
+    background: rgba(255,255,255,.35); }
+
+  #hint { font-size: 12.5px; letter-spacing: .4px; opacity: .8; text-align: center;
+    text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  #hint b { color: #ffe14d; font-weight: 700; }
+
+  /* Start overlay */
+  #start { position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 22px;
+    background: radial-gradient(120% 90% at 50% 30%, rgba(10,18,40,.55), rgba(6,10,24,.85));
+    backdrop-filter: blur(3px); pointer-events: auto; transition: opacity .5s ease; }
+  #start h1 { font-size: 64px; font-weight: 900; letter-spacing: 6px;
+    background: linear-gradient(180deg,#fff,#9fd0ff); -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; text-shadow: 0 8px 40px rgba(80,160,255,.25); }
+  #start .sub { font-size: 14px; letter-spacing: 5px; text-transform: uppercase; opacity: .6; margin-top: -10px; }
+  #start .keys { display: flex; gap: 26px; margin-top: 6px; flex-wrap: wrap; justify-content: center; max-width: 680px; }
+  #start .key { text-align: center; width: 150px; }
+  #start .key .ico { font-size: 30px; margin-bottom: 8px; }
+  #start .key .d { font-size: 12.5px; opacity: .8; line-height: 1.5; }
+  #start button { pointer-events: auto; margin-top: 8px; cursor: pointer;
+    font-size: 18px; font-weight: 800; letter-spacing: 3px; color: #06210f;
+    background: linear-gradient(180deg,#5cf2a0,#23c96e); border: none; border-radius: 40px;
+    padding: 16px 44px; box-shadow: 0 10px 30px rgba(40,220,120,.35); text-transform: uppercase;
+    transition: transform .12s ease, box-shadow .12s ease; }
+  #start button:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 14px 38px rgba(40,220,120,.5); }
+  #start.hidden { opacity: 0; pointer-events: none; }
+
+  #err { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    color: #ffb4b4; font-family: monospace; font-size: 14px; padding: 40px; text-align: center;
+    background: #140a0a; z-index: 99; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div class="hud">
+    <div id="scoreboard">
+      <div class="row">
+        <div class="stat"><div id="sGoals" class="num green">0</div><div class="lbl">Goals</div></div>
+        <div class="stat"><div id="sShots" class="num">0</div><div class="lbl">Shots</div></div>
+        <div class="stat"><div id="sStreak" class="num gold">0</div><div class="lbl">Streak</div></div>
+      </div>
+    </div>
+
+    <div id="title"><div class="t1">FREE KICK</div><div class="t2">BEND IT IN</div></div>
+
+    <div id="banner"></div>
+
+    <div id="controls">
+      <div id="curveWrap"><div class="mid"></div><div id="curveDot"></div></div>
+      <div id="powerWrap">
+        <div id="powerBar"></div><div class="ticks"></div>
+        <div id="powerLabel">POWER</div>
+      </div>
+      <div id="hint"><b>Move</b> to aim &nbsp;•&nbsp; <b>Hold click</b> to power &nbsp;•&nbsp; <b>Drag ←/→</b> to curve &nbsp;•&nbsp; <b>Release</b> to shoot</div>
+    </div>
+  </div>
+
+  <div id="start">
+    <h1>FREE KICK</h1>
+    <div class="sub">bend it like you mean it</div>
+    <div class="keys">
+      <div class="key"><div class="ico">🖱️</div><div class="d"><b>Move mouse</b><br>aim at the goal</div></div>
+      <div class="key"><div class="ico">⏳</div><div class="d"><b>Hold click</b><br>charge the power</div></div>
+      <div class="key"><div class="ico">↔️</div><div class="d"><b>Drag left / right</b><br>(or A / D) to curve</div></div>
+      <div class="key"><div class="ico">⚽</div><div class="d"><b>Release</b><br>strike it & score</div></div>
+    </div>
+    <button id="startBtn">PLAY</button>
+  </div>
+
+  <div id="err"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+  "use strict";
+  (function () {
+  // ===================================================================
+  //  CONFIG  — tweak these to change feel; we iterate here.
+  // ===================================================================
+  const CONFIG = {
+    ballZ:       19.0,   // distance from goal line (m) to the ball
+    ballR:       0.12,
+    goalW:       7.32,   // real goal width
+    goalH:       2.44,   // real goal height
+    wallDist:    9.15,   // wall distance from ball (regulation)
+    wallCount:   4,
+    wallHalfW:   1.05,   // effective horizontal half-width the wall blocks
+    wallBlockH:  2.05,   // effective height the wall blocks (with jump)
+    wallCenterX: 0.0,    // wall centred on goal
+    gravity:     10.4,
+    minSpeed:    16.0,   // m/s at 0 power
+    maxSpeed:    30.0,   // m/s at full power
+    chargeTime:  1.05,   // seconds to fill the power bar
+    curveStrength: 7.5,  // lateral accel (m/s^2) at full curve
+    curveSens:   0.0075, // mouse px -> curve units
+    keeperRange: 1.75,   // how far keeper can reach from centre
+    keeperHeight:1.95,   // how high keeper can reach
+    aimRangeX:   5.2,    // how far left/right the reticle can roam (m)
+    aimYmin:     0.25,
+    aimYmax:     4.1,
+    previewPower:0.55,   // assumed power for the aim preview before charging
+  };
+
+  const GOAL_HALF = CONFIG.goalW / 2;
+  const WALL_Z = CONFIG.ballZ - CONFIG.wallDist;
+
+  // ---- tiny helpers ----
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp  = (a,b,t)=>a+(b-a)*t;
+  const $ = id => document.getElementById(id);
+
+  // ===================================================================
+  //  BOOT
+  // ===================================================================
+  let renderer, scene, camera;
+  let ball, reticle, trajLine, keeper, keeperGroup, wallGroup;
+  const ballHome = new THREE.Vector3(0, CONFIG.ballR, CONFIG.ballZ);
+
+  // game state
+  const ST = { AIM:'AIM', CHARGE:'CHARGE', FLIGHT:'FLIGHT', RESULT:'RESULT' };
+  let state = ST.AIM;
+  let started = false;
+
+  const aim = { x: 0.4, y: 1.4 };       // current aim point on goal plane
+  let curve = 0;                         // -1..1
+  let power = 0;                         // 0..1
+  let chargeStart = 0;
+
+  // flight
+  let ballVel = new THREE.Vector3();
+  let ballCurve = 0;
+  let flightAcc = 0;
+  let plan = null;                       // precomputed simulation result
+  let wallHandled = false;
+  let resultAt = 0;
+
+  // score
+  let goals = 0, shots = 0, streak = 0, best = 0;
+
+  const keys = { left:false, right:false };
+  let clock;
+
+  try { init(); } catch (e) { showErr(e); }
+
+  function showErr(e){
+    const el = $('err'); el.style.display='flex';
+    el.textContent = 'Something broke while loading the game:\n\n' + (e && e.stack ? e.stack : e);
+    console.error(e);
+  }
+
+  // ===================================================================
+  //  SCENE
+  // ===================================================================
+  function init() {
+    if (typeof THREE === 'undefined') throw new Error('Three.js failed to load (no internet?).');
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    $('app').appendChild(renderer.domElement);
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x8ec5ff);
+    scene.fog = new THREE.Fog(0x8ec5ff, 45, 95);
+
+    camera = new THREE.PerspectiveCamera(48, window.innerWidth/window.innerHeight, 0.1, 200);
+    resetCamera();
+
+    // ---- lights ----
+    const hemi = new THREE.HemisphereLight(0xbfe3ff, 0x3a6b3a, 0.95);
+    scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xfff4e0, 1.15);
+    sun.position.set(-14, 26, 18);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 1; sun.shadow.camera.far = 80;
+    sun.shadow.camera.left = -20; sun.shadow.camera.right = 20;
+    sun.shadow.camera.top = 20; sun.shadow.camera.bottom = -20;
+    sun.shadow.bias = -0.0004;
+    scene.add(sun);
+
+    buildPitch();
+    buildStadium();
+    buildGoal();
+    buildWall();
+    buildKeeper();
+    buildBall();
+    buildAimHelpers();
+
+    clock = new THREE.Clock();
+    window.addEventListener('resize', onResize);
+    bindInput();
+    animate();
+  }
+
+  function resetCamera(){
+    camera.position.set(0, 2.7, CONFIG.ballZ + 4.2);
+    camera.lookAt(0, 1.25, 0);
+  }
+
+  // ---- procedural textures ----
+  function pitchTexture(){
+    const c = document.createElement('canvas'); c.width = c.height = 512;
+    const g = c.getContext('2d');
+    for (let i=0;i<8;i++){
+      g.fillStyle = (i%2===0) ? '#3f9b40' : '#379139';
+      g.fillRect(0, i*64, 512, 64);
+    }
+    // subtle mow speckle
+    for (let i=0;i<4000;i++){
+      g.fillStyle = 'rgba(255,255,255,'+(Math.random()*0.025)+')';
+      g.fillRect(Math.random()*512, Math.random()*512, 1, 2);
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  }
+
+  function netTexture(){
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    g.clearRect(0,0,128,128);
+    g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 1.4;
+    for (let i=0;i<=128;i+=12){
+      g.beginPath(); g.moveTo(i,0); g.lineTo(i,128); g.stroke();
+      g.beginPath(); g.moveTo(0,i); g.lineTo(128,i); g.stroke();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  }
+
+  function ballTexture(){
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const g = c.getContext('2d');
+    g.fillStyle = '#f6f6f6'; g.fillRect(0,0,256,256);
+    // classic black pentagon blobs (approximate)
+    const spots = [[128,60],[60,150],[196,150],[100,210],[200,40],[30,40]];
+    g.fillStyle = '#1a1a1a';
+    spots.forEach(([x,y])=>{
+      g.beginPath();
+      for (let k=0;k<5;k++){
+        const a = (k/5)*Math.PI*2 - Math.PI/2;
+        const r = 26;
+        const px = x + Math.cos(a)*r, py = y + Math.sin(a)*r;
+        k===0 ? g.moveTo(px,py) : g.lineTo(px,py);
+      }
+      g.closePath(); g.fill();
+    });
+    return new THREE.CanvasTexture(c);
+  }
+
+  function crowdTexture(){
+    const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+    const g = c.getContext('2d');
+    g.fillStyle = '#1c2433'; g.fillRect(0,0,256,128);
+    const cols = ['#e74c3c','#3498db','#ecf0f1','#f1c40f','#2ecc71','#e67e22','#ffffff'];
+    for (let i=0;i<2600;i++){
+      g.fillStyle = cols[(Math.random()*cols.length)|0];
+      g.globalAlpha = 0.5 + Math.random()*0.5;
+      g.fillRect(Math.random()*256, Math.random()*128, 2, 2);
+    }
+    g.globalAlpha = 1;
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  }
+
+  function buildPitch(){
+    const tex = pitchTexture();
+    tex.repeat.set(6, 8);
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1 });
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 160), mat);
+    ground.rotation.x = -Math.PI/2;
+    ground.position.z = -20;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // white lines (thin boxes laid flat)
+    const lineMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .9 });
+    const line = (w,d,x,z)=>{
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w,0.02,d), lineMat);
+      m.position.set(x, 0.012, z); m.receiveShadow = true; scene.add(m); return m;
+    };
+    // goal line
+    line(40, 0.12, 0, 0);
+    // penalty box (16.5m) and 6-yard box, drawn as outlines
+    const penD = 16.5, penW = 40.3, sixD = 5.5, sixW = 18.3;
+    line(penW, 0.12, 0, penD);                       // penalty box front
+    line(0.12, penD, -penW/2, penD/2);               // left side
+    line(0.12, penD,  penW/2, penD/2);               // right side
+    line(sixW, 0.12, 0, sixD);                        // six-yard front
+    line(0.12, sixD, -sixW/2, sixD/2);
+    line(0.12, sixD,  sixW/2, sixD/2);
+    // penalty spot
+    const spot = new THREE.Mesh(new THREE.CircleGeometry(0.16, 16), lineMat);
+    spot.rotation.x = -Math.PI/2; spot.position.set(0, 0.013, 11); scene.add(spot);
+  }
+
+  function buildStadium(){
+    // simple crowd backdrop ring behind/around the goal
+    const tex = crowdTexture(); tex.repeat.set(10, 2);
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, side: THREE.DoubleSide });
+    const stand = (w, x, z, ry)=>{
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, 9), mat.clone());
+      m.position.set(x, 4, z); m.rotation.y = ry; scene.add(m);
+    };
+    stand(60, 0, -14, 0);          // behind goal
+    stand(50, -26, 4, Math.PI/2);  // left
+    stand(50,  26, 4, -Math.PI/2); // right
+    // a dark advertising hoarding behind the goal
+    const board = new THREE.Mesh(new THREE.BoxGeometry(40, 1.1, 0.3),
+      new THREE.MeshStandardMaterial({ color: 0x10203a }));
+    board.position.set(0, 0.55, -7); scene.add(board);
+  }
+
+  function buildGoal(){
+    const postR = 0.06;
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .4, metalness: .1 });
+    const H = CONFIG.goalH, W = CONFIG.goalW;
+    const mkPost = (x)=>{
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(postR, postR, H, 16), mat);
+      m.position.set(x, H/2, 0); m.castShadow = true; scene.add(m);
+    };
+    mkPost(-GOAL_HALF); mkPost(GOAL_HALF);
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(postR, postR, W+postR*2, 16), mat);
+    bar.rotation.z = Math.PI/2; bar.position.set(0, H, 0); bar.castShadow = true; scene.add(bar);
+
+    // net
+    const nTex = netTexture();
+    const depth = 1.7;
+    const nMat = ()=> new THREE.MeshStandardMaterial({ map: nTex.clone(), transparent:true,
+      opacity:0.9, side:THREE.DoubleSide, roughness:1, depthWrite:false });
+    // back
+    let n = nMat(); n.map.repeat.set(W, H);
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), n);
+    back.position.set(0, H/2, -depth); scene.add(back);
+    // top
+    n = nMat(); n.map.repeat.set(W, depth);
+    const top = new THREE.Mesh(new THREE.PlaneGeometry(W, depth), n);
+    top.rotation.x = Math.PI/2; top.position.set(0, H, -depth/2); scene.add(top);
+    // sides
+    [-GOAL_HALF, GOAL_HALF].forEach(x=>{
+      const s = nMat(); s.map.repeat.set(depth, H);
+      const side = new THREE.Mesh(new THREE.PlaneGeometry(depth, H), s);
+      side.rotation.y = Math.PI/2; side.position.set(x, H/2, -depth/2); scene.add(side);
+    });
+  }
+
+  // ---- a simple stylised footballer ----
+  function makePlayer(shirt, shorts, skin){
+    const g = new THREE.Group();
+    const sMat = new THREE.MeshStandardMaterial({ color: shirt, roughness:.8 });
+    const pMat = new THREE.MeshStandardMaterial({ color: shorts, roughness:.8 });
+    const kMat = new THREE.MeshStandardMaterial({ color: skin, roughness:.7 });
+
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.3,0.7,12), sMat);
+    torso.position.y = 1.25; g.add(torso);
+    const hips = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.26,0.28,12), pMat);
+    hips.position.y = 0.86; g.add(hips);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.17,16,16), kMat);
+    head.position.y = 1.78; g.add(head);
+    const legGeo = new THREE.CylinderGeometry(0.1,0.08,0.78,10);
+    const lL = new THREE.Mesh(legGeo, pMat); lL.position.set(-0.12,0.4,0); g.add(lL);
+    const lR = new THREE.Mesh(legGeo, pMat); lR.position.set(0.12,0.4,0); g.add(lR);
+    const armGeo = new THREE.CylinderGeometry(0.07,0.06,0.62,10);
+    const aL = new THREE.Mesh(armGeo, sMat); aL.position.set(-0.34,1.28,0); aL.rotation.z=0.18; g.add(aL);
+    const aR = new THREE.Mesh(armGeo, sMat); aR.position.set(0.34,1.28,0); aR.rotation.z=-0.18; g.add(aR);
+    g.traverse(o=>{ if(o.isMesh){o.castShadow=true;} });
+    g.userData = { aL, aR, head, torso };
+    return g;
+  }
+
+  function buildWall(){
+    wallGroup = new THREE.Group();
+    const n = CONFIG.wallCount;
+    const spacing = 0.5;
+    const startX = CONFIG.wallCenterX - (n-1)*spacing/2;
+    for (let i=0;i<n;i++){
+      const p = makePlayer(0xdb2b39, 0xffffff, 0xe8b48c);
+      p.position.set(startX + i*spacing, 0, WALL_Z);
+      p.userData.baseY = 0;
+      wallGroup.add(p);
+    }
+    scene.add(wallGroup);
+  }
+
+  function buildKeeper(){
+    keeperGroup = new THREE.Group();
+    keeper = makePlayer(0x16c2c2, 0x0c3b3b, 0xe8b48c);
+    keeper.position.set(0,0,0.25);
+    keeperGroup.add(keeper);
+    scene.add(keeperGroup);
+  }
+
+  function buildBall(){
+    const mat = new THREE.MeshStandardMaterial({ map: ballTexture(), roughness:.45, metalness:.02 });
+    ball = new THREE.Mesh(new THREE.SphereGeometry(CONFIG.ballR, 28, 28), mat);
+    ball.castShadow = true;
+    ball.position.copy(ballHome);
+    scene.add(ball);
+
+    // soft contact shadow blob under ball (helps read height)
+    const blobTex = (()=>{
+      const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d');
+      const grd=g.createRadialGradient(32,32,2,32,32,30);
+      grd.addColorStop(0,'rgba(0,0,0,0.5)'); grd.addColorStop(1,'rgba(0,0,0,0)');
+      g.fillStyle=grd; g.fillRect(0,0,64,64); return new THREE.CanvasTexture(c);
+    })();
+    ball.userData.blob = new THREE.Mesh(new THREE.PlaneGeometry(0.6,0.6),
+      new THREE.MeshBasicMaterial({ map: blobTex, transparent:true, depthWrite:false }));
+    ball.userData.blob.rotation.x = -Math.PI/2;
+    scene.add(ball.userData.blob);
+  }
+
+  function buildAimHelpers(){
+    reticle = new THREE.Mesh(
+      new THREE.RingGeometry(0.22, 0.32, 28),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.9, side:THREE.DoubleSide })
+    );
+    scene.add(reticle);
+    const inner = new THREE.Mesh(new THREE.CircleGeometry(0.05, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    reticle.add(inner);
+
+    trajLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),
+      new THREE.LineBasicMaterial({ color: 0xffe14d, transparent:true, opacity:0.9 })
+    );
+    scene.add(trajLine);
+  }
+
+  // ===================================================================
+  //  PHYSICS  — launch + simulate (shared by preview & the real shot)
+  // ===================================================================
+  function computeLaunch(aimPt, pwr){
+    const speed = lerp(CONFIG.minSpeed, CONFIG.maxSpeed, pwr);
+    const t = CONFIG.ballZ / speed;           // time to reach goal plane (z=0)
+    const vx = (aimPt.x - ballHome.x) / t;
+    const vy = (aimPt.y - ballHome.y) / t + 0.5 * CONFIG.gravity * t;
+    const vz = -speed;
+    return new THREE.Vector3(vx, vy, vz);
+  }
+
+  // Step physics deterministically. Returns events + (optionally) points.
+  function simulate(vel0, crv, collect){
+    const dt = 1/120, g = CONFIG.gravity;
+    const p = ballHome.clone();
+    const v = vel0.clone();
+    const pts = collect ? [p.clone()] : null;
+    let hitWall = false, wallPos = null, tWall = null;
+    let crossX = null, crossY = null, tCross = null;
+    let t = 0;
+    let prev = p.clone();
+    for (let i=0;i<1500;i++){
+      prev.copy(p);
+      v.x += crv * CONFIG.curveStrength * dt;
+      v.y -= g * dt;
+      p.addScaledVector(v, dt);
+      t += dt;
+
+      // wall plane
+      if (!hitWall && prev.z > WALL_Z && p.z <= WALL_Z){
+        const a = (prev.z - WALL_Z) / (prev.z - p.z);
+        const wx = lerp(prev.x, p.x, a), wy = lerp(prev.y, p.y, a);
+        if (Math.abs(wx - CONFIG.wallCenterX) <= CONFIG.wallHalfW && wy <= CONFIG.wallBlockH && wy >= 0){
+          hitWall = true; wallPos = new THREE.Vector3(wx, wy, WALL_Z); tWall = t;
+        }
+      }
+      // goal plane
+      if (prev.z > 0 && p.z <= 0){
+        const a = (prev.z) / (prev.z - p.z);
+        crossX = lerp(prev.x, p.x, a); crossY = lerp(prev.y, p.y, a); tCross = t;
+        if (collect) pts.push(new THREE.Vector3(crossX, crossY, 0));
+        break;
+      }
+      if (collect && i % 2 === 0) pts.push(p.clone());
+      if (p.y < -0.5) break;
+    }
+    return { pts, hitWall, wallPos, tWall, crossX, crossY, tCross };
+  }
+
+  // ===================================================================
+  //  AIM / PREVIEW
+  // ===================================================================
+  function updateAimFromMouse(nx, ny){
+    aim.x = clamp(nx * CONFIG.aimRangeX, -CONFIG.aimRangeX, CONFIG.aimRangeX);
+    aim.y = clamp(lerp(CONFIG.aimYmin, CONFIG.aimYmax, (ny+1)/2), CONFIG.aimYmin, CONFIG.aimYmax);
+  }
+
+  function refreshPreview(){
+    reticle.visible = (state===ST.AIM || state===ST.CHARGE);
+    trajLine.visible = reticle.visible;
+    if (!reticle.visible) return;
+    reticle.position.set(aim.x, aim.y, 0.06);
+
+    const pwr = (state===ST.CHARGE) ? power : CONFIG.previewPower;
+    const vel = computeLaunch(aim, pwr);
+    const sim = simulate(vel, curve, true);
+    trajLine.geometry.dispose();
+    trajLine.geometry = new THREE.BufferGeometry().setFromPoints(sim.pts);
+    // colour the line by whether it currently beats the wall / is on target
+    const onTarget = sim.crossX!==null && Math.abs(sim.crossX) < GOAL_HALF && sim.crossY < CONFIG.goalH && sim.crossY>0;
+    trajLine.material.color.setHex(sim.hitWall ? 0xff5d5d : (onTarget ? 0x46e08a : 0xffe14d));
+  }
+
+  // ===================================================================
+  //  SHOOTING
+  // ===================================================================
+  function startCharge(){
+    if (state!==ST.AIM) return;
+    state = ST.CHARGE;
+    power = 0; chargeStart = clock.getElapsedTime();
+    $('powerLabel').textContent = '';
+  }
+
+  function releaseShot(){
+    if (state!==ST.CHARGE) return;
+    const vel = computeLaunch(aim, Math.max(0.08, power));
+    plan = simulate(vel, curve, false);
+    ballVel.copy(vel); ballCurve = curve; flightAcc = 0; wallHandled = false;
+    state = ST.FLIGHT;
+    shots++; updateScore();
+    // decide keeper dive target now (knows the crossing point)
+    setupKeeperDive(plan);
+    reticle.visible = false; trajLine.visible = false;
+  }
+
+  // ===================================================================
+  //  KEEPER
+  // ===================================================================
+  let keeperDive = null;
+  function setupKeeperDive(sim){
+    // where will the ball cross? keeper commits with a little error & delay.
+    const cx = sim.crossX!==null ? sim.crossX : 0;
+    const err = (Math.random()-0.5) * 0.8;
+    const target = clamp(cx + err, -GOAL_HALF, GOAL_HALF);
+    const reach = CONFIG.keeperRange + Math.random()*0.25;
+    const saves = sim.crossX!==null && !sim.hitWall &&
+                  Math.abs(sim.crossX) <= reach && sim.crossY <= CONFIG.keeperHeight && sim.crossY > 0;
+    keeperDive = { from: 0, to: clamp(target, -reach-0.3, reach+0.3), t: 0,
+                   dur: sim.tCross ? sim.tCross*0.95 : 0.8, saves, dir: Math.sign(target)||1 };
+  }
+
+  function updateKeeper(dt){
+    if (!keeperDive){ keeper.position.set(0,0,0.25); keeper.rotation.z=0; return; }
+    keeperDive.t = Math.min(keeperDive.dur, keeperDive.t + dt);
+    const k = keeperDive.dur>0 ? keeperDive.t/keeperDive.dur : 1;
+    const e = 1-Math.pow(1-k,2);  // ease out
+    keeper.position.x = lerp(keeperDive.from, keeperDive.to, e);
+    // dive: rotate & rise as he commits to a side
+    const dive = Math.abs(keeperDive.to) > 0.6 ? e : 0;
+    keeper.rotation.z = -keeperDive.dir * dive * 1.1;
+    keeper.position.y = dive * 0.5;
+    keeper.position.z = 0.25;
+    keeper.userData.aL.rotation.z = 1.6 + dive;  // raise arms
+    keeper.userData.aR.rotation.z = -1.6 - dive;
+  }
+
+  function resetKeeper(){
+    keeperDive = null;
+    keeper.position.set(0,0,0.25); keeper.rotation.z=0;
+    keeper.userData.aL.rotation.z = 0.18; keeper.userData.aR.rotation.z = -0.18;
+  }
+
+  // ===================================================================
+  //  FLIGHT + RESULT
+  // ===================================================================
+  function stepFlight(dt){
+    const sub = 1/120;
+    flightAcc += dt;
+    while (flightAcc >= sub){
+      flightAcc -= sub;
+      ballVel.x += ballCurve * CONFIG.curveStrength * sub;
+      ballVel.y -= CONFIG.gravity * sub;
+      ball.position.addScaledVector(ballVel, sub);
+      // spin the ball visually
+      ball.rotation.x -= ballVel.z * sub * 1.5;
+      ball.rotation.z -= ballVel.x * sub * 1.5;
+
+      // wall block
+      if (!wallHandled && plan.hitWall && ball.position.z <= WALL_Z){
+        wallHandled = true;
+        ball.position.copy(plan.wallPos);
+        return finish('BLOCKED', '#ff7a7a');
+      }
+      // reached goal plane
+      if (ball.position.z <= 0){
+        ball.position.set(plan.crossX, Math.max(CONFIG.ballR, plan.crossY), 0);
+        return resolveGoal();
+      }
+      if (ball.position.y < CONFIG.ballR){ // bounced on ground before goal
+        ball.position.y = CONFIG.ballR; ballVel.y = Math.abs(ballVel.y)*0.45; ballVel.multiplyScalar(0.86);
+      }
+    }
+  }
+
+  function resolveGoal(){
+    const x = plan.crossX, y = plan.crossY;
+    const insideX = Math.abs(x) < GOAL_HALF - CONFIG.ballR;
+    const insideY = y > CONFIG.ballR*0.5 && y < CONFIG.goalH - CONFIG.ballR*0.5;
+    // post / bar flavour
+    const postHit = !insideX && Math.abs(x) < GOAL_HALF + CONFIG.ballR + 0.05 && y < CONFIG.goalH;
+    if (insideX && insideY){
+      if (keeperDive && keeperDive.saves) return finish('SAVED!', '#7ad0ff');
+      goals++; streak++; best=Math.max(best,streak); updateScore();
+      return finish('GOAL!', '#5cf2a0');
+    }
+    streak = 0; updateScore();
+    return finish(postHit ? 'OFF THE POST!' : 'MISS!', '#ffd34d');
+  }
+
+  function finish(text, color){
+    state = ST.RESULT;
+    resultAt = clock.getElapsedTime();
+    const b = $('banner');
+    b.textContent = text; b.style.color = color;
+    b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+    $('powerBar').style.width = '0%';
+  }
+
+  function resetForNextShot(){
+    ball.position.copy(ballHome);
+    ballVel.set(0,0,0);
+    ball.rotation.set(0,0,0);
+    power = 0; curve = 0; plan = null;
+    $('powerBar').style.width = '0%';
+    $('powerLabel').textContent = 'POWER';
+    $('banner').classList.remove('show');
+    resetKeeper();
+    state = ST.AIM;
+  }
+
+  // ===================================================================
+  //  HUD
+  // ===================================================================
+  function updateScore(){
+    $('sGoals').textContent = goals;
+    $('sShots').textContent = shots;
+    $('sStreak').textContent = streak;
+  }
+  function updateHud(){
+    if (state===ST.CHARGE){
+      $('powerBar').style.width = (power*100).toFixed(0)+'%';
+    }
+    const cd = $('curveDot');
+    cd.style.left = (50 + curve*50) + '%';
+  }
+
+  // ===================================================================
+  //  INPUT
+  // ===================================================================
+  function bindInput(){
+    const app = $('app');
+
+    app.addEventListener('mousemove', (e)=>{
+      const nx = (e.clientX / window.innerWidth) * 2 - 1;
+      const ny = -((e.clientY / window.innerHeight) * 2 - 1);
+      if (state===ST.AIM){
+        updateAimFromMouse(nx, ny);
+      } else if (state===ST.CHARGE){
+        curve = clamp(curve + e.movementX * CONFIG.curveSens, -1, 1);
+        // small vertical aim nudge while charging (loft control)
+        aim.y = clamp(aim.y - e.movementY * 0.004, CONFIG.aimYmin, CONFIG.aimYmax);
+      }
+    });
+
+    app.addEventListener('mousedown', (e)=>{ if(e.button===0) startCharge(); });
+    window.addEventListener('mouseup', (e)=>{ if(e.button===0) releaseShot(); });
+
+    window.addEventListener('keydown', (e)=>{
+      if (e.code==='KeyA' || e.code==='ArrowLeft'){ keys.left=true; }
+      if (e.code==='KeyD' || e.code==='ArrowRight'){ keys.right=true; }
+      if (e.code==='Space'){ e.preventDefault();
+        if (state===ST.RESULT) resetForNextShot();
+        else if (state===ST.AIM) startCharge();
+        else if (state===ST.CHARGE) releaseShot();
+      }
+      if (e.code==='KeyR' && state===ST.RESULT) resetForNextShot();
+    });
+    window.addEventListener('keyup', (e)=>{
+      if (e.code==='KeyA' || e.code==='ArrowLeft'){ keys.left=false; }
+      if (e.code==='KeyD' || e.code==='ArrowRight'){ keys.right=false; }
+    });
+
+    $('startBtn').addEventListener('click', ()=>{
+      started = true;
+      $('start').classList.add('hidden');
+    });
+  }
+
+  // ===================================================================
+  //  LOOP
+  // ===================================================================
+  function animate(){
+    requestAnimationFrame(animate);
+    const dt = Math.min(0.05, clock.getDelta());
+    if (!started){ renderer.render(scene, camera); return; }
+
+    // keyboard curve while charging
+    if (state===ST.CHARGE){
+      if (keys.left)  curve = clamp(curve - 1.4*dt, -1, 1);
+      if (keys.right) curve = clamp(curve + 1.4*dt, -1, 1);
+      power = clamp((clock.getElapsedTime()-chargeStart)/CONFIG.chargeTime, 0, 1);
+    }
+
+    if (state===ST.AIM || state===ST.CHARGE) refreshPreview();
+    if (state===ST.FLIGHT){ stepFlight(dt); updateKeeper(dt); cameraFollow(dt); }
+    if (state===ST.RESULT){
+      if (clock.getElapsedTime()-resultAt > 1.8) resetForNextShot();
+      else { resetCameraLerp(dt); }
+    }
+
+    // contact shadow under the ball
+    if (ball.userData.blob){
+      ball.userData.blob.position.set(ball.position.x, 0.014, ball.position.z);
+      const s = clamp(1 - ball.position.y*0.16, 0.4, 1);
+      ball.userData.blob.scale.set(s,s,s);
+      ball.userData.blob.material.opacity = clamp(0.5*s, 0.08, 0.5);
+    }
+
+    updateHud();
+    renderer.render(scene, camera);
+  }
+
+  function cameraFollow(dt){
+    // gentle drama: ease the lookAt toward the ball
+    const look = new THREE.Vector3(ball.position.x*0.5, clamp(ball.position.y,0.6,3), ball.position.z*0.4);
+    camera.lookAt(look);
+  }
+  function resetCameraLerp(dt){
+    camera.position.lerp(new THREE.Vector3(0,2.7,CONFIG.ballZ+4.2), 1-Math.pow(0.001,dt));
+    camera.lookAt(0,1.25,0);
+  }
+
+  function onResize(){
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  })();
+  </script>
+</body>
+</html>

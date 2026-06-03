@@ -58,6 +58,16 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- LEGENDS TIGHTER + RADIO-GARDEN DOTTED GLOBE + MORE FLUID (Ahmad: legends too wordy; globe should look
+  like Radio Garden not the outlined one; even more fluid).
+  (a) STORY_PROMPT now = one punchy sentence/beat (~18-28 words, no filler). Verified ~23 words/beat.
+  (b) 2D fallback globe rewritten to a STIPPLED DOT globe (Radio-Garden look): per-feature bbox + a
+      cos-lat-even land-dot grid (buildDots), drawn as batched small dots on the dark sphere; hovered
+      country's dots glow gold. Dropped polygon fills + graticule. featureAt uses bbox fast-reject (also
+      speeds hover). Verified: dotted continents render + click entered a country.
+  (c) FLUIDITY: goToEra renders era TEXT instantly, then fillAlbum() injects photos when ready (album
+      reserves min-height so no layout jump; shows "Gathering images…"); legend warms after a 1.2s dwell
+      (plus on hover). Verified: title present 60ms after entering timeline; covers fill to 600px.
 - LEGENDS + FLUIDITY + BIGGER PHOTOS (Ahmad: "the legends cannot be summoned", "more fluid",
   "in the timeline page make the picture waay bigger"). Diagnosed legend failure = Gemini FREE tier
   20 req/day → 429 RESOURCE_EXHAUSTED (not a code bug). Fixes:
