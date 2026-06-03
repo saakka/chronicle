@@ -366,7 +366,10 @@ body {
   display: block; width: var(--cover); max-width: 90vw; height: var(--cover); object-fit: cover;
   border-radius: 14px; background: #1a2436;
   box-shadow: 0 30px 70px rgba(0,0,0,0.78);
+  opacity: 0; transition: opacity 0.45s ease;     /* fade in as each photo decodes */
 }
+.cover img.loaded, .gallery-photo img.loaded { opacity: 1; }
+.gallery-photo img { opacity: 0; transition: opacity 0.4s ease; }
 /* readable caption strip overlaid on the photo */
 .cover figcaption {
   position: absolute; left: 0; right: 0; bottom: 0;

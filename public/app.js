@@ -798,12 +798,16 @@ async function loadGallery(queries) {
   if (dossierHeroBg) dossierHeroBg.style.backgroundImage = "url('" + (imgs[0].full || imgs[0].thumb).replace(/'/g, "%27") + "')";
   if (galleryTitle) galleryTitle.hidden = false;
   dossierGallery.innerHTML = imgs.slice(0, 10)
-    .map((im) =>
+    .map((im, i) =>
       '<figure class="gallery-photo" data-full="' + esc(im.full || im.thumb) + '" data-caption="' + esc(im.caption || "") + '">' +
-        '<img loading="lazy" src="' + esc(im.thumb) + '" alt="' + esc(im.caption || "") + '"/>' +
+        "<img " + (i === 0 ? 'fetchpriority="high"' : 'loading="lazy"') + ' decoding="async" src="' + esc(im.thumb) + '" alt="' + esc(im.caption || "") + '"/>' +
         (im.caption ? "<span>" + esc(im.caption) + "</span>" : "") +
       "</figure>")
     .join("");
+  dossierGallery.querySelectorAll("img").forEach((img) => {
+    const done = () => img.classList.add("loaded");
+    if (img.complete) done(); else { img.addEventListener("load", done); img.addEventListener("error", done); }
+  });
 }
 
 dossierTabs.addEventListener("click", (e) => {
@@ -915,7 +919,16 @@ function startJourney() {
   bgActiveEl = null;
   buildTimeline();
   goToEra(0);
+  warmAllEras();          // prefetch every era's photos in the background → instant timeline
   Sound.startAmbient();
+}
+
+// Quietly warm each era's images, staggered so we don't hammer Wikimedia at once.
+function warmAllEras() {
+  currentEras.forEach((e, i) => {
+    if (Array.isArray(e.images) || e._imgPromise) return;
+    setTimeout(() => { if (!journey.hidden) ensureEraImages(i); }, 700 + i * 450);
+  });
 }
 
 dossierBegin.addEventListener("click", startJourney);
@@ -1004,10 +1017,13 @@ async function fillAlbum(era, index) {
     album.outerHTML = '<p class="album-empty">No archive images found for this era.</p>';
     return;
   }
-  album.innerHTML = imgs.map(coverHtml).join("");
+  album.innerHTML = imgs.map((im, i) => coverHtml(im, i === 0)).join("");
   const update = () => applyCoverflow(album);
   album.addEventListener("scroll", () => requestAnimationFrame(update), { passive: true });
-  album.querySelectorAll("img").forEach((img) => img.addEventListener("load", update));
+  album.querySelectorAll("img").forEach((img) => {
+    const done = () => { img.classList.add("loaded"); update(); };
+    if (img.complete) done(); else img.addEventListener("load", done);
+  });
   requestAnimationFrame(update);
   setTimeout(update, 350);
 }
@@ -1170,11 +1186,12 @@ async function fetchImages(query, max = 6) {
   return result;
 }
 
-function coverHtml(img) {
+function coverHtml(img, eager) {
   const caption = esc(img.caption || "");
+  const load = eager ? 'fetchpriority="high" loading="eager"' : 'loading="lazy"';
   return (
     '<figure class="cover" data-full="' + esc(img.full || img.thumb) + '" data-caption="' + caption + '">' +
-      '<img loading="lazy" src="' + esc(img.thumb) + '" alt="' + caption + '" />' +
+      "<img " + load + ' decoding="async" src="' + esc(img.thumb) + '" alt="' + caption + '" />' +
       (caption ? "<figcaption>" + caption + "</figcaption>" : "") +
     "</figure>"
   );
