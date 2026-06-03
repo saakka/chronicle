@@ -94,6 +94,7 @@ body {
 .globe-canvas {
   position: absolute; inset: 0; width: 100%; height: 100%;
   display: block; cursor: grab; touch-action: none;
+  user-select: none; -webkit-user-select: none;   /* don't select text while dragging */
 }
 .globe-canvas:active { cursor: grabbing; }
 
@@ -618,6 +619,14 @@ body {
 .lightbox img {
   max-width: 92vw; max-height: 80vh; border: 8px solid var(--frame); border-radius: 2px;
   box-shadow: 0 10px 60px rgba(0,0,0,0.8);
+  animation: lbZoom 0.32s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes lbZoom { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+
+/* respect users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  .bg-layer.active, .beat.in .beat-bg { animation: none !important; }
+  .era-stage > * { transition: opacity 0.2s ease !important; transform: none !important; }
 }
 .lightbox figcaption { color: var(--gold-soft); margin-top: 14px; font-style: italic; }
 .lightbox-close {

@@ -58,15 +58,16 @@
   // ===================================================================
   var CONFIG = {
     ballZ:19.0, ballR:0.11, goalW:7.32, goalH:2.44,
-    wallDist:9.15, wallCount:4, wallHalfW:1.05, wallBaseH:1.78, wallJump:0.55,
+    wallDist:9.15, wallCount:4, wallHalfW:1.0, wallBaseH:1.74, wallJump:0.34, wallMargin:0.16,
     wallCenterX:-0.4,
     gravity:10.2, drag:0.05,
     minSpeed:17, maxSpeed:31, chargeTime:1.0,
     timedLo:0.62, timedHi:0.84,         // green "perfect" zone of the power bar
-    curlStrength:12.5, dipStrength:11.0, // in-air spin -> acceleration
+    curlStrength:14.5, dipStrength:12.5, // in-air spin -> acceleration
     spinMax:1.0, spinMouseSens:0.0042, spinKeySens:2.1,
-    authNear:0.5, authFar:0.86,          // spin authority fades between these flight fractions
-    keeperReact:0.22, keeperSpeed:8.2, keeperCatchR:0.92, keeperReachY:2.25,
+    authNear:0.55, authFar:0.93,         // spin authority fades between these flight fractions
+    keeperReact:0.24, keeperDecide:0.17, // reacts, tracks briefly, then COMMITS (late curl beats him)
+    keeperSpeed:6.0, keeperRange:2.05, keeperCatchR:0.6, keeperReachY:2.12,
     aimRangeX:5.6, aimYmin:0.2, aimYmax:4.3
   };
   var GOAL_HALF=CONFIG.goalW/2, WALL_Z=CONFIG.ballZ-CONFIG.wallDist;
@@ -177,7 +178,7 @@
   var aim={x:0.5,y:1.5}, power=0, chargeT=0, perfect=false, knuckle=false;
   var ball={x:0,y:CONFIG.ballR,z:CONFIG.ballZ}, vel={x:0,y:0,z:0}, spin={x:0,y:0}, spinInput={x:0,y:0};
   var ballRot=0, distFrac=0, trail=[], path=[];
-  var keeper={x:0,y:0,dive:0,dir:1,react:0,committed:false,parry:0};
+  var keeper={x:0,y:0,dive:0,dir:1,react:0,decide:0,targetX:0,committed:false,parry:0};
   var wall={jump:0,t:0};
   var runup=0, kicker={x:-0.9,z:CONFIG.ballZ+0.85,step:0};
   var result=null, resultT=0, caption='', captionT=0, big='', bigT=0, bigColor='#fff';
@@ -467,7 +468,7 @@
     spin={x:0,y:0}; spinInput={x:0,y:0};
     if(knuckle) spin.x=rand(-0.05,0.05);
     ball={x:0,y:CONFIG.ballR,z:CONFIG.ballZ}; trail=[]; path=[]; distFrac=0;
-    keeper.react=CONFIG.keeperReact; keeper.committed=false; keeper.dive=0; keeper.parry=0;
+    keeper.react=CONFIG.keeperReact; keeper.decide=CONFIG.keeperDecide; keeper.committed=false; keeper.targetX=0; keeper.dive=0; keeper.parry=0;
     wall.t=0; wall.jump=0; runup=0; kicker.step=0;
     state=ST.RUNUP;
     Snd.kick(power);
@@ -493,7 +494,7 @@
       distFrac=clamp((CONFIG.ballZ-ball.z)/CONFIG.ballZ,0,1);
       // wall plane
       if(pz>WALL_Z && ball.z<=WALL_Z){
-        var wallTopH=CONFIG.wallBaseH+wall.jump+0.25;
+        var wallTopH=CONFIG.wallBaseH+wall.jump+CONFIG.wallMargin;
         if(Math.abs(ball.x-CONFIG.wallCenterX)<=CONFIG.wallHalfW && ball.y<=wallTopH && ball.y>0){
           return settle('block'); }
       }
@@ -524,14 +525,17 @@
     path.push({x:ball.x,y:ball.y,z:ball.z});
   }
 
+  function predictX(){ if(vel.z>=0) return keeper.x; var tg=ball.z/(-vel.z); return clamp(ball.x+vel.x*tg,-CONFIG.keeperRange,CONFIG.keeperRange); }
   function updateKeeper(dt){
     if(keeper.react>0){ keeper.react-=dt; return; }
-    // predict crossing X from current ball motion (ignores future spin -> beatable by curl)
-    if(vel.z<0){ var tg=ball.z/(-vel.z); var predX=ball.x+vel.x*tg; predX=clamp(predX,-GOAL_HALF+0.3,GOAL_HALF-0.3);
-      var dx=predX-keeper.x, mv=CONFIG.keeperSpeed*dt;
-      keeper.x+=clamp(dx,-mv,mv); keeper.dir=dx<0?-1:1;
-      var need=Math.abs(predX-keeper.x); keeper.dive=clamp(keeper.dive + (Math.abs(predX)>0.7?dt*3:-dt*2),0,1);
+    if(!keeper.committed){
+      keeper.targetX=predictX(); keeper.dir=keeper.targetX<0?-1:1;   // track the ball...
+      keeper.decide-=dt;
+      if(keeper.decide<=0) keeper.committed=true;                    // ...then COMMIT (late curl now beats him)
     }
+    var dx=keeper.targetX-keeper.x, mv=CONFIG.keeperSpeed*dt;
+    keeper.x+=clamp(dx,-mv,mv);
+    keeper.dive=clamp(keeper.dive+(Math.abs(keeper.targetX)>0.6?dt*3:-dt*2),0,1);
   }
   function updateWall(dt){ wall.t+=dt; wall.jump=Math.max(0, Math.sin(clamp(wall.t/0.42,0,1)*Math.PI))*CONFIG.wallJump; }
 
@@ -608,7 +612,7 @@
   function nextKick(){
     state=ST.SETUP; result=null; bigT=0; captionT=Math.min(captionT,0.4);
     ball={x:0,y:CONFIG.ballR,z:CONFIG.ballZ}; vel={x:0,y:0,z:0}; spin={x:0,y:0}; spinInput={x:0,y:0}; trail=[]; path=[];
-    keeper={x:0,y:0,dive:0,dir:1,react:0,committed:false,parry:0}; wall={jump:0,t:0};
+    keeper={x:0,y:0,dive:0,dir:1,react:0,decide:0,targetX:0,committed:false,parry:0}; wall={jump:0,t:0};
     kicker.step=0; power=0; perfect=false; knuckle=false; clock+=rand(20,45);
   }
 

@@ -58,6 +58,19 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- POLISH PASS — sharper globe, inviting landing, faster photos, smoother everything (Ahmad: better globe
+  resolution; landing prompt; "20 iterations" of bugs/fluidity/faster photos). Iterations:
+  1) globe texture 1024→2048; 2) render buffer 420→700; 3) per-pixel sphere frame-cache (repaint only on
+  view change); 4) inviting "Which country will you explore?" landing prompt + 2s hint; 5) FIX title/tagline
+  hidden behind opaque canvas (z-index); 6) preconnect+dns-prefetch Wikimedia hosts; 7) first cover/photo
+  fetchpriority=high+eager, rest lazy; 8) decoding=async on all photos; 9) warmAllEras() progressive
+  background prefetch of every era; 10) photos fade in on decode (covers+gallery); 11) time-based globe
+  spin (fps-independent); 12) drag-release fling inertia; 13) scroll-to-zoom on the 2D globe (matches hint;
+  FIX: previously didn't zoom); 14) debounced resize; 15) lightbox zoom-in animation; 16) user-select:none
+  on globe (FIX: dragging selected text); 17) prefers-reduced-motion support (Ken Burns/stage/bg);
+  18) gallery img priority; 19) cover img complete-check (cached imgs still fade); 20) e2e re-verified
+  (globe→portal→dossier→timeline) + globe perf 3.8ms/frame at full res. Verified: zoom grows globe,
+  sharper continents, title visible, captions clean, legends short, hover-highlight + 2s dwell intact.
 - GLOBE: DROP DOTS, HIGHLIGHT COUNTRY ON HOVER, 2s DWELL (Ahmad). Removed the green station dots
   (buildDots + drawStations gone). On hover the country now glows: drawHighlight() fills + outlines the
   hovered feature's polygons (clipped to the near hemisphere) in warm gold over the textured Earth.
