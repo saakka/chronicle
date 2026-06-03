@@ -14,31 +14,42 @@
     <div class="globe-overlay">
       <p class="kicker">✦ &nbsp; a planet of history &nbsp; ✦</p>
       <h1>Chronicle</h1>
-      <p class="tagline">Spin the planet. Click any Arab country to journey through its past.</p>
+      <p class="tagline">Spin the planet. Rest on a country and step through the portal into its past.</p>
     </div>
 
     <p class="globe-hint" id="globe-hint">
-      🌍 Drag to spin · scroll to zoom &nbsp;—&nbsp; click any <strong>golden marker</strong> to explore
+      🌍 Drag to spin · scroll to zoom &nbsp;—&nbsp; <strong>hover a country for a second</strong> to enter
     </p>
 
-    <!-- Shown only if the 3D globe can't load (country buttons injected by app.js) -->
     <div class="globe-fallback" id="globe-fallback" hidden></div>
   </section>
 
-  <!-- ====================== HISTORY VIEW ====================== -->
-  <section id="history-view" hidden>
-    <button id="back-btn" class="back-btn">← &nbsp;Back to the globe</button>
+  <!-- ====================== PORTAL TRANSITION ====================== -->
+  <div id="portal" class="portal" hidden>
+    <div class="portal-scene" id="portal-scene"></div>
+    <div class="portal-flash"></div>
+    <div class="portal-ring"></div>
+    <p class="portal-label" id="portal-label"></p>
+  </div>
 
-    <header class="hist-head">
-      <h2 id="result-heading"></h2>
-      <p id="status" class="status" role="status" aria-live="polite"></p>
-    </header>
+  <!-- ====================== ERA JOURNEY ====================== -->
+  <section id="journey" class="journey" hidden>
+    <div class="journey-bg">
+      <div class="bg-layer" id="bg-a"></div>
+      <div class="bg-layer" id="bg-b"></div>
+    </div>
+    <div class="journey-scrim"></div>
 
-    <div id="eras" class="eras"></div>
+    <button id="exit-btn" class="exit-btn">← &nbsp;Globe</button>
+    <button id="sound-btn" class="sound-btn" aria-label="Toggle sound">🔊</button>
+    <div class="journey-head"><span id="j-country" class="j-country"></span></div>
 
-    <footer class="foot">
-      <p>Text by Claude · images from Wikimedia Commons · AI-generated — verify anything important</p>
-    </footer>
+    <button class="nav-arrow nav-prev" id="nav-prev" aria-label="Previous era">‹</button>
+    <button class="nav-arrow nav-next" id="nav-next" aria-label="Next era">›</button>
+
+    <div class="era-stage" id="era-stage"></div>
+
+    <div class="timeline" id="timeline"></div>
   </section>
 
   <!-- ====================== LIGHTBOX ====================== -->
@@ -50,7 +61,9 @@
     </figure>
   </div>
 
-  <!-- 3D globe library (browser-side) -->
+  <!-- ====================== TOAST ====================== -->
+  <div id="toast" class="toast" hidden></div>
+
   <script src="https://unpkg.com/globe.gl"></script>
   <script src="app.js"></script>
 </body>
