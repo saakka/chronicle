@@ -606,6 +606,7 @@ async function enterCountry(country) {
   }
 
   currentEras = data.eras;
+  ensureEraImages(0);   // warm the first era while the dossier is open → instant timeline
   if (data.demo) toast("Demo mode — built-in Egypt sample. Add an API key for any country.");
 
   // Arrive on the country dossier first; the timeline is one click away.
@@ -762,6 +763,24 @@ function closeStory() {
 }
 storyExit.addEventListener("click", closeStory);
 
+// Prefetch + cache an era's legend so opening it feels instant. Dedupes via a
+// shared promise on the era object; safe to call on hover and on click.
+function prefetchStory(index) {
+  const era = currentEras[index];
+  if (!era || era._story) return Promise.resolve(era && era._story);
+  if (!era._storyPromise) {
+    era._storyPromise = fetch(
+      "/api/story?country=" + encodeURIComponent(currentCountry) +
+      "&era=" + encodeURIComponent(era.title || "") +
+      "&period=" + encodeURIComponent(era.period || "")
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { era._story = (j && j.story) || null; return era._story; })
+      .catch(() => { era._story = null; return null; });
+  }
+  return era._storyPromise;
+}
+
 async function openStory(index) {
   const era = currentEras[index];
   if (!era) return;
@@ -770,20 +789,16 @@ async function openStory(index) {
   storyRail.innerHTML =
     '<section class="beat in"><div class="beat-scrim"></div><div class="beat-inner">' +
     '<p class="beat-text" style="opacity:1;transform:none">Summoning the legend…</p></div></section>';
-  let data = null;
-  try {
-    const res = await fetch(
-      "/api/story?country=" + encodeURIComponent(currentCountry) +
-      "&era=" + encodeURIComponent(era.title || "") +
-      "&period=" + encodeURIComponent(era.period || "")
-    );
-    const j = await res.json();
-    if (res.ok) data = j.story;
-  } catch (e) {}
+
+  if (!era._story) {
+    try { await prefetchStory(index); } catch (e) {}
+  }
+  const data = era._story;
   if (!data || !Array.isArray(data.beats) || !data.beats.length) {
     storyRail.innerHTML =
       '<section class="beat in"><div class="beat-scrim"></div><div class="beat-inner">' +
       '<p class="beat-text" style="opacity:1;transform:none">The legend could not be summoned. Try again.</p></div></section>';
+    era._story = null; era._storyPromise = null;   // allow a clean retry next time
     return;
   }
   renderStory(data, era);
@@ -858,6 +873,21 @@ async function fetchVariedImages(queries, max) {
   return out;
 }
 
+// Fetch (once) an era's images and cache them on the era object. Shared promise
+// dedupes concurrent calls so preloading a neighbour can't double-fetch.
+function ensureEraImages(i) {
+  const era = currentEras[i];
+  if (!era) return Promise.resolve([]);
+  if (Array.isArray(era.images)) return Promise.resolve(era.images);
+  if (!era._imgPromise) {
+    const qs = (Array.isArray(era.imageQueries) && era.imageQueries.length)
+      ? era.imageQueries
+      : [era.imageQuery, era.title + " " + currentCountry, currentCountry + " " + (era.period || ""), era.title].filter(Boolean);
+    era._imgPromise = fetchVariedImages(qs, 8).then((imgs) => { era.images = imgs; return imgs; });
+  }
+  return era._imgPromise;
+}
+
 async function goToEra(index) {
   if (index < 0 || index >= currentEras.length) return;
   currentEra = index;
@@ -865,11 +895,8 @@ async function goToEra(index) {
   updateTimeline();
   updateArrows();
 
-  if (era.images === undefined) {
-    const qs = (Array.isArray(era.imageQueries) && era.imageQueries.length)
-      ? era.imageQueries
-      : [era.imageQuery, era.title + " " + currentCountry, currentCountry + " " + (era.period || ""), era.title].filter(Boolean);
-    era.images = await fetchVariedImages(qs, 8);
+  if (!Array.isArray(era.images)) {
+    await ensureEraImages(index);
     // If the user jumped to another era (or left) while we were fetching,
     // abandon this stale render so it doesn't clobber the current view.
     if (currentEra !== index || journey.hidden) return;
@@ -893,6 +920,13 @@ async function goToEra(index) {
     requestAnimationFrame(update);
     setTimeout(update, 350);
   }
+
+  // Fluidity: warm the neighbouring eras so prev/next is instant, and prefetch
+  // this era's legend the moment the user reaches for its button.
+  ensureEraImages(index + 1);
+  ensureEraImages(index - 1);
+  const cta = eraStage.querySelector(".story-cta");
+  if (cta) cta.addEventListener("mouseenter", () => prefetchStory(index), { once: true });
 }
 
 function stageHtml(era, index) {

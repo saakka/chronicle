@@ -58,6 +58,19 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- LEGENDS + FLUIDITY + BIGGER PHOTOS (Ahmad: "the legends cannot be summoned", "more fluid",
+  "in the timeline page make the picture waay bigger"). Diagnosed legend failure = Gemini FREE tier
+  20 req/day → 429 RESOURCE_EXHAUSTED (not a code bug). Fixes:
+  (a) LEGENDS: server now tries Gemini first (free) then falls back to CLAUDE for /api/story AND
+      /api/profile, flipping GEMINI_OK off after the first 429. Verified live end-to-end: legend renders
+      6 beats ("Unification of Egypt: King Narmer…") via Claude fallback. Added Anthropic-format schemas
+      + _claude_json/_gemini_json helpers.
+  (b) BIGGER TIMELINE PHOTOS: Cover Flow covers 400px → min(58vh,90vw,600px); era text shrunk to a slim
+      centered header (smaller title, 2-line clamp), top padding 20vh→5vh, album full-width, deeper
+      perspective. Photo is now the hero. Verified (600px center cover).
+  (c) FLUIDITY: ensureEraImages() dedupes + preloads neighbour eras (instant prev/next), warms era 0 during
+      the dossier (instant timeline), and prefetchStory() warms the legend on button hover; openStory uses
+      the cached/in-flight result. (Tool note: Gemini key is FREE tier 20/day, so Claude carries most calls.)
 - AUDIT (5 iterations, Ahmad asked to find+fix bugs) — read whole codebase, checked runtime console
   (only expected WebGL-sandbox errors), fixed + verified each:
   1. goToEra() async race (slow image fetch clobbered a newer era) → bail if currentEra/journey changed.
