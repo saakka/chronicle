@@ -187,3 +187,11 @@ Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 - iter1 — Opened globe to ALL countries (no filter); centroid-based zoom for any country;
   added ~22 bespoke world themes; default theme for the rest. Verified themeFor + no JS errors. Committing.
 - baseline — Committed 672bdaf (portal + journey + themes + sound). Loop armed.
+- PUBLISH + PHONE POLISH + MUSEUM IMAGES. (1) Publish-ready: per-IP+global rate limit on AI endpoints,
+  render.yaml + requirements.txt + DEPLOY.md (Render free tier), phone QR encodes public URL when deployed.
+  (2) Phone polish: svh sizing (no mobile address-bar crop), hide desktop hint on phones, centered phone
+  button/card, smaller headings/clamped text, short-screen hero shrink. (3) More striking images: weave
+  PUBLIC-DOMAIN artworks/artifacts from The Met Open Access into each era (hero + backdrop), queried by
+  country+era and FILTERED to works whose museum metadata (department/culture/country) matches the country
+  so they're on-topic; deduped within and across eras; captioned with the real artwork title. Verified:
+  Egypt/Sudan eras show relevant Met pieces (e.g., "Archer's ring", "Drinking Cup"), all unique.

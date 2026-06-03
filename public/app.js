@@ -220,6 +220,7 @@ let currentCountry = "";
 let currentEras = [];
 let currentEra = 0;
 let bgActiveEl = null;
+let artUsed = new Set();   // museum artworks already shown this journey (no repeats across eras)
 
 let polyHoverFeat = null;
 let polyHoverCountry = null;
@@ -677,6 +678,7 @@ async function enterCountry(country) {
   currentCountry = country;
   currentEras = [];
   currentEra = 0;
+  artUsed = new Set();   // fresh museum-art dedupe per country
 
   // 1. cinematic zoom: fly the globe down toward the country
   const loc = lastHoverLatLng || ARAB_COUNTRIES.find((c) => c.country === country) || null;
@@ -989,15 +991,54 @@ function cleanSubject(q) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 }
 
-// One DISTINCT photo per subject — never the same picture (or subject) twice.
-async function fetchVariedImages(queries, max) {
+// Striking PUBLIC-DOMAIN artworks/artifacts from The Met's open collection.
+const MET_CACHE = new Map();
+async function fetchMetArt(query, country, max) {
+  if (!query) return [];
+  const key = query + "|" + country + "|" + max;
+  if (MET_CACHE.has(key)) return MET_CACHE.get(key);
+  const c = (country || "").trim().toLowerCase();
+  let result = [];
+  try {
+    const sr = await fetch("https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=" + encodeURIComponent(query));
+    const sj = await sr.json();
+    const ids = (sj.objectIDs || []).slice(0, 12);
+    const objs = await Promise.all(ids.map((id) =>
+      fetch("https://collectionapi.metmuseum.org/public/collection/v1/objects/" + id).then((r) => r.json()).catch(() => null)
+    ));
+    for (const o of objs) {
+      if (!o || !o.isPublicDomain || !o.primaryImageSmall) continue;   // public domain only
+      if (c) {
+        // keep only art whose own metadata ties it to this country/culture
+        const meta = ((o.department || "") + " " + (o.culture || "") + " " + (o.country || "") + " " + (o.region || "")).toLowerCase();
+        if (!meta.includes(c)) continue;
+      }
+      result.push({
+        thumb: o.primaryImageSmall,
+        full: o.primaryImage || o.primaryImageSmall,
+        caption: cleanSubject(o.title || query),
+        id: "met:" + o.objectID,
+      });
+      if (result.length >= max) break;
+    }
+  } catch (e) { result = []; }
+  MET_CACHE.set(key, result);
+  return result;
+}
+
+// One DISTINCT photo per subject — never the same picture (or subject) twice —
+// woven together with a striking museum artwork or two.
+async function fetchVariedImages(queries, max, artQuery) {
   const qs = [], seenQ = new Set();
   for (const q of queries) {                          // drop duplicate/blank queries
     const c = (q || "").trim().toLowerCase();
     if (c && !seenQ.has(c)) { seenQ.add(c); qs.push(q); }
   }
   const use = qs.slice(0, Math.max(max, 8));
-  const lists = await Promise.all(use.map((q) => fetchImages(q, 4)));
+  const [lists, art] = await Promise.all([
+    Promise.all(use.map((q) => fetchImages(q, 4))),
+    fetchMetArt(artQuery || use[0], currentCountry, 2),   // museum art, filtered to this country's own works
+  ]);
   const out = [], seen = new Set();
   for (let k = 0; k < lists.length && out.length < max; k++) {
     for (const im of lists[k]) {                      // first not-yet-used photo for this subject
@@ -1007,6 +1048,15 @@ async function fetchVariedImages(queries, max) {
       out.push(Object.assign({}, im, { caption: subjectCaption(use[k]) }));
       break;                                          // exactly one per subject
     }
+  }
+  // weave museum pieces in near the front (first becomes the hero + backdrop);
+  // artUsed dedupes across eras so the same artwork never shows twice in a journey
+  let at = 0;
+  for (const a of art) {
+    if (seen.has(a.id) || artUsed.has(a.id)) continue;
+    seen.add(a.id); artUsed.add(a.id);
+    out.splice(Math.min(at, out.length), 0, a);
+    at += 2;
   }
   return out;
 }
@@ -1029,7 +1079,8 @@ function ensureEraImages(i) {
     const qs = (Array.isArray(era.imageQueries) && era.imageQueries.length)
       ? [era.imageQuery].concat(era.imageQueries).filter(Boolean)
       : [era.imageQuery, era.title + " " + currentCountry, currentCountry + " " + (era.period || ""), era.title].filter(Boolean);
-    era._imgPromise = fetchVariedImages(qs, 7).then((imgs) => { era.images = imgs; return imgs; });
+    const artQ = (currentCountry + " " + (era.title || "")).trim();   // broad query that hits the museum collection
+    era._imgPromise = fetchVariedImages(qs, 7, artQ).then((imgs) => { era.images = imgs; return imgs; });
   }
   return era._imgPromise;
 }
