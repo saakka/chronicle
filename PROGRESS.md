@@ -58,6 +58,18 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- iter8 — CIV-VI VISUAL THEME EVERYWHERE + 2D PLANET FALLBACK (Ahmad shared a Civ VI "Create Game"
+  screenshot: "use this theme everywhere", and "i can still not see a planet"). (1) Retheme: new
+  :root palette — deep navy bg, parchment ink, gold trim, teal/green action; added Cinzel (Trajan-like
+  caps) for display titles + EB Garamond body via Google Fonts. Applied to landing, dossier (navy
+  gradient + teal "Enter the timeline" button w/ gold border), journey era panel (navy glass + gold
+  frame), story (navy). Verified via computed styles (reliable; screenshots are stale in this preview).
+  (2) PLANET FIX: the 3D globe needs WebGL, which the in-app preview disables — so the user (viewing
+  the preview pane) never saw a planet. Added a 2D spinning-Earth fallback in showFallback(): a circular
+  blue-marble texture with sphere shading + atmosphere glow + CSS spin (spin2d), plus a curated 40-country
+  chip grid ("Choose a civilization to explore"). Now a planet ALWAYS shows on the landing, even without
+  WebGL; the real 3D globe still renders on the user's machine. Hide tagline/drag-hint via #globe-view.no-webgl.
+  Verified: 2D globe present + animating, Cinzel loaded, 40 chips, dossier theme correct.
 - iter7 — GEOGRAPHY-NOW-STYLE COUNTRY DOSSIER (original content, not copied). New server `/api/profile`
   calls Gemini (gemini-2.5-flash, key in gemini-key.txt, git-ignored) for an ORIGINAL profile
   (overview/political/physical/demographics/culture/funFacts). Browser fuses REST Countries hard facts

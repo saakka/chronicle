@@ -4,13 +4,19 @@
 --------------------------------------------------------------------------- */
 
 :root {
-  --bg: #05070d;
-  --ink: #efe6d6;
-  --muted: #b3a48c;
-  --gold: #c9a24b;
-  --gold-soft: #e3c98a;
-  --line: #3a2f22;
+  /* Civilization-VI inspired: deep navy, gold trim, parchment ink, teal action */
+  --bg: #0a1c30;          /* deep navy */
+  --bg-2: #102a44;        /* lighter navy for panels */
+  --ink: #f0e3c4;         /* warm parchment */
+  --muted: #9fb6cf;       /* steel blue */
+  --gold: #d4af52;        /* trim gold */
+  --gold-soft: #f3dca0;   /* bright gold highlight */
+  --line: #3f6182;        /* steel-blue panel trim */
+  --teal: #2fa78f;        /* action green/teal */
+  --teal-dark: #1b7a66;
   --frame: #f3ead8;
+  --serif: "EB Garamond", "Hoefler Text", "Iowan Old Style", Garamond, Georgia, serif;
+  --display: "Cinzel", "Trajan Pro", "Hoefler Text", Georgia, serif;
 }
 
 * { box-sizing: border-box; }
@@ -18,18 +24,33 @@ html, body { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 760px at 50% -8%, rgba(212,175,82,0.10), transparent 62%),
+    linear-gradient(180deg, #0c2138 0%, #0a1b2e 55%, #07131f 100%);
+  background-attachment: fixed;
   color: var(--ink);
-  font-family: "Hoefler Text", "Iowan Old Style", Garamond, Georgia, serif;
+  font-family: var(--serif);
   line-height: 1.6;
   overflow-x: hidden;
+}
+
+/* Civ-style display titles (Trajan-like caps) */
+.globe-overlay h1, .dossier-name, .era-h, .beat-storytitle,
+.shelf-title, .dossier-funfacts h3 {
+  font-family: var(--display);
+  letter-spacing: 0.04em;
+}
+.kicker, .hero-kicker, .era-eyebrow, .beat-kicker, .j-country,
+.fallback-inner p, .tab-btn, .chip b, .flag-meaning b {
+  font-family: var(--display) !important;
 }
 
 /* ====================== GLOBE VIEW ====================== */
 
 #globe-view {
   position: fixed; inset: 0; overflow: hidden;
-  background: radial-gradient(1200px 800px at 50% 30%, #0b1020, #05070d 70%);
+  background:
+    radial-gradient(1100px 760px at 50% 34%, #123354, #0a1c30 64%, #06101c 100%);
 }
 #globe { position: absolute; inset: 0; }
 
@@ -56,17 +77,45 @@ body {
 }
 .globe-hint strong { color: var(--gold-soft); }
 
+/* When WebGL is unavailable we render the 2D planet fallback instead — the
+   "drag to spin" hint and the over-globe tagline don't apply, so hide them. */
+#globe-view.no-webgl .tagline,
+#globe-view.no-webgl .globe-hint { display: none; }
+#globe-view.no-webgl .globe-overlay { position: static; padding-top: 5vh; }
+
 .globe-fallback {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  padding: 24px; z-index: 3;
+  padding: 24px; z-index: 3; overflow-y: auto;
 }
 .globe-fallback[hidden] { display: none; }
-.fallback-inner { max-width: 640px; text-align: center; }
-.fallback-inner p {
-  color: var(--gold-soft); font-family: ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.8rem; margin: 0 0 14px;
+.fallback-inner { max-width: 720px; text-align: center; padding: 40px 0; }
+
+/* 2D planet — a spinning Earth for environments without WebGL */
+.globe-2d {
+  width: min(56vmin, 360px); height: min(56vmin, 360px);
+  margin: 0 auto 30px; border-radius: 50%; position: relative;
+  background-image:
+    radial-gradient(circle at 34% 30%, rgba(255,255,255,0.30), transparent 42%),
+    url("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg");
+  background-size: 200% 100%, 200% 100%;
+  background-repeat: no-repeat, repeat-x;
+  background-position: 0 0, 0 0;
+  box-shadow:
+    inset -34px -24px 70px rgba(0,0,0,0.78),
+    inset 22px 16px 46px rgba(120,170,255,0.18),
+    0 0 70px rgba(90,150,255,0.40),
+    0 0 0 1px rgba(212,175,82,0.30);
+  animation: spin2d 44s linear infinite;
 }
-.fallback-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+@keyframes spin2d {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 0 0, -200% 0; }
+}
+.fallback-inner p {
+  color: var(--gold-soft);
+  letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.84rem; margin: 0 0 18px;
+}
+.fallback-list { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; max-width: 660px; margin: 0 auto; }
 .chip {
   padding: 9px 16px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.85rem;
   color: var(--gold-soft); background: rgba(201,162,75,0.08); border: 1px solid var(--line);
@@ -258,11 +307,11 @@ body {
 /* readable text panel so words never fight the backdrop */
 .era-copy {
   max-width: 64ch;
-  background: linear-gradient(135deg, rgba(10, 8, 14, 0.66), rgba(10, 8, 14, 0.44));
+  background: linear-gradient(135deg, rgba(12, 33, 56, 0.74), rgba(8, 20, 34, 0.56));
   backdrop-filter: blur(10px) saturate(1.1);
   -webkit-backdrop-filter: blur(10px) saturate(1.1);
-  border: 1px solid rgba(201, 162, 75, 0.22);
-  border-radius: 18px;
+  border: 1px solid rgba(212, 175, 82, 0.30);
+  border-radius: 14px;
   padding: 24px 30px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
 }
@@ -336,7 +385,7 @@ body {
 
 .dossier {
   position: fixed; inset: 0; z-index: 42; overflow-y: auto; color: var(--ink);
-  background: linear-gradient(180deg, #1d1712 0%, #0c0d14 58%, #0a0a10 100%);
+  background: linear-gradient(180deg, #123354 0%, #0c2138 52%, #081420 100%);
   animation: viewIn 0.5s ease both;
 }
 .dossier[hidden] { display: none; }
@@ -353,8 +402,8 @@ body {
 .hero-shade {
   position: absolute; inset: 0;
   background:
-    radial-gradient(120% 80% at 72% 8%, rgba(201,162,75,0.28), transparent 60%),
-    linear-gradient(180deg, rgba(10,10,16,0.15) 0%, rgba(10,10,16,0.5) 52%, #0c0d14 100%);
+    radial-gradient(120% 80% at 72% 8%, rgba(212,175,82,0.30), transparent 60%),
+    linear-gradient(180deg, rgba(10,27,46,0.18) 0%, rgba(10,27,46,0.55) 52%, #0c2138 100%);
 }
 .hero-content {
   position: relative; display: flex; align-items: flex-end; gap: 28px;
@@ -383,12 +432,14 @@ body {
 .dossier-actions { margin-bottom: 24px; }
 .play-btn {
   display: inline-flex; align-items: center; gap: 12px;
-  padding: 16px 32px; font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 1.02rem; font-weight: 700; letter-spacing: 0.01em;
-  color: #1a1208; background: var(--gold); border: none; border-radius: 999px; cursor: pointer;
-  box-shadow: 0 12px 34px -8px var(--gold); transition: transform 0.12s ease, box-shadow 0.12s, background 0.12s;
+  padding: 15px 32px; font-family: var(--display);
+  font-size: 1rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: #f3ead8; background: linear-gradient(180deg, #36b89e 0%, #1b7a66 100%);
+  border: 1px solid var(--gold); border-radius: 8px; cursor: pointer;
+  box-shadow: 0 12px 30px -10px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.22);
+  transition: transform 0.12s ease, box-shadow 0.12s, filter 0.12s;
 }
-.play-btn:hover { transform: scale(1.045); box-shadow: 0 18px 46px -8px var(--gold); background: var(--gold-soft); }
+.play-btn:hover { transform: translateY(-2px); filter: brightness(1.08); box-shadow: 0 18px 40px -10px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.25); }
 .play-ico { font-size: 0.85rem; }
 
 .dossier-overview { font-size: 1.3rem; line-height: 1.6; color: #ece3d2; margin: 0 0 24px; max-width: 76ch; }
@@ -475,7 +526,7 @@ body {
 /* ====================== STORY (level 3 — scrollytelling) ====================== */
 .story {
   position: fixed; inset: 0; z-index: 46; overflow-y: scroll; scroll-snap-type: y mandatory;
-  background: #05060a; color: #fff; -webkit-overflow-scrolling: touch;
+  background: #07131f; color: #fff; -webkit-overflow-scrolling: touch;
 }
 .story[hidden] { display: none; }
 .story-exit { z-index: 60; }

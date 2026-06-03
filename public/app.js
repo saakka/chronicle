@@ -316,11 +316,29 @@ function sizeGlobe() { if (world) world.width(window.innerWidth).height(window.i
 
 function showFallback() {
   if (!globeFallback) return;
+  // A curated spread of civilizations so the landing is explorable even without WebGL.
+  const popular = [
+    "Egypt", "Greece", "Italy", "France", "Spain", "United Kingdom", "Germany",
+    "Turkey", "Iraq", "Iran", "Saudi Arabia", "Morocco", "Jordan", "Lebanon",
+    "India", "China", "Japan", "Mexico", "Peru", "United States of America",
+    "Russia", "Ethiopia", "Mali", "South Africa",
+  ];
+  const seen = new Set();
+  const list = [];
+  popular.concat(ARAB_COUNTRIES.map((c) => c.country)).forEach((name) => {
+    if (!seen.has(name)) { seen.add(name); list.push(name); }
+  });
+  const gv = document.getElementById("globe-view");
+  if (gv) gv.classList.add("no-webgl");
   globeFallback.hidden = false;
   globeFallback.innerHTML =
-    '<div class="fallback-inner"><p>Choose a country:</p><div class="fallback-list">' +
-    ARAB_COUNTRIES.map((c) => '<button class="chip" data-country="' + esc(c.country) + '">' + esc(c.country) + "</button>").join("") +
-    "</div></div>";
+    '<div class="fallback-inner">' +
+      '<div class="globe-2d" aria-hidden="true"></div>' +
+      "<p>Choose a civilization to explore</p>" +
+      '<div class="fallback-list">' +
+      list.map((c) => '<button class="chip" data-country="' + esc(c) + '">' + esc(c) + "</button>").join("") +
+      "</div>" +
+    "</div>";
 }
 
 /* ====================== HOVER DWELL ====================== */
