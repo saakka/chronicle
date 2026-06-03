@@ -1071,7 +1071,7 @@ function toast(message) {
 /* ====================== SOUND (Web Audio — no files needed) ====================== */
 
 const Sound = (() => {
-  let ctx = null, master = null, ambient = null, muted = false;
+  let ctx = null, master = null, ambient = null, muted = true;  // silent by default
 
   function ensure() {
     if (ctx) return ctx;
@@ -1080,7 +1080,7 @@ const Sound = (() => {
       if (!AC) return null;
       ctx = new AC();
       master = ctx.createGain();
-      master.gain.value = 0.5;     // soft overall
+      master.gain.value = muted ? 0 : 0.5;     // soft overall; silent if muted
       master.connect(ctx.destination);
     } catch (e) { ctx = null; }
     return ctx;
@@ -1174,6 +1174,8 @@ window.addEventListener("pointerdown", () => Sound.unlock(), { once: true });
 window.addEventListener("keydown", () => Sound.unlock(), { once: true });
 
 const soundBtn = document.getElementById("sound-btn");
+soundBtn.textContent = Sound.isMuted() ? "🔇" : "🔊";   // reflect the silent default
+soundBtn.title = "Sound off — click for music";
 soundBtn.addEventListener("click", () => {
   const m = !Sound.isMuted();
   Sound.setMuted(m);
