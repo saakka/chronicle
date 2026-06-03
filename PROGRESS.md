@@ -58,6 +58,17 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- NO DUPLICATE PHOTOS + INVITING COUNTRY PAGE + 10 FIXES (Ahmad: "same picture twice like Suez";
+  country infos not inviting → add logos/icons; more fluid + 10 bug fixes).
+  Dedup: 1) fetchImages tags each photo with a canonical Commons file id; 2) timeline shows ONE distinct
+  photo per subject (no repeated subject/picture — verified Egypt = 4 unique); 3) dossier gallery 1 distinct
+  per subject, id-deduped; 4) story beats never reuse an image; 5) duplicate/blank queries dropped before
+  fetch. Captions: 6) strip redundant trailing country name; 7) never blank (fallback). Other fixes:
+  8) broken/errored photos no longer stay invisible (error→loaded on covers); 9) zero globe fling velocity
+  when resting on a country (stays put for the 2s dwell); 10) richer per-era query list (lead subject +
+  varied subjects) for more distinct covers. INVITING: fact chips now carry icons (🏛️ Capital, 👥 Population,
+  📐 Area, 🗣️ Languages, 💰 Currency, 🗺️ Region), section tabs carry icons (Political/Physical/Demographics/
+  Economy/Culture), fun-facts header → "💡 Did you know?". Verified: 6 chip icons + distinct captions live.
 - POLISH PASS — sharper globe, inviting landing, faster photos, smoother everything (Ahmad: better globe
   resolution; landing prompt; "20 iterations" of bugs/fluidity/faster photos). Iterations:
   1) globe texture 1024→2048; 2) render buffer 420→700; 3) per-pixel sphere frame-cache (repaint only on

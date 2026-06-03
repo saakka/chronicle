@@ -475,6 +475,7 @@ body {
   border: 1px solid var(--line); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.95rem; color: var(--ink);
 }
 .chip b { color: var(--gold-soft); font-weight: 700; margin-right: 7px; font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.chip-ico { margin-right: 8px; font-size: 1.05em; }
 
 /* horizontal photo shelf */
 .shelf-title { font-size: 1.55rem; font-weight: 700; margin: 0 0 16px; color: #fff; }

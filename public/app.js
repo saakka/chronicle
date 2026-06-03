@@ -546,6 +546,7 @@ function initGlobe2D() {
     clearTimeout(s.dwell);
     canvas.style.cursor = f ? "pointer" : "grab";
     if (f) {
+      s.vel = 0;                 // stop any fling so the country stays put under the cursor
       setHoverGlobals(f, geo);
       s.dwell = setTimeout(() => { if (s.hoverFeat === f && !busy) enterCountry(f.admin); }, 2000);
     }
@@ -766,8 +767,9 @@ function renderDossier(country, facts, profile) {
     if (facts.languages) rows.push(["Languages", Object.values(facts.languages).join(", ")]);
     if (facts.currencies) rows.push(["Currency", Object.values(facts.currencies).map((c) => c.name).join(", ")]);
     if (facts.region) rows.push(["Region", facts.region]);
+    const FACT_ICON = { Capital: "🏛️", Population: "👥", Area: "📐", Languages: "🗣️", Currency: "💰", Region: "🗺️" };
     dossierFacts.innerHTML = rows
-      .map(([l, v]) => '<span class="chip"><b>' + esc(l) + "</b>" + esc(v) + "</span>")
+      .map(([l, v]) => '<span class="chip"><span class="chip-ico">' + (FACT_ICON[l] || "📌") + "</span><b>" + esc(l) + "</b>" + esc(v) + "</span>")
       .join("");
   }
 
@@ -777,15 +779,16 @@ function renderDossier(country, facts, profile) {
       ["Demographics", profile.demographics], ["Economy", profile.economy], ["Culture", profile.culture],
     ].filter(([, t]) => t);
     if (sections.length) {
+      const TAB_ICON = { Political: "🏛️", Physical: "🏔️", Demographics: "👥", Economy: "💹", Culture: "🎭" };
       dossierTabs.innerHTML = sections
-        .map(([h], i) => '<button class="tab-btn' + (i === 0 ? " active" : "") + '" data-tab="' + i + '">' + esc(h) + "</button>")
+        .map(([h], i) => '<button class="tab-btn' + (i === 0 ? " active" : "") + '" data-tab="' + i + '">' + (TAB_ICON[h] ? TAB_ICON[h] + " " : "") + esc(h) + "</button>")
         .join("");
       dossierTabbody.textContent = sections[0][1];
       dossierTabs._sections = sections;
     }
     if (Array.isArray(profile.funFacts) && profile.funFacts.length) {
       dossierFunfacts.innerHTML =
-        "<h3>Did you know</h3><ul>" + profile.funFacts.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>";
+        "<h3>💡 Did you know?</h3><ul>" + profile.funFacts.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>";
     }
   } else {
     dossierTabbody.innerHTML = '<span class="dossier-loading">Profile unavailable right now (check the Gemini key).</span>';
@@ -801,17 +804,21 @@ function renderDossier(country, facts, profile) {
 async function loadGallery(queries) {
   const token = dossierToken;
   dossierGallery.innerHTML = '<span class="dossier-loading">Gathering photos…</span>';
-  const qs = queries.slice(0, 6);
-  const results = await Promise.all(qs.map((q) => fetchImages(q, 2)));
+  const qs = [], seenQ = new Set();
+  for (const q of queries) { const c = (q || "").trim().toLowerCase(); if (c && !seenQ.has(c)) { seenQ.add(c); qs.push(q); } }
+  const use = qs.slice(0, 8);
+  const results = await Promise.all(use.map((q) => fetchImages(q, 4)));
   if (token !== dossierToken) return;   // dossier changed while photos loaded
   const imgs = [];
   const seen = new Set();
-  qs.forEach((q, k) => (results[k] || []).forEach((im) => {
-    if (im && im.thumb && !seen.has(im.thumb)) {
-      seen.add(im.thumb);
-      imgs.push(Object.assign({}, im, { caption: cleanSubject(q) }));
+  use.forEach((q, k) => {
+    for (const im of (results[k] || [])) {     // one distinct photo per subject (no repeats)
+      const id = im.id || im.thumb;
+      if (seen.has(id)) continue;
+      seen.add(id); imgs.push(Object.assign({}, im, { caption: subjectCaption(q) }));
+      break;
     }
-  }));
+  });
   if (!imgs.length) { dossierGallery.innerHTML = ""; if (galleryTitle) galleryTitle.hidden = true; return; }
   // big cinematic header image = first striking photo
   if (dossierHeroBg) dossierHeroBg.style.backgroundImage = "url('" + (imgs[0].full || imgs[0].thumb).replace(/'/g, "%27") + "')";
@@ -919,12 +926,15 @@ function renderStory(data, era) {
     { root: story, threshold: 0.55 }
   );
   storyObserver = io;
+  const usedIds = new Set();   // so two beats never show the same picture
   beats.forEach((el, i) => {
     io.observe(el);
-    fetchImages(data.beats[i].imageQuery, 1).then((imgs) => {
-      if (imgs[0]) {
+    fetchImages(data.beats[i].imageQuery, 4).then((imgs) => {
+      const pick = imgs.find((im) => !usedIds.has(im.id || im.thumb)) || imgs[0];
+      if (pick) {
+        usedIds.add(pick.id || pick.thumb);
         el.querySelector(".beat-bg").style.backgroundImage =
-          "url('" + (imgs[0].full || imgs[0].thumb).replace(/'/g, "%27") + "')";
+          "url('" + (pick.full || pick.thumb).replace(/'/g, "%27") + "')";
       }
     });
   });
@@ -962,26 +972,34 @@ function cleanSubject(q) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 }
 
+// One DISTINCT photo per subject — never the same picture (or subject) twice.
 async function fetchVariedImages(queries, max) {
-  const qs = queries.slice(0, 5);
-  const lists = await Promise.all(qs.map((q) => fetchImages(q, 3)));
+  const qs = [], seenQ = new Set();
+  for (const q of queries) {                          // drop duplicate/blank queries
+    const c = (q || "").trim().toLowerCase();
+    if (c && !seenQ.has(c)) { seenQ.add(c); qs.push(q); }
+  }
+  const use = qs.slice(0, Math.max(max, 8));
+  const lists = await Promise.all(use.map((q) => fetchImages(q, 4)));
   const out = [], seen = new Set();
-  let idx = 0, added = true;
-  while (added && out.length < max) {
-    added = false;
-    for (let k = 0; k < lists.length; k++) {
-      const im = lists[k][idx];
-      if (im && im.thumb && !seen.has(im.thumb)) {
-        seen.add(im.thumb);
-        // caption = the English subject we searched for (not the raw filename)
-        out.push(Object.assign({}, im, { caption: cleanSubject(qs[k]) }));
-        added = true;
-        if (out.length >= max) break;
-      }
+  for (let k = 0; k < lists.length && out.length < max; k++) {
+    for (const im of lists[k]) {                      // first not-yet-used photo for this subject
+      const id = im.id || im.thumb;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(Object.assign({}, im, { caption: subjectCaption(use[k]) }));
+      break;                                          // exactly one per subject
     }
-    idx++;
   }
   return out;
+}
+
+// Clean caption: the subject, minus a redundant trailing country name.
+function subjectCaption(q) {
+  let cap = cleanSubject(q);
+  const c = (currentCountry || "").trim();
+  if (c && cap.toLowerCase().endsWith(" " + c.toLowerCase())) cap = cap.slice(0, -(c.length + 1)).trim();
+  return cap || cleanSubject(q);   // never blank (e.g. if the query was just the country name)
 }
 
 // Fetch (once) an era's images and cache them on the era object. Shared promise
@@ -992,9 +1010,9 @@ function ensureEraImages(i) {
   if (Array.isArray(era.images)) return Promise.resolve(era.images);
   if (!era._imgPromise) {
     const qs = (Array.isArray(era.imageQueries) && era.imageQueries.length)
-      ? era.imageQueries
+      ? [era.imageQuery].concat(era.imageQueries).filter(Boolean)
       : [era.imageQuery, era.title + " " + currentCountry, currentCountry + " " + (era.period || ""), era.title].filter(Boolean);
-    era._imgPromise = fetchVariedImages(qs, 8).then((imgs) => { era.images = imgs; return imgs; });
+    era._imgPromise = fetchVariedImages(qs, 7).then((imgs) => { era.images = imgs; return imgs; });
   }
   return era._imgPromise;
 }
@@ -1041,7 +1059,7 @@ async function fillAlbum(era, index) {
   album.addEventListener("scroll", () => requestAnimationFrame(update), { passive: true });
   album.querySelectorAll("img").forEach((img) => {
     const done = () => { img.classList.add("loaded"); update(); };
-    if (img.complete) done(); else img.addEventListener("load", done);
+    if (img.complete) done(); else { img.addEventListener("load", done); img.addEventListener("error", done); }
   });
   requestAnimationFrame(update);
   setTimeout(update, 350);
@@ -1196,11 +1214,11 @@ async function fetchImages(query, max = 6) {
       .replace(/\([^)]*\d[^)]*\)/g, "")                   // drop "(47902649251)" code parens
       .replace(/,?\s*photo\s+\d+\s+of\s+\d+/i, "")        // drop "photo 3 of 8"
       .replace(/\s{2,}/g, " ").replace(/[,\s]+$/, "").trim();
-    candidates.push({ thumb, full, caption, score });
+    candidates.push({ thumb, full, caption, score, id: title || thumb });
   });
 
   candidates.sort((a, b) => b.score - a.score);
-  const result = candidates.slice(0, max).map(({ thumb, full, caption }) => ({ thumb, full, caption }));
+  const result = candidates.slice(0, max).map(({ thumb, full, caption, id }) => ({ thumb, full, caption, id }));
   IMG_CACHE.set(cacheKey, result);
   return result;
 }
