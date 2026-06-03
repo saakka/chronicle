@@ -58,6 +58,12 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- iter7 — GEOGRAPHY-NOW-STYLE COUNTRY DOSSIER (original content, not copied). New server `/api/profile`
+  calls Gemini (gemini-2.5-flash, key in gemini-key.txt, git-ignored) for an ORIGINAL profile
+  (overview/political/physical/demographics/culture/funFacts). Browser fuses REST Countries hard facts
+  (flag, capital, population, area, region, languages, currency) + the Gemini profile into a #dossier
+  page shown AFTER the portal, BEFORE the timeline ("Enter the timeline →"). Endpoint verified (Japan,
+  HTTP 200). TODO: visually confirm the dossier render; consider Met/AIC images on the dossier too.
 - iter6 — ALL COUNTRIES COVERED, no exception: added 9 sub-region silhouettes (mosque, pagoda, temple,
   acacia, cathedral, castle, palm, mountains, cedars) + LANDMARK_BY_SUBREGION (all 22 UN sub-regions) +
   PALETTE_BY_CONTINENT. themeFor now resolves bespoke→sub-region→default and captures SUBREGION/CONTINENT

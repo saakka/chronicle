@@ -66,6 +66,89 @@ API_KEY = load_api_key()
 
 # Cache results so we don't re-pay / re-fetch for the same country.
 CACHE = {}
+PROFILE_CACHE = {}
+
+
+def load_gemini_key():
+    """Gemini API key from env or gemini-key.txt (for the country profiles)."""
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if key:
+        return key
+    p = os.path.join(HERE, "gemini-key.txt")
+    if os.path.isfile(p):
+        with open(p, "r", encoding="utf-8") as f:
+            s = f.read().strip()
+        if s:
+            return s
+    return ""
+
+
+GEMINI_KEY = load_gemini_key()
+GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent" % GEMINI_MODEL
+)
+
+# Original, in-depth country profile (own words — not copied from any source).
+PROFILE_PROMPT = (
+    "Write an ORIGINAL, accurate, richly detailed country profile for a history & geography web app, "
+    "in a lively, witty, energetic tone for curious history geeks. Use ENTIRELY your own wording — do "
+    "not copy any TV show, YouTube channel, or article. Be specific and substantive: 2-4 sentences per "
+    "text field. For 'flagMeaning', explain what the flag's colours and symbols stand for. For "
+    "'imageQueries', give 6 short search phrases naming concrete, photogenic subjects (famous landmarks, "
+    "landscapes, cities, cultural scenes) that would find striking real photos — prefer proper nouns. "
+    "Country: "
+)
+PROFILE_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "officialName": {"type": "STRING"},
+        "overview": {"type": "STRING"},
+        "flagMeaning": {"type": "STRING"},
+        "political": {"type": "STRING"},
+        "physical": {"type": "STRING"},
+        "demographics": {"type": "STRING"},
+        "economy": {"type": "STRING"},
+        "culture": {"type": "STRING"},
+        "funFacts": {"type": "ARRAY", "items": {"type": "STRING"}},
+        "imageQueries": {"type": "ARRAY", "items": {"type": "STRING"}},
+    },
+    "required": [
+        "officialName", "overview", "flagMeaning", "political", "physical",
+        "demographics", "economy", "culture", "funFacts", "imageQueries",
+    ],
+}
+
+
+def fetch_country_profile(country):
+    """Ask Gemini for an original country profile. Returns (data, error)."""
+    if not GEMINI_KEY:
+        return None, "No Gemini key set (add gemini-key.txt)."
+    body = {
+        "contents": [{"parts": [{"text": PROFILE_PROMPT + country}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": PROFILE_SCHEMA,
+            "temperature": 0.8,
+        },
+    }
+    request = urllib.request.Request(
+        GEMINI_URL + "?key=" + GEMINI_KEY,
+        data=json.dumps(body).encode("utf-8"),
+        headers={"content-type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        text = payload["candidates"][0]["content"]["parts"][0]["text"]
+        return json.loads(text), None
+    except urllib.error.HTTPError as err:
+        print("Gemini failed (%s): %s" % (err.code, err.read().decode("utf-8", "replace")), file=sys.stderr)
+        return None, "The profile service rejected the request (check the Gemini key)."
+    except Exception as err:  # noqa: BLE001
+        print("Gemini error: %r" % err, file=sys.stderr)
+        return None, "Could not reach the profile service."
 
 # ---------------------------------------------------------------------------
 # The instructions and output shape we send to the AI
@@ -200,6 +283,8 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/history":
             self.handle_history(parse_qs(parsed.query))
+        elif parsed.path == "/api/profile":
+            self.handle_profile(parse_qs(parsed.query))
         else:
             self.serve_static(parsed.path)
 
@@ -243,6 +328,26 @@ class Handler(BaseHTTPRequestHandler):
         eras = data.get("eras", [])
         result = {"demo": False, "country": data.get("country", country), "eras": eras}
         CACHE[cache_key] = result
+        self.send_json(200, result)
+
+    def handle_profile(self, query):
+        country = (query.get("country", [""])[0] or "").strip()
+        if not country:
+            self.send_json(400, {"error": "Please enter a country name."})
+            return
+        if len(country) > 60:
+            self.send_json(400, {"error": "That name looks too long."})
+            return
+        key = country.lower()
+        if key in PROFILE_CACHE:
+            self.send_json(200, PROFILE_CACHE[key])
+            return
+        data, error = fetch_country_profile(country)
+        if error:
+            self.send_json(502, {"error": error})
+            return
+        result = {"country": country, "profile": data}
+        PROFILE_CACHE[key] = result
         self.send_json(200, result)
 
     def serve_static(self, path):

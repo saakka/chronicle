@@ -22,6 +22,20 @@ const navNext = document.getElementById("nav-next");
 const exitBtn = document.getElementById("exit-btn");
 const jCountry = document.getElementById("j-country");
 
+const dossier = document.getElementById("dossier");
+const dossierExit = document.getElementById("dossier-exit");
+const dossierBegin = document.getElementById("dossier-begin");
+const dossierFlag = document.getElementById("dossier-flag");
+const dossierName = document.getElementById("dossier-name");
+const dossierRegion = document.getElementById("dossier-region");
+const dossierOverview = document.getElementById("dossier-overview");
+const dossierGallery = document.getElementById("dossier-gallery");
+const dossierFlagMeaning = document.getElementById("dossier-flagmeaning");
+const dossierFacts = document.getElementById("dossier-facts");
+const dossierTabs = document.getElementById("dossier-tabs");
+const dossierTabbody = document.getElementById("dossier-tabbody");
+const dossierFunfacts = document.getElementById("dossier-funfacts");
+
 const lightbox = document.getElementById("lightbox");
 const lightboxImg = document.getElementById("lightbox-img");
 const lightboxCaption = document.getElementById("lightbox-caption");
@@ -394,16 +408,147 @@ async function enterCountry(country) {
   currentEras = data.eras;
   if (data.demo) toast("Demo mode — built-in Egypt sample. Add an API key for any country.");
 
-  // Reveal the journey behind the portal, then fade the portal away.
+  // Arrive on the country dossier first; the timeline is one click away.
   globeView.style.display = "none";
+  showDossier(country);
+  endPortal();
+}
+
+/* ====================== COUNTRY DOSSIER ====================== */
+
+async function showDossier(country) {
+  dossier.hidden = false;
+  window.scrollTo(0, 0);
+  dossierName.textContent = country;
+  dossierRegion.textContent = "";
+  dossierFlag.removeAttribute("src");
+  dossierOverview.innerHTML = '<span class="dossier-loading">Compiling the dossier…</span>';
+  dossierGallery.innerHTML = "";
+  dossierFlagMeaning.innerHTML = "";
+  dossierFacts.innerHTML = "";
+  dossierTabs.innerHTML = "";
+  dossierTabbody.innerHTML = "";
+  dossierFunfacts.innerHTML = "";
+
+  const [facts, profileResp] = await Promise.all([
+    fetchCountryFacts(country),
+    fetch("/api/profile?country=" + encodeURIComponent(country)).then((r) => r.json()).catch(() => null),
+  ]);
+  renderDossier(country, facts, profileResp && profileResp.profile);
+}
+
+async function fetchCountryFacts(country) {
+  try {
+    const res = await fetch(
+      "https://restcountries.com/v3.1/name/" + encodeURIComponent(country) +
+      "?fields=name,flags,capital,population,area,region,subregion,languages,currencies"
+    );
+    if (!res.ok) return null;
+    const arr = await res.json();
+    if (!Array.isArray(arr) || !arr.length) return null;
+    return arr.find((c) => ((c.name && c.name.common) || "").toLowerCase() === country.toLowerCase()) || arr[0];
+  } catch (e) {
+    return null;
+  }
+}
+
+function renderDossier(country, facts, profile) {
+  if (facts) {
+    if (facts.flags && facts.flags.svg) dossierFlag.src = facts.flags.svg;
+    dossierName.textContent = (profile && profile.officialName) || (facts.name && facts.name.common) || country;
+    dossierRegion.textContent = [facts.subregion, facts.region].filter(Boolean).join(" · ");
+  } else if (profile && profile.officialName) {
+    dossierName.textContent = profile.officialName;
+  }
+
+  dossierOverview.textContent = (profile && profile.overview) || "";
+
+  if (profile && profile.flagMeaning) {
+    dossierFlagMeaning.innerHTML = "<b>The Flag</b>" + esc(profile.flagMeaning);
+  }
+
+  if (facts) {
+    const rows = [];
+    if (facts.capital && facts.capital[0]) rows.push(["Capital", facts.capital[0]]);
+    if (facts.population) rows.push(["Population", facts.population.toLocaleString()]);
+    if (facts.area) rows.push(["Area", Math.round(facts.area).toLocaleString() + " km²"]);
+    if (facts.languages) rows.push(["Languages", Object.values(facts.languages).join(", ")]);
+    if (facts.currencies) rows.push(["Currency", Object.values(facts.currencies).map((c) => c.name).join(", ")]);
+    if (facts.region) rows.push(["Region", facts.region]);
+    dossierFacts.innerHTML = rows
+      .map(([l, v]) => '<div class="fact"><span class="fact-label">' + esc(l) + '</span><span class="fact-value">' + esc(v) + "</span></div>")
+      .join("");
+  }
+
+  if (profile) {
+    const sections = [
+      ["Political", profile.political], ["Physical", profile.physical],
+      ["Demographics", profile.demographics], ["Economy", profile.economy], ["Culture", profile.culture],
+    ].filter(([, t]) => t);
+    if (sections.length) {
+      dossierTabs.innerHTML = sections
+        .map(([h], i) => '<button class="tab-btn' + (i === 0 ? " active" : "") + '" data-tab="' + i + '">' + esc(h) + "</button>")
+        .join("");
+      dossierTabbody.textContent = sections[0][1];
+      dossierTabs._sections = sections;
+    }
+    if (Array.isArray(profile.funFacts) && profile.funFacts.length) {
+      dossierFunfacts.innerHTML =
+        "<h3>Did you know</h3><ul>" + profile.funFacts.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>";
+    }
+  } else {
+    dossierTabbody.innerHTML = '<span class="dossier-loading">Profile unavailable right now (check the Gemini key).</span>';
+  }
+
+  // photo gallery — use Gemini's suggested searches (fallback to generics)
+  const queries = profile && Array.isArray(profile.imageQueries) && profile.imageQueries.length
+    ? profile.imageQueries
+    : [country + " landmark", country + " landscape", (facts && facts.capital && facts.capital[0]) || country];
+  loadGallery(queries);
+}
+
+async function loadGallery(queries) {
+  dossierGallery.innerHTML = '<span class="dossier-loading">Gathering photos…</span>';
+  const results = await Promise.all(queries.slice(0, 6).map((q) => fetchImages(q, 2)));
+  const imgs = [];
+  const seen = new Set();
+  results.flat().forEach((im) => {
+    if (im && im.thumb && !seen.has(im.thumb)) { seen.add(im.thumb); imgs.push(im); }
+  });
+  if (!imgs.length) { dossierGallery.innerHTML = ""; return; }
+  dossierGallery.innerHTML = imgs.slice(0, 8)
+    .map((im) =>
+      '<figure class="gallery-photo" data-full="' + esc(im.full || im.thumb) + '" data-caption="' + esc(im.caption || "") + '">' +
+        '<img loading="lazy" src="' + esc(im.thumb) + '" alt="' + esc(im.caption || "") + '"/>' +
+        "<span>" + esc(im.caption || "") + "</span>" +
+      "</figure>")
+    .join("");
+}
+
+dossierTabs.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-tab]");
+  if (!btn || !dossierTabs._sections) return;
+  dossierTabs.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b === btn));
+  dossierTabbody.textContent = dossierTabs._sections[parseInt(btn.getAttribute("data-tab"), 10)][1];
+});
+
+dossier.addEventListener("click", (e) => {
+  const fig = e.target.closest(".gallery-photo");
+  if (fig) openLightbox(fig.getAttribute("data-full"), fig.getAttribute("data-caption"));
+});
+
+function startJourney() {
+  dossier.hidden = true;
   journey.hidden = false;
-  jCountry.textContent = country;
+  jCountry.textContent = currentCountry;
   bgActiveEl = null;
   buildTimeline();
-  await goToEra(0);
-  endPortal();
+  goToEra(0);
   Sound.startAmbient();
 }
+
+dossierBegin.addEventListener("click", startJourney);
+dossierExit.addEventListener("click", exitJourney);
 
 /* ====================== ERA JOURNEY ====================== */
 
@@ -488,6 +633,7 @@ function updateArrows() {
 function exitJourney() {
   Sound.stopAmbient();
   journey.hidden = true;
+  dossier.hidden = true;
   busy = false;
   dwellCountry = null;
   clearTimeout(dwellTimer);
