@@ -359,7 +359,7 @@ function initGlobe2D() {
         feat: f,
       }));
     })
-    .catch(() => showChips());
+    .catch(() => { s.dead = true; showChips(); });
 
   // --- orthographic projection ---
   function project(lng, lat) {
@@ -434,7 +434,14 @@ function initGlobe2D() {
     }
   }
   function render() {
+    if (s.dead) return;                       // canvas was torn down (chip fallback) — stop ticking
     if (globeView.style.display !== "none") {
+      // resolve at most one hover hit-test per frame (cheaper than per pointermove)
+      if (s.pendingHover && !s.dragging) {
+        const g = unproject(s.pendingHover.x, s.pendingHover.y);
+        setHover(g ? featureAt(g.lng, g.lat) : null, g);
+        s.pendingHover = null;
+      }
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
       if (s.autoRotate && !s.dragging && !s.hoverFeat && !busy) s.rotLng += 0.11;
       drawSphere();
@@ -477,8 +484,7 @@ function initGlobe2D() {
       s.rotLat = Math.max(-82, Math.min(82, s.rotLat));
       s.lastX = e.clientX; s.lastY = e.clientY;
     } else {
-      const geo = unproject(e.clientX, e.clientY);
-      setHover(geo ? featureAt(geo.lng, geo.lat) : null, geo);
+      s.pendingHover = { x: e.clientX, y: e.clientY };   // resolved once per frame in render()
     }
   });
   canvas.addEventListener("pointerup", (e) => {
@@ -489,7 +495,12 @@ function initGlobe2D() {
       if (f && !busy) { setHoverGlobals(f, geo); enterCountry(f.admin); }
     }
   });
-  canvas.addEventListener("pointerleave", () => { s.dragging = false; setHover(null); });
+  // If a drag is interrupted (pointercancel / lost capture / pointer leaves),
+  // always release the drag so the globe can never get stuck frozen.
+  function endDrag() { s.dragging = false; canvas.style.cursor = "grab"; }
+  canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("lostpointercapture", endDrag);
+  canvas.addEventListener("pointerleave", () => { endDrag(); s.pendingHover = null; setHover(null); });
 }
 
 // Last-resort list, only if the country shapes can't be fetched at all.
