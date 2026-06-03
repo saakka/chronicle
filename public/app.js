@@ -783,14 +783,17 @@ document.addEventListener("click", (e) => {
 
 // Drop the dull stuff (maps, flags, crests, diagrams, locator dots) — we want
 // striking photographs and artworks.
-const JUNK_IMAGE = /(map|locator|flag|coat[\s_-]?of[\s_-]?arms|\bseal\b|emblem|logo|diagram|chart|\bicon\b|orthographic|\blocation\b|topograph|administ|blank|outline|gpx|wikimedia|spreadsheet|\bsignature\b)/i;
+const JUNK_IMAGE = /(map|locator|flag|coat[\s_-]?of[\s_-]?arms|\bseal\b|emblem|logo|diagram|chart|\bicon\b|orthographic|\blocation\b|topograph|administ|blank|outline|gpx|wikimedia|spreadsheet|\bsignature\b|\bplan\b|schematic|\bsketch\b)/i;
+const IMG_CACHE = new Map();   // cache searches so pages don't refetch the same query
 
 async function fetchImages(query, max = 6) {
   if (!query) return [];
+  const cacheKey = query + "|" + max;
+  if (IMG_CACHE.has(cacheKey)) return IMG_CACHE.get(cacheKey);
   const params = new URLSearchParams({
     action: "query", format: "json", origin: "*",
-    generator: "search", gsrsearch: query, gsrnamespace: "6", gsrlimit: "40",
-    prop: "imageinfo", iiprop: "url|mime|size", iiurlwidth: "1000",
+    generator: "search", gsrsearch: query, gsrnamespace: "6", gsrlimit: "14",
+    prop: "imageinfo", iiprop: "url|mime|size", iiurlwidth: "700",
   });
   let data;
   try {
@@ -817,12 +820,19 @@ async function fetchImages(query, max = 6) {
     const ratio = w && h ? Math.min(w, h) / Math.max(w, h) : 0.6; // 1 = square, →0 = sliver
     // favour big, well-proportioned, still-relevant images ("most intriguing")
     const score = Math.log(area) + ratio * 1.4 - i * 0.04;
-    const caption = title.split(":").slice(1).join(":").replace(/\.[^.]+$/, "").replace(/_/g, " ").trim();
+    let caption = title.split(":").slice(1).join(":").replace(/\.[^.]+$/, "").replace(/_/g, " ").trim();
+    caption = caption
+      .split(/\s[-–—]\s/)[0]                              // drop "- Archivio..." tails
+      .replace(/\([^)]*\d[^)]*\)/g, "")                   // drop "(47902649251)" code parens
+      .replace(/,?\s*photo\s+\d+\s+of\s+\d+/i, "")        // drop "photo 3 of 8"
+      .replace(/\s{2,}/g, " ").replace(/[,\s]+$/, "").trim();
     candidates.push({ thumb, full: info.url || thumb, caption, score });
   });
 
   candidates.sort((a, b) => b.score - a.score);
-  return candidates.slice(0, max).map(({ thumb, full, caption }) => ({ thumb, full, caption }));
+  const result = candidates.slice(0, max).map(({ thumb, full, caption }) => ({ thumb, full, caption }));
+  IMG_CACHE.set(cacheKey, result);
+  return result;
 }
 
 function coverHtml(img) {
