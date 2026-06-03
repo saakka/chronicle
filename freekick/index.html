@@ -142,33 +142,10 @@
 
   <script>
   "use strict";
-  function boot() {
-  // ===================================================================
-  //  CONFIG  — tweak these to change feel; we iterate here.
-  // ===================================================================
-  const CONFIG = {
-    ballZ:       19.0,   // distance from goal line (m) to the ball
-    ballR:       0.12,
-    goalW:       7.32,   // real goal width
-    goalH:       2.44,   // real goal height
-    wallDist:    9.15,   // wall distance from ball (regulation)
-    wallCount:   4,
-    wallHalfW:   1.05,   // effective horizontal half-width the wall blocks
-    wallBlockH:  2.05,   // effective height the wall blocks (with jump)
-    wallCenterX: 0.0,    // wall centred on goal
-    gravity:     10.4,
-    minSpeed:    16.0,   // m/s at 0 power
-    maxSpeed:    30.0,   // m/s at full power
-    chargeTime:  1.05,   // seconds to fill the power bar
-    curveStrength: 7.5,  // lateral accel (m/s^2) at full curve
-    curveSens:   0.0075, // mouse px -> curve units
-    keeperRange: 1.75,   // how far keeper can reach from centre
-    keeperHeight:1.95,   // how high keeper can reach
-    aimRangeX:   5.2,    // how far left/right the reticle can roam (m)
-    aimYmin:     0.25,
-    aimYmax:     4.1,
-    previewPower:0.55,   // assumed power for the aim preview before charging
-  };
+  function boot3D() {
+  // CONFIG + tuning live in the shared FK module below (one source of truth for
+  // both the 3D and 2D renderers). Tweak gameplay there.
+  const CONFIG = window.FK.CONFIG;
 
   const GOAL_HALF = CONFIG.goalW / 2;
   const WALL_Z = CONFIG.ballZ - CONFIG.wallDist;
@@ -821,12 +798,453 @@
   }
 
   }
-  // expose so the loader can start the game once Three.js is ready
-  window.__bootFreeKick = boot;
+  window.__boot3D = boot3D;
   </script>
 
   <script>
-  // ---- Resilient Three.js loader: try several CDNs, then give a clear reason ----
+  // ===================================================================
+  //  SHARED TUNING + PHYSICS  — one source of truth for 3D and 2D.
+  //  Tweak gameplay feel HERE.
+  // ===================================================================
+  "use strict";
+  (function () {
+    var CONFIG = {
+      ballZ:       19.0,   // distance from goal line (m) to the ball
+      ballR:       0.12,
+      goalW:       7.32,   // real goal width
+      goalH:       2.44,   // real goal height
+      wallDist:    9.15,   // wall distance from ball (regulation)
+      wallCount:   4,
+      wallHalfW:   1.05,   // horizontal half-width the wall blocks
+      wallBlockH:  2.05,   // height the wall blocks (with jump)
+      wallCenterX: 0.0,
+      gravity:     10.4,
+      minSpeed:    16.0,   // m/s at 0 power
+      maxSpeed:    30.0,   // m/s at full power
+      chargeTime:  1.05,   // seconds to fill the power bar
+      curveStrength: 7.5,  // lateral accel (m/s^2) at full curve
+      curveSens:   0.0075, // mouse px -> curve units
+      keeperRange: 1.75,
+      keeperHeight:1.95,
+      aimRangeX:   5.2,
+      aimYmin:     0.25,
+      aimYmax:     4.1,
+      previewPower:0.55
+    };
+    var GOAL_HALF = CONFIG.goalW / 2;
+    var WALL_Z = CONFIG.ballZ - CONFIG.wallDist;
+    var ballHome = { x: 0, y: CONFIG.ballR, z: CONFIG.ballZ };
+    function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+    function lerp(a,b,t){ return a + (b-a)*t; }
+
+    function computeLaunch(aimPt, pwr){
+      var speed = lerp(CONFIG.minSpeed, CONFIG.maxSpeed, pwr);
+      var t = CONFIG.ballZ / speed;                 // time to reach goal plane
+      return { x: (aimPt.x - ballHome.x)/t,
+               y: (aimPt.y - ballHome.y)/t + 0.5*CONFIG.gravity*t,
+               z: -speed };
+    }
+
+    // Deterministic integration shared by preview + the real shot.
+    function simulate(vel0, crv, collect){
+      var dt = 1/120, g = CONFIG.gravity;
+      var px = ballHome.x, py = ballHome.y, pz = ballHome.z;
+      var vx = vel0.x, vy = vel0.y, vz = vel0.z;
+      var pts = collect ? [{x:px,y:py,z:pz}] : null;
+      var hitWall=false, wallPos=null, tWall=null, crossX=null, crossY=null, tCross=null, t=0;
+      for (var i=0;i<1500;i++){
+        var ox=px, oy=py, oz=pz;
+        vx += crv*CONFIG.curveStrength*dt; vy -= g*dt;
+        px += vx*dt; py += vy*dt; pz += vz*dt; t += dt;
+        if (!hitWall && oz>WALL_Z && pz<=WALL_Z){
+          var a=(oz-WALL_Z)/(oz-pz), wx=lerp(ox,px,a), wy=lerp(oy,py,a);
+          if (Math.abs(wx-CONFIG.wallCenterX)<=CONFIG.wallHalfW && wy<=CONFIG.wallBlockH && wy>=0){
+            hitWall=true; wallPos={x:wx,y:wy,z:WALL_Z}; tWall=t;
+          }
+        }
+        if (oz>0 && pz<=0){
+          var b=oz/(oz-pz); crossX=lerp(ox,px,b); crossY=lerp(oy,py,b); tCross=t;
+          if (collect) pts.push({x:crossX,y:crossY,z:0});
+          break;
+        }
+        if (collect && (i%2===0)) pts.push({x:px,y:py,z:pz});
+        if (py < -0.5) break;
+      }
+      return { pts:pts, hitWall:hitWall, wallPos:wallPos, tWall:tWall,
+               crossX:crossX, crossY:crossY, tCross:tCross };
+    }
+
+    window.FK = { CONFIG:CONFIG, GOAL_HALF:GOAL_HALF, WALL_Z:WALL_Z, ballHome:ballHome,
+                  clamp:clamp, lerp:lerp, computeLaunch:computeLaunch, simulate:simulate };
+  })();
+  </script>
+
+  <script>
+  // ===================================================================
+  //  2D CANVAS RENDERER  — no WebGL, no GPU, no internet required.
+  //  A 2.5D perspective free-kick, same physics & controls as the 3D build.
+  // ===================================================================
+  "use strict";
+  function boot2D(){
+    var FK = window.FK, CONFIG = FK.CONFIG, GOAL_HALF = FK.GOAL_HALF, WALL_Z = FK.WALL_Z;
+    var ballHome = FK.ballHome, clamp = FK.clamp, lerp = FK.lerp;
+    var computeLaunch = FK.computeLaunch, simulate = FK.simulate;
+    var $ = function(id){ return document.getElementById(id); };
+
+    // ---- canvas ----
+    var canvas = document.createElement('canvas');
+    canvas.style.display = 'block';
+    $('app').appendChild(canvas);
+    var ctx = canvas.getContext('2d');
+    var W=0, H=0, DPR=1, focal=0, cx=0, cy=0;
+
+    // ---- camera (matches the 3D one) ----
+    var eye = { x:0, y:2.7, z:CONFIG.ballZ + 4.2 };
+    var target = { x:0, y:1.25, z:0 };
+    var bF, bR, bU;
+    function sub(a,b){ return {x:a.x-b.x, y:a.y-b.y, z:a.z-b.z}; }
+    function cross(a,b){ return {x:a.y*b.z-a.z*b.y, y:a.z*b.x-a.x*b.z, z:a.x*b.y-a.y*b.x}; }
+    function dot(a,b){ return a.x*b.x+a.y*b.y+a.z*b.z; }
+    function norm(a){ var l=Math.hypot(a.x,a.y,a.z)||1; return {x:a.x/l,y:a.y/l,z:a.z/l}; }
+    function buildCamera(){
+      bF = norm(sub(target, eye));
+      bR = norm(cross(bF, {x:0,y:1,z:0}));
+      bU = cross(bR, bF);
+    }
+    // project world point -> {x,y (screen px), z (depth), s (px per metre)} or null if behind
+    function pw(x,y,z){
+      var dx=x-eye.x, dy=y-eye.y, dz=z-eye.z;
+      var camx = dx*bR.x+dy*bR.y+dz*bR.z;
+      var camy = dx*bU.x+dy*bU.y+dz*bU.z;
+      var camz = dx*bF.x+dy*bF.y+dz*bF.z;
+      if (camz <= 0.05) return null;
+      return { x: cx + (camx/camz)*focal, y: cy - (camy/camz)*focal, z: camz, s: focal/camz };
+    }
+
+    function resize(){
+      DPR = Math.min(window.devicePixelRatio||1, 2);
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = W*DPR; canvas.height = H*DPR;
+      canvas.style.width = W+'px'; canvas.style.height = H+'px';
+      ctx.setTransform(DPR,0,0,DPR,0,0);
+      var fov = 48*Math.PI/180;
+      focal = (H/2)/Math.tan(fov/2);
+      cx = W/2; cy = H/2;
+      buildCamera();
+    }
+
+    // ---- state ----
+    var ST = { AIM:'AIM', CHARGE:'CHARGE', FLIGHT:'FLIGHT', RESULT:'RESULT' };
+    var state = ST.AIM, started = false;
+    var aim = { x:0.4, y:1.4 }, curve=0, power=0, chargeStart=0;
+    var vel = {x:0,y:0,z:0}, ballCurve=0, plan=null, wallHandled=false, flightAcc=0;
+    var ball = { x:ballHome.x, y:ballHome.y, z:ballHome.z }, spin=0;
+    var goals=0, shots=0, streak=0, best=0;
+    var keeperDive=null, keeper={ x:0, dive:0, dir:1 };
+    var resultUntil=0;
+    var keys = { left:false, right:false };
+    var last = performance.now();
+
+    // ---- small draw helpers ----
+    function lineW(a,b,w,color,alpha){
+      if(!a||!b) return;
+      ctx.strokeStyle=color; ctx.globalAlpha=alpha==null?1:alpha;
+      ctx.lineWidth=Math.max(1,w); ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+    function quad(p1,p2,p3,p4,color){
+      if(!p1||!p2||!p3||!p4) return;
+      ctx.fillStyle=color; ctx.beginPath();
+      ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.lineTo(p3.x,p3.y); ctx.lineTo(p4.x,p4.y);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // ---- scene drawing ----
+    function drawGround(){
+      var Xw=42, zNear=eye.z-0.6, zFar=-24;
+      quad(pw(-Xw,0,zFar), pw(Xw,0,zFar), pw(Xw,0,zNear), pw(-Xw,0,zNear), '#2f7d33');
+      var k=0;
+      for (var z=zFar; z<zNear; z+=3.2){
+        var z2=Math.min(z+3.2, zNear);
+        quad(pw(-Xw,0,z), pw(Xw,0,z), pw(Xw,0,z2), pw(-Xw,0,z2),
+             (k++ %2===0) ? '#3a9440' : '#347f3a');
+      }
+    }
+    function seg(ax,az,bx,bz,wm){
+      var a=pw(ax,0,az), b=pw(bx,0,bz);
+      if(a&&b){ lineW(a,b,(a.s+b.s)*0.5*(wm||0.12),'#ffffff',0.85); }
+    }
+    function drawLines(){
+      var penD=16.5, penW=40.3, sixD=5.5, sixW=18.3;
+      seg(-20,0,20,0);                                   // goal line
+      seg(-penW/2,penD, penW/2,penD);                    // penalty box front
+      seg(-penW/2,0, -penW/2,penD); seg(penW/2,0, penW/2,penD);
+      seg(-sixW/2,sixD, sixW/2,sixD);                    // six-yard front
+      seg(-sixW/2,0, -sixW/2,sixD); seg(sixW/2,0, sixW/2,sixD);
+      var sp=pw(0,0,11); if(sp){ ctx.fillStyle='rgba(255,255,255,0.85)';
+        ctx.beginPath(); ctx.ellipse(sp.x,sp.y,sp.s*0.16,sp.s*0.16*0.4,0,0,7); ctx.fill(); }
+    }
+    function drawGoal(){
+      var H2=CONFIG.goalH, d=1.7;
+      // net — back grid
+      ctx.globalAlpha=1;
+      for (var gx=-GOAL_HALF; gx<=GOAL_HALF+0.01; gx+=0.45)
+        lineW(pw(gx,0,-d), pw(gx,H2,-d), 1, '#dfe9ff', 0.22);
+      for (var gy=0; gy<=H2+0.01; gy+=0.4)
+        lineW(pw(-GOAL_HALF,gy,-d), pw(GOAL_HALF,gy,-d), 1, '#dfe9ff', 0.22);
+      // depth edges (front frame -> back)
+      [-GOAL_HALF,GOAL_HALF].forEach(function(x){
+        lineW(pw(x,H2,0), pw(x,H2,-d), 1.5, '#eef4ff', 0.5);
+      });
+      lineW(pw(-GOAL_HALF,H2,-d), pw(GOAL_HALF,H2,-d), 1.5, '#eef4ff', 0.5);
+      // posts + bar (front frame, drawn thick & bright)
+      var pwm=0.14;
+      var lb=pw(-GOAL_HALF,0,0), lt=pw(-GOAL_HALF,H2,0), rb=pw(GOAL_HALF,0,0), rt=pw(GOAL_HALF,H2,0);
+      lineW(lb,lt,(lb?lb.s:8)*pwm,'#ffffff',1);
+      lineW(rb,rt,(rb?rb.s:8)*pwm,'#ffffff',1);
+      lineW(lt,rt,((lt?lt.s:8))*pwm,'#ffffff',1);
+    }
+    function player(x,z,height,shirt,shorts,opts){
+      opts=opts||{};
+      var bp=pw(x,0,z), tp=pw(x,height,z);
+      if(!bp||!tp) return;
+      var leanX=opts.leanX||0, raise=opts.raise||0;
+      var baseX=bp.x, baseY=bp.y-raise, topX=tp.x+leanX, topY=tp.y-raise;
+      var w=bp.s*0.42;
+      // shadow
+      ctx.fillStyle='rgba(0,0,0,0.28)';
+      ctx.beginPath(); ctx.ellipse(bp.x,bp.y,w*0.9,w*0.32,0,0,7); ctx.fill();
+      // legs/shorts (lower 45%)
+      var midX=lerp(baseX,topX,0.45), midY=lerp(baseY,topY,0.45);
+      lineW({x:baseX,y:baseY},{x:midX,y:midY}, w*0.95, shorts, 1);
+      // torso/shirt
+      var neckX=lerp(baseX,topX,0.9), neckY=lerp(baseY,topY,0.9);
+      lineW({x:midX,y:midY},{x:neckX,y:neckY}, w*1.05, shirt, 1);
+      // head
+      ctx.fillStyle=opts.skin||'#e8b48c';
+      ctx.beginPath(); ctx.arc(topX,topY,w*0.5,0,7); ctx.fill();
+      // arms for a diving keeper
+      if(opts.arms){
+        var ax=topX+leanX*0.5;
+        lineW({x:neckX,y:neckY},{x:ax+w*1.4*opts.dir,y:topY-w*0.6}, w*0.5, shirt,1);
+        ctx.fillStyle='#f4d35e'; ctx.beginPath();
+        ctx.arc(ax+w*1.4*opts.dir,topY-w*0.6,w*0.42,0,7); ctx.fill();
+      }
+    }
+    function drawWall(){
+      var n=CONFIG.wallCount, spacing=0.5, startX=CONFIG.wallCenterX-(n-1)*spacing/2;
+      var hop = (state===ST.FLIGHT)?0:0;
+      for(var i=0;i<n;i++)
+        player(startX+i*spacing, WALL_Z, 1.82, '#db2b39', '#ffffff', {raise:hop});
+    }
+    function drawKeeper(){
+      var lean = keeper.dive*1.0*keeper.dir;
+      var w = 0.42;
+      player(keeper.x, 0.25, 1.82, '#16c2c2', '#0c3b3b',
+        { leanX: lean* (pw(keeper.x,1,0.25)?pw(keeper.x,1,0.25).s:30)*0.9,
+          raise: keeper.dive*0.4*(pw(keeper.x,1,0.25)?pw(keeper.x,1,0.25).s:30),
+          arms: keeper.dive>0.15, dir: keeper.dir, skin:'#e8b48c' });
+    }
+    function drawTrajectory(){
+      var pwr = (state===ST.CHARGE)?power:CONFIG.previewPower;
+      var sim = simulate(computeLaunch(aim,pwr), curve, true);
+      var onTarget = sim.crossX!=null && Math.abs(sim.crossX)<GOAL_HALF && sim.crossY<CONFIG.goalH && sim.crossY>0;
+      var col = sim.hitWall ? '#ff5d5d' : (onTarget ? '#46e08a' : '#ffe14d');
+      ctx.strokeStyle=col; ctx.lineWidth=3; ctx.lineCap='round';
+      ctx.globalAlpha=0.92; ctx.beginPath();
+      var started2=false;
+      for(var i=0;i<sim.pts.length;i++){
+        var p=pw(sim.pts[i].x, sim.pts[i].y, sim.pts[i].z);
+        if(!p){ started2=false; continue; }
+        if(!started2){ ctx.moveTo(p.x,p.y); started2=true; } else ctx.lineTo(p.x,p.y);
+      }
+      ctx.stroke(); ctx.globalAlpha=1;
+      // reticle at aim point
+      var r=pw(aim.x,aim.y,0);
+      if(r){ ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.5; ctx.globalAlpha=0.9;
+        ctx.beginPath(); ctx.arc(r.x,r.y,Math.max(9,r.s*0.32),0,7); ctx.stroke();
+        ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(r.x,r.y,Math.max(2,r.s*0.05),0,7); ctx.fill();
+        ctx.globalAlpha=1; }
+    }
+    function drawBall(){
+      var sp=pw(ball.x,0,ball.z);
+      if(sp){ var hf=clamp(1-ball.y*0.16,0.35,1);
+        ctx.fillStyle='rgba(0,0,0,'+(0.34*hf)+')';
+        ctx.beginPath(); ctx.ellipse(sp.x,sp.y,sp.s*0.16*hf,sp.s*0.16*0.4*hf,0,0,7); ctx.fill(); }
+      var p=pw(ball.x,ball.y,ball.z);
+      if(!p) return;
+      var r=Math.max(3,p.s*CONFIG.ballR);
+      ctx.fillStyle='#f7f7f7'; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,7); ctx.fill();
+      ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=Math.max(1,r*0.08);
+      ctx.beginPath(); ctx.arc(p.x,p.y,r,0,7); ctx.stroke();
+      // spots (rotate with spin for a rolling feel)
+      ctx.fillStyle='#1c1c1c';
+      for(var k=0;k<3;k++){
+        var a=spin + k*2.094;
+        var sx=p.x+Math.cos(a)*r*0.45, sy=p.y+Math.sin(a)*r*0.45;
+        ctx.beginPath(); ctx.arc(sx,sy,r*0.2,0,7); ctx.fill();
+      }
+    }
+    function drawSky(){
+      var g=ctx.createLinearGradient(0,0,0,H);
+      g.addColorStop(0,'#9ad2ff'); g.addColorStop(0.55,'#bfe3ff'); g.addColorStop(1,'#d9f0ff');
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      // crowd band behind goal
+      var c1=pw(-42,0,-24), c2=pw(42,0,-24), c3=pw(42,9,-24), c4=pw(-42,9,-24);
+      quad(c1,c2,c3,c4,'#243149');
+    }
+    function render(){
+      drawSky();
+      drawGround();
+      drawLines();
+      drawGoal();
+      drawKeeper();
+      drawWall();
+      if(state===ST.AIM || state===ST.CHARGE) drawTrajectory();
+      drawBall();
+    }
+
+    // ---- shooting / flight (mirrors the 3D build) ----
+    function startCharge(){ if(!started||state!==ST.AIM) return; state=ST.CHARGE; power=0; chargeStart=performance.now()/1000; $('powerLabel').textContent=''; }
+    function releaseShot(){
+      if(state!==ST.CHARGE) return;
+      vel = computeLaunch(aim, Math.max(0.08,power));
+      ballCurve = curve; plan = simulate(vel, curve, false);
+      wallHandled=false; flightAcc=0; state=ST.FLIGHT; shots++; updateScore();
+      setupKeeperDive(plan);
+    }
+    function setupKeeperDive(sim){
+      var cxp = sim.crossX!=null ? sim.crossX : 0;
+      var err = (Math.random()-0.5)*0.8;
+      var reach = CONFIG.keeperRange + Math.random()*0.25;
+      var to = clamp(cxp+err, -reach-0.3, reach+0.3);
+      var saves = sim.crossX!=null && !sim.hitWall &&
+                  Math.abs(sim.crossX)<=reach && sim.crossY<=CONFIG.keeperHeight && sim.crossY>0;
+      keeperDive = { from:0, to:to, t:0, dur: sim.tCross? sim.tCross*0.95:0.8, saves:saves, dir: Math.sign(to)||1 };
+    }
+    function updateKeeper(dt){
+      if(!keeperDive){ keeper.x=0; keeper.dive=0; return; }
+      keeperDive.t=Math.min(keeperDive.dur, keeperDive.t+dt);
+      var k=keeperDive.dur>0?keeperDive.t/keeperDive.dur:1, e=1-Math.pow(1-k,2);
+      keeper.x=lerp(keeperDive.from,keeperDive.to,e);
+      keeper.dive=Math.abs(keeperDive.to)>0.6?e:0;
+      keeper.dir=keeperDive.dir;
+    }
+    function stepFlight(dt){
+      var sub2=1/120; flightAcc+=dt;
+      while(flightAcc>=sub2){
+        flightAcc-=sub2;
+        vel.x += ballCurve*CONFIG.curveStrength*sub2; vel.y -= CONFIG.gravity*sub2;
+        ball.x+=vel.x*sub2; ball.y+=vel.y*sub2; ball.z+=vel.z*sub2;
+        spin += (-vel.z*sub2*1.4) + (vel.x*sub2*0.6);
+        if(!wallHandled && plan.hitWall && ball.z<=WALL_Z){
+          wallHandled=true; ball.x=plan.wallPos.x; ball.y=plan.wallPos.y; ball.z=plan.wallPos.z;
+          return finish('BLOCKED','#ff7a7a');
+        }
+        if(ball.z<=0){ ball.x=plan.crossX; ball.y=Math.max(CONFIG.ballR,plan.crossY); ball.z=0; return resolveGoal(); }
+        if(ball.y<CONFIG.ballR){ ball.y=CONFIG.ballR; vel.y=Math.abs(vel.y)*0.45; vel.x*=0.86; vel.z*=0.86; }
+      }
+    }
+    function resolveGoal(){
+      var x=plan.crossX, y=plan.crossY;
+      var insideX=Math.abs(x)<GOAL_HALF-CONFIG.ballR;
+      var insideY=y>CONFIG.ballR*0.5 && y<CONFIG.goalH-CONFIG.ballR*0.5;
+      var postHit=!insideX && Math.abs(x)<GOAL_HALF+CONFIG.ballR+0.05 && y<CONFIG.goalH;
+      if(insideX&&insideY){
+        if(keeperDive&&keeperDive.saves) return finish('SAVED!','#7ad0ff');
+        goals++; streak++; best=Math.max(best,streak); updateScore();
+        return finish('GOAL!','#5cf2a0');
+      }
+      streak=0; updateScore();
+      return finish(postHit?'OFF THE POST!':'MISS!','#ffd34d');
+    }
+    function finish(text,color){
+      state=ST.RESULT; resultUntil=performance.now()+1800;
+      var b=$('banner'); b.textContent=text; b.style.color=color;
+      b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+      $('powerBar').style.width='0%';
+    }
+    function resetForNext(){
+      ball.x=ballHome.x; ball.y=ballHome.y; ball.z=ballHome.z; vel.x=vel.y=vel.z=0; spin=0;
+      power=0; curve=0; plan=null; keeperDive=null; keeper.x=0; keeper.dive=0;
+      $('powerBar').style.width='0%'; $('powerLabel').textContent='POWER';
+      $('banner').classList.remove('show'); state=ST.AIM;
+    }
+
+    // ---- HUD ----
+    function updateScore(){ $('sGoals').textContent=goals; $('sShots').textContent=shots; $('sStreak').textContent=streak; }
+    function updateHud(){
+      if(state===ST.CHARGE) $('powerBar').style.width=(power*100).toFixed(0)+'%';
+      $('curveDot').style.left=(50+curve*50)+'%';
+    }
+
+    // ---- input ----
+    function bindInput(){
+      window.addEventListener('mousemove', function(e){
+        if(!started) return;
+        if(state===ST.AIM){
+          var nx=(e.clientX/window.innerWidth)*2-1, ny=-((e.clientY/window.innerHeight)*2-1);
+          aim.x=clamp(nx*CONFIG.aimRangeX,-CONFIG.aimRangeX,CONFIG.aimRangeX);
+          aim.y=clamp(lerp(CONFIG.aimYmin,CONFIG.aimYmax,(ny+1)/2),CONFIG.aimYmin,CONFIG.aimYmax);
+        } else if(state===ST.CHARGE){
+          curve=clamp(curve+e.movementX*CONFIG.curveSens,-1,1);
+          aim.y=clamp(aim.y-e.movementY*0.004,CONFIG.aimYmin,CONFIG.aimYmax);
+        }
+      });
+      window.addEventListener('mousedown', function(e){ if(e.button===0) startCharge(); });
+      window.addEventListener('mouseup', function(e){ if(e.button===0) releaseShot(); });
+      window.addEventListener('keydown', function(e){
+        if(e.code==='KeyA'||e.code==='ArrowLeft') keys.left=true;
+        if(e.code==='KeyD'||e.code==='ArrowRight') keys.right=true;
+        if(e.code==='Space'){ e.preventDefault();
+          if(state===ST.RESULT) resetForNext(); else if(state===ST.AIM) startCharge(); else if(state===ST.CHARGE) releaseShot(); }
+        if(e.code==='KeyR'&&state===ST.RESULT) resetForNext();
+      });
+      window.addEventListener('keyup', function(e){
+        if(e.code==='KeyA'||e.code==='ArrowLeft') keys.left=false;
+        if(e.code==='KeyD'||e.code==='ArrowRight') keys.right=false;
+      });
+      $('startBtn').addEventListener('click', function(){ started=true; $('start').classList.add('hidden'); });
+    }
+
+    // ---- loop ----
+    function frame(now){
+      requestAnimationFrame(frame);
+      var dt=Math.min(0.05,(now-last)/1000); last=now;
+      if(!started){ render(); return; }
+      if(state===ST.CHARGE){
+        if(keys.left) curve=clamp(curve-1.4*dt,-1,1);
+        if(keys.right) curve=clamp(curve+1.4*dt,-1,1);
+        power=clamp((now/1000-chargeStart)/CONFIG.chargeTime,0,1);
+      }
+      if(state===ST.FLIGHT){ stepFlight(dt); updateKeeper(dt); }
+      if(state===ST.RESULT && now>resultUntil) resetForNext();
+      updateHud(); render();
+    }
+
+    window.addEventListener('resize', resize);
+    resize(); bindInput(); updateScore();
+    requestAnimationFrame(frame);
+
+    // Deterministic test hook (does not affect normal play) — drives a full shot
+    // synchronously so outcomes can be verified without relying on rAF timing.
+    window.__fk2d = {
+      shoot: function(ax, ay, pwr, crv){
+        started = true; aim.x = ax; aim.y = ay; curve = crv||0; power = pwr;
+        state = ST.CHARGE; releaseShot();
+        for (var i=0; i<600 && state===ST.FLIGHT; i++){ stepFlight(1/60); updateKeeper(1/60); }
+        return { result: $('banner').textContent, goals:goals, shots:shots, streak:streak,
+                 ballX:+ball.x.toFixed(2), ballY:+ball.y.toFixed(2) };
+      },
+      reset: function(){ resetForNext(); goals=0; shots=0; streak=0; updateScore(); }
+    };
+  }
+  window.__boot2D = boot2D;
+  </script>
+
+  <script>
+  // ---- Loader: pick 2D (no GPU needed) or 3D (WebGL), with CDN fallback ----
   (function () {
     var SOURCES = [
       "https://unpkg.com/three@0.128.0/build/three.min.js",
@@ -847,38 +1265,29 @@
       } catch (e) { return false; }
     }
 
-    function start(){
-      var forceNoGL = /[?&]nogl/.test(location.search);  // diagnostics bypass
-      if (!forceNoGL && !webglOK()){
-        fail('This device can&rsquo;t start WebGL (3D graphics).',
-          'The game itself loaded fine, but your browser couldn&rsquo;t open a 3D canvas. Usually one of these fixes it:<br><br>'
-          + '• Open it in <b>Google Chrome</b> (most reliable for WebGL).<br>'
-          + '• Turn on <b>hardware acceleration</b> in your browser settings, then reload.<br>'
-          + '• If you&rsquo;re on a remote/virtual machine, it may have no GPU.<br><br>'
-          + 'Tell me which browser you used and I can tailor the fix.');
-        return;
-      }
-      try { window.__bootFreeKick(); }
+    function run2D(){
+      try { window.__boot2D(); }
       catch (e){ fail('Something broke while starting the game.', '<pre style="white-space:pre-wrap">'+(e&&e.stack?e.stack:e)+'</pre>'); }
     }
-
-    function load(i){
-      if (typeof THREE !== 'undefined') return start();
-      if (i >= SOURCES.length){
-        fail('Couldn&rsquo;t load the 3D engine (Three.js).',
-          'Every graphics CDN we tried was blocked or unreachable from your network:<br><br>'
-          + SOURCES.map(function(s){return '• '+s;}).join('<br>')
-          + '<br><br>Check your internet/firewall, or tell me and I&rsquo;ll bundle Three.js locally so it needs no internet at all.');
-        return;
-      }
+    function run3D(){
+      try { window.__boot3D(); }
+      catch (e){ fail('Something broke while starting the 3D game.', '<pre style="white-space:pre-wrap">'+(e&&e.stack?e.stack:e)+'</pre>'); }
+    }
+    function loadThree(i){
+      if (typeof THREE !== 'undefined') return run3D();
+      if (i >= SOURCES.length) return run2D();   // CDNs blocked → 2D needs no engine
       var s = document.createElement('script');
       s.src = SOURCES[i];
-      s.onload = function(){ start(); };
-      s.onerror = function(){ load(i+1); };
+      s.onload  = function(){ run3D(); };
+      s.onerror = function(){ loadThree(i+1); };
       document.head.appendChild(s);
     }
 
-    load(0);
+    var q = location.search;
+    if (/[?&]2d/.test(q)) run2D();            // force the 2D build
+    else if (/[?&]3d/.test(q)) loadThree(0);  // force the 3D build
+    else if (webglOK()) loadThree(0);         // GPU present → nicer 3D
+    else run2D();                             // no GPU → 2D, runs anywhere
   })();
   </script>
 </body>

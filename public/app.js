@@ -384,22 +384,8 @@ function initGlobe2D() {
           cont: f.properties.CONTINENT || null, polys: polys, feat: f, bbox: [m0, m1, m2, m3],
         };
       });
-      buildDots();
     })
     .catch(() => { s.dead = true; showChips(); });
-
-  // Stipple the land into an evenly-spaced grid of dots (Radio-Garden style).
-  function buildDots() {
-    const STEP = 2.2, dots = [];
-    for (let lat = -82; lat <= 84; lat += STEP) {
-      const lngStep = STEP / Math.max(0.18, Math.cos(lat * DEG));   // even spacing on the sphere
-      for (let lng = -180; lng < 180; lng += lngStep) {
-        const f = featureAt(lng, lat);
-        if (f) dots.push({ lng: lng, lat: lat, f: f });
-      }
-    }
-    s.dots = dots;
-  }
 
   // --- orthographic projection ---
   function project(lng, lat) {
@@ -487,29 +473,27 @@ function initGlobe2D() {
     ctx.drawImage(buf, s.cx - s.R, s.cy - s.R, s.R * 2, s.R * 2);
   }
 
-  // green "station" dots over land, like Radio Garden
-  function drawStations() {
-    if (!s.dots || !s.dots.length) return;
-    const r = Math.max(0.8, s.R * 0.0038);
-    ctx.fillStyle = "rgba(74,238,116,0.72)";
+  // highlight the hovered country (glowing fill + outline) on the textured globe
+  function drawHighlight() {
+    const f = s.hoverFeat;
+    if (!f) return;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R, 0, 6.2832); ctx.clip();   // stay on the near hemisphere
     ctx.beginPath();
-    for (const d of s.dots) {
-      const p = project(d.lng, d.lat);
-      if (!p.vis) continue;
-      ctx.moveTo(p.x + r, p.y); ctx.arc(p.x, p.y, r, 0, 6.2832);
+    for (const poly of f.polys) for (const ring of poly) {
+      let on = false;
+      for (const pt of ring) {
+        const p = project(pt[0], pt[1]);
+        if (!p.vis) { on = false; continue; }
+        if (!on) { ctx.moveTo(p.x, p.y); on = true; } else ctx.lineTo(p.x, p.y);
+      }
     }
-    ctx.fill();
-  }
-
-  // pale focus ring around the hovered country (Radio Garden's selector circle)
-  function drawRing() {
-    if (!s.hoverFeat) return;
-    const c = centroid(s.hoverFeat.feat);
-    if (!c) return;
-    const p = project(c.lng, c.lat);
-    if (!p.vis) return;
-    ctx.strokeStyle = "rgba(225,245,215,0.95)"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(13, s.R * 0.075), 0, 6.2832); ctx.stroke();
+    ctx.fillStyle = "rgba(255,236,170,0.32)";
+    ctx.fill("evenodd");
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255,246,214,0.96)";
+    ctx.stroke();
+    ctx.restore();
   }
   function render() {
     if (s.dead) return;                       // canvas was torn down (chip fallback) — stop ticking
@@ -523,8 +507,7 @@ function initGlobe2D() {
       ctx.fillStyle = "#3b34dd"; ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);   // Radio-Garden blue
       if (s.autoRotate && !s.dragging && !s.hoverFeat && !busy) s.rotLng += 0.11;
       renderSphere();
-      drawStations();
-      drawRing();
+      drawHighlight();
     }
     requestAnimationFrame(render);
   }
@@ -542,7 +525,7 @@ function initGlobe2D() {
     canvas.style.cursor = f ? "pointer" : "grab";
     if (f) {
       setHoverGlobals(f, geo);
-      s.dwell = setTimeout(() => { if (s.hoverFeat === f && !busy) enterCountry(f.admin); }, 1100);
+      s.dwell = setTimeout(() => { if (s.hoverFeat === f && !busy) enterCountry(f.admin); }, 2000);
     }
   }
   canvas.addEventListener("pointerdown", (e) => {
@@ -610,7 +593,7 @@ function handleDwell(country) {
   if (country) {
     dwellTimer = setTimeout(() => {
       if (dwellCountry === country && !busy) enterCountry(country);
-    }, 1000);
+    }, 2000);   // launch the portal after 2s of resting on a country
   }
 }
 

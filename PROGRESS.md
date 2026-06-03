@@ -58,6 +58,12 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- GLOBE: DROP DOTS, HIGHLIGHT COUNTRY ON HOVER, 2s DWELL (Ahmad). Removed the green station dots
+  (buildDots + drawStations gone). On hover the country now glows: drawHighlight() fills + outlines the
+  hovered feature's polygons (clipped to the near hemisphere) in warm gold over the textured Earth.
+  Hover-dwell to launch the portal raised 1.1s→2.0s (2D setHover) and 1.0s→2.0s (3D handleDwell).
+  Verified: 0 green pixels, ~6.3k gold-highlight pixels on hover, hover detection 9/16 swept points,
+  and a 2s hover launched the India (Taj Mahal) portal.
 - REAL RADIO-GARDEN GLOBE + CLEAN CAPTIONS (Ahmad shared a Radio Garden screenshot: realistic Earth +
   green dots + bright blue bg; and captions were in foreign languages).
   (a) GLOBE: 2D fallback rewritten from dots to a REAL textured Earth — per-pixel orthographic sampling
