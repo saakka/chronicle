@@ -84,6 +84,9 @@ def load_gemini_key():
 
 
 GEMINI_KEY = load_gemini_key()
+# Gemini's free tier is only ~20 requests/day; once it refuses (429) we flip this
+# off and serve everything from Claude for the rest of the session.
+GEMINI_OK = True
 GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent" % GEMINI_MODEL
@@ -120,16 +123,41 @@ PROFILE_SCHEMA = {
 }
 
 
-def fetch_country_profile(country):
-    """Ask Gemini for an original country profile. Returns (data, error)."""
-    if not GEMINI_KEY:
-        return None, "No Gemini key set (add gemini-key.txt)."
+# Anthropic-format (lowercase) schemas for the Claude fallback.
+PROFILE_SCHEMA_CLAUDE = {
+    "type": "object",
+    "properties": {
+        k: ({"type": "array", "items": {"type": "string"}} if k in ("funFacts", "imageQueries")
+            else {"type": "string"})
+        for k in ("officialName", "overview", "flagMeaning", "political", "physical",
+                  "demographics", "economy", "culture", "funFacts", "imageQueries")
+    },
+    "required": ["officialName", "overview", "flagMeaning", "political", "physical",
+                 "demographics", "economy", "culture", "funFacts", "imageQueries"],
+    "additionalProperties": False,
+}
+STORY_SCHEMA_CLAUDE = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string"},
+        "beats": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"text": {"type": "string"}, "imageQuery": {"type": "string"}},
+            "required": ["text", "imageQuery"], "additionalProperties": False}},
+    },
+    "required": ["title", "beats"],
+    "additionalProperties": False,
+}
+
+
+def _gemini_json(prompt, schema, temperature):
+    """Ask Gemini for JSON matching schema. Returns (data, error)."""
     body = {
-        "contents": [{"parts": [{"text": PROFILE_PROMPT + country}]}],
+        "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "responseMimeType": "application/json",
-            "responseSchema": PROFILE_SCHEMA,
-            "temperature": 0.8,
+            "responseSchema": schema,
+            "temperature": temperature,
         },
     }
     request = urllib.request.Request(
@@ -145,10 +173,57 @@ def fetch_country_profile(country):
         return json.loads(text), None
     except urllib.error.HTTPError as err:
         print("Gemini failed (%s): %s" % (err.code, err.read().decode("utf-8", "replace")), file=sys.stderr)
-        return None, "The profile service rejected the request (check the Gemini key)."
+        return None, ("quota" if err.code == 429 else "http")
     except Exception as err:  # noqa: BLE001
         print("Gemini error: %r" % err, file=sys.stderr)
-        return None, "Could not reach the profile service."
+        return None, "error"
+
+
+def _claude_json(prompt, schema, max_tokens=3500):
+    """Ask Claude for JSON matching schema (the reliable fallback). Returns (data, error)."""
+    if not API_KEY:
+        return None, "No Anthropic key set (add api-key.txt)."
+    body = {
+        "model": MODEL,
+        "max_tokens": max_tokens,
+        "output_config": {"format": {"type": "json_schema", "schema": schema}},
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    request = urllib.request.Request(
+        ANTHROPIC_URL,
+        data=json.dumps(body).encode("utf-8"),
+        headers={"content-type": "application/json", "x-api-key": API_KEY,
+                 "anthropic-version": "2023-06-01"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as err:
+        print("Claude JSON failed (%s): %s" % (err.code, err.read().decode("utf-8", "replace")), file=sys.stderr)
+        return None, "The AI service rejected the request."
+    except Exception as err:  # noqa: BLE001
+        print("Claude JSON error: %r" % err, file=sys.stderr)
+        return None, "Could not reach the AI service."
+    block = next((b for b in payload.get("content", []) if b.get("type") == "text"), None)
+    if not block:
+        return None, "The AI returned no usable answer."
+    try:
+        return json.loads(block["text"]), None
+    except (ValueError, KeyError):
+        return None, "The AI's answer was incomplete."
+
+
+def fetch_country_profile(country):
+    """Original country profile: Gemini first (free), Claude fallback. Returns (data, error)."""
+    global GEMINI_OK
+    prompt = PROFILE_PROMPT + country
+    if GEMINI_KEY and GEMINI_OK:
+        data, _ = _gemini_json(prompt, PROFILE_SCHEMA, 0.8)
+        if data and data.get("overview"):
+            return data, None
+        GEMINI_OK = False  # out of free quota — switch to Claude for the session
+    return _claude_json(prompt, PROFILE_SCHEMA_CLAUDE, 3000)
 
 
 # --- Story mode: the flagship anecdote of an era, as scroll-through beats ---
@@ -180,34 +255,15 @@ STORY_SCHEMA = {
 
 
 def fetch_story(subject):
-    """subject = 'Country — Era (period)'. Returns (data, error)."""
-    if not GEMINI_KEY:
-        return None, "No Gemini key set (add gemini-key.txt)."
-    body = {
-        "contents": [{"parts": [{"text": STORY_PROMPT + subject}]}],
-        "generationConfig": {
-            "responseMimeType": "application/json",
-            "responseSchema": STORY_SCHEMA,
-            "temperature": 0.9,
-        },
-    }
-    request = urllib.request.Request(
-        GEMINI_URL + "?key=" + GEMINI_KEY,
-        data=json.dumps(body).encode("utf-8"),
-        headers={"content-type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        text = payload["candidates"][0]["content"]["parts"][0]["text"]
-        return json.loads(text), None
-    except urllib.error.HTTPError as err:
-        print("Story failed (%s): %s" % (err.code, err.read().decode("utf-8", "replace")), file=sys.stderr)
-        return None, "The story service rejected the request."
-    except Exception as err:  # noqa: BLE001
-        print("Story error: %r" % err, file=sys.stderr)
-        return None, "Could not reach the story service."
+    """Flagship legend: Gemini first (free), Claude fallback. subject = 'Country — Era (period)'."""
+    global GEMINI_OK
+    prompt = STORY_PROMPT + subject
+    if GEMINI_KEY and GEMINI_OK:
+        data, _ = _gemini_json(prompt, STORY_SCHEMA, 0.9)
+        if data and data.get("beats"):
+            return data, None
+        GEMINI_OK = False
+    return _claude_json(prompt, STORY_SCHEMA_CLAUDE, 3500)
 
 # ---------------------------------------------------------------------------
 # The instructions and output shape we send to the AI
