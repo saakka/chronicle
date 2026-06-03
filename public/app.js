@@ -344,11 +344,11 @@ function initGlobe2D() {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      const tw = 1024, th = 512;
+      const tw = 2048, th = 1024;                   // higher-res texture → crisper continents
       const oc = document.createElement("canvas"); oc.width = tw; oc.height = th;
       const octx = oc.getContext("2d");
       octx.drawImage(img, 0, 0, tw, th);
-      try { tex = { data: octx.getImageData(0, 0, tw, th).data, w: tw, h: th }; }
+      try { tex = { data: octx.getImageData(0, 0, tw, th).data, w: tw, h: th }; s.bufKey = null; }
       catch (e) { tex = null; }                     // tainted → plain-shaded fallback
     };
     img.src = "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg";
@@ -361,13 +361,15 @@ function initGlobe2D() {
     canvas.style.width = w + "px"; canvas.style.height = h + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     s.cx = w / 2; s.cy = h / 2; s.R = Math.min(w, h) * 0.34;
-    bufD = Math.max(80, Math.min(Math.round(2 * s.R), 420));   // sphere render resolution (capped for speed)
+    bufD = Math.max(80, Math.min(Math.round(2 * s.R), 700));   // sphere render resolution (sharper)
     buf = document.createElement("canvas"); buf.width = bufD; buf.height = bufD;
     bufCtx = buf.getContext("2d");
     bufImg = bufCtx.createImageData(bufD, bufD);
+    s.bufKey = null;                                            // force a fresh sphere paint after resize
   }
   resize();
-  window.addEventListener("resize", resize);
+  let resizeT = null;
+  window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 120); });
 
   fetch(COUNTRIES_GEOJSON)
     .then((r) => r.json())
@@ -441,34 +443,39 @@ function initGlobe2D() {
       ctx.beginPath(); ctx.arc(s.cx, s.cy, s.R, 0, 6.2832); ctx.fillStyle = oc; ctx.fill();
       return;
     }
-    // paint the textured sphere into the low-res buffer (sin c = rho, cos c = z → only 2 trig/px)
-    const D = bufD, half = D / 2, out = bufImg.data;
-    const td = tex.data, tw = tex.w, th = tex.h;
-    const p0 = s.rotLat * DEG, sinP0 = Math.sin(p0), cosP0 = Math.cos(p0), rot = s.rotLng;
-    let o = 0;
-    for (let j = 0; j < D; j++) {
-      const ny = (j - half) / half, yW = -ny, ny2 = ny * ny;
-      for (let i = 0; i < D; i++, o += 4) {
-        const nx = (i - half) / half;
-        const rho2 = nx * nx + ny2;
-        if (rho2 > 1) { out[o + 3] = 0; continue; }
-        const z = Math.sqrt(1 - rho2);
-        let v1 = z * sinP0 + yW * cosP0;
-        v1 = v1 < -1 ? -1 : v1 > 1 ? 1 : v1;
-        const lat = Math.asin(v1) / DEG;
-        let lng = rot + Math.atan2(nx, z * cosP0 - yW * sinP0) / DEG;
-        lng = ((lng + 180) % 360 + 360) % 360;
-        let tu = (lng / 360 * tw) | 0; if (tu >= tw) tu = tw - 1;
-        let tv = ((90 - lat) / 180 * th) | 0; if (tv < 0) tv = 0; else if (tv >= th) tv = th - 1;
-        const ti = (tv * tw + tu) << 2;
-        const shade = 0.5 + 0.5 * z;             // gentle limb darkening
-        out[o] = td[ti] * shade;
-        out[o + 1] = td[ti + 1] * shade;
-        out[o + 2] = td[ti + 2] * shade;
-        out[o + 3] = rho2 > 0.98 ? (1 - Math.sqrt(rho2)) / (1 - Math.sqrt(0.98)) * 255 : 255;
+    // Only repaint the per-pixel sphere when the view actually changed (huge win
+    // while paused on hover); otherwise just blit the cached buffer.
+    const key = (s.rotLng | 0) + "_" + (s.rotLat * 4 | 0) + "_" + bufD + "_" + ((s.rotLng * 4) | 0);
+    if (key !== s.bufKey) {
+      s.bufKey = key;
+      const D = bufD, half = D / 2, out = bufImg.data;
+      const td = tex.data, tw = tex.w, th = tex.h;
+      const p0 = s.rotLat * DEG, sinP0 = Math.sin(p0), cosP0 = Math.cos(p0), rot = s.rotLng;
+      let o = 0;
+      for (let j = 0; j < D; j++) {
+        const ny = (j - half) / half, yW = -ny, ny2 = ny * ny;
+        for (let i = 0; i < D; i++, o += 4) {
+          const nx = (i - half) / half;
+          const rho2 = nx * nx + ny2;
+          if (rho2 > 1) { out[o + 3] = 0; continue; }
+          const z = Math.sqrt(1 - rho2);
+          let v1 = z * sinP0 + yW * cosP0;
+          v1 = v1 < -1 ? -1 : v1 > 1 ? 1 : v1;
+          const lat = Math.asin(v1) / DEG;
+          let lng = rot + Math.atan2(nx, z * cosP0 - yW * sinP0) / DEG;
+          lng = ((lng + 180) % 360 + 360) % 360;
+          let tu = (lng / 360 * tw) | 0; if (tu >= tw) tu = tw - 1;
+          let tv = ((90 - lat) / 180 * th) | 0; if (tv < 0) tv = 0; else if (tv >= th) tv = th - 1;
+          const ti = (tv * tw + tu) << 2;
+          const shade = 0.5 + 0.5 * z;             // gentle limb darkening
+          out[o] = td[ti] * shade;
+          out[o + 1] = td[ti + 1] * shade;
+          out[o + 2] = td[ti + 2] * shade;
+          out[o + 3] = rho2 > 0.98 ? (1 - Math.sqrt(rho2)) / (1 - Math.sqrt(0.98)) * 255 : 255;
+        }
       }
+      bufCtx.putImageData(bufImg, 0, 0);
     }
-    bufCtx.putImageData(bufImg, 0, 0);
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(buf, s.cx - s.R, s.cy - s.R, s.R * 2, s.R * 2);
   }
