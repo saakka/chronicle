@@ -93,6 +93,32 @@ const COUNTRY_THEME = {
   "Kuwait":              { palette: "gulf",  motif: "skyline",  label: "Into the harbor of the Gulf" },
 };
 
+/* Bespoke themes beyond the Arab world (expanded over the night; default covers the rest) */
+Object.assign(COUNTRY_THEME, {
+  "Greece":        { palette: "dusk",  motif: "columns",  label: "Into the cradle of democracy" },
+  "Italy":         { palette: "dusk",  motif: "columns",  label: "Into the heart of Rome" },
+  "Turkey":        { palette: "dusk",  motif: "dome",     label: "Where East meets West" },
+  "Iran":          { palette: "dusk",  motif: "dome",     label: "Into the land of Persia" },
+  "Spain":         { palette: "clay",  motif: "columns",  label: "Into the Iberian crossroads" },
+  "France":        { palette: "gulf",  motif: "towers",   label: "Into the land of light" },
+  "Germany":       { palette: "dusk",  motif: "towers",   label: "Into the heart of Europe" },
+  "United Kingdom":{ palette: "gulf",  motif: "skyline",  label: "Into the isles of empire" },
+  "Russia":        { palette: "dusk",  motif: "dome",     label: "Into the vast north" },
+  "China":         { palette: "clay",  motif: "mountains",label: "Into the Middle Kingdom" },
+  "Japan":         { palette: "clay",  motif: "mountains",label: "Into the land of the rising sun" },
+  "India":         { palette: "clay",  motif: "dome",     label: "Into the jewel of the East" },
+  "Cambodia":      { palette: "cedar", motif: "dome",     label: "Into the empire of Angkor" },
+  "Indonesia":     { palette: "cedar", motif: "mountains",label: "Into the thousand isles" },
+  "Mexico":        { palette: "clay",  motif: "pyramids", label: "Into the land of the feathered serpent" },
+  "Peru":          { palette: "clay",  motif: "mountains",label: "Into the realm of the Inca" },
+  "Brazil":        { palette: "cedar", motif: "mountains",label: "Into the heart of the Amazon" },
+  "United States of America": { palette: "gulf", motif: "skyline", label: "Into the new world" },
+  "Ethiopia":      { palette: "cedar", motif: "mountains",label: "Into the highlands of Abyssinia" },
+  "Nigeria":       { palette: "cedar", motif: "skyline",  label: "Into the giant of Africa" },
+  "South Africa":  { palette: "clay",  motif: "mountains",label: "Into the cape of good hope" },
+  "Australia":     { palette: "gulf",  motif: "skyline",  label: "Into the great south land" },
+});
+
 function themeFor(country) {
   const t = COUNTRY_THEME[country] || { palette: "dusk", motif: "mountains", label: "Into " + country };
   const p = PALETTES[t.palette] || PALETTES.dusk;
@@ -110,6 +136,7 @@ let bgActiveEl = null;
 let polyHoverFeat = null;
 let polyHoverCountry = null;
 let pointHoverCountry = null;
+let lastHoverLatLng = null;
 let dwellCountry = null;
 let dwellTimer = null;
 
@@ -129,7 +156,11 @@ function initGlobe() {
       .pointColor(() => "rgba(255,207,87,0)")
       .pointRadius(0.7).pointAltitude(0.01)
       .pointLabel("country")
-      .onPointHover((pt) => { pointHoverCountry = pt ? pt.country : null; recomputeHover(); });
+      .onPointHover((pt) => {
+        pointHoverCountry = pt ? pt.country : null;
+        if (pt) lastHoverLatLng = { lat: pt.lat, lng: pt.lng };
+        recomputeHover();
+      });
   } catch (err) {
     console.error("Globe init failed:", err);
     return showFallback();
@@ -154,17 +185,18 @@ function loadCountryShapes() {
   fetch(COUNTRIES_GEOJSON)
     .then((r) => r.json())
     .then((gj) => {
-      const polys = (gj.features || []).filter((f) => ARAB_SET.has(f.properties.ADMIN));
+      const polys = gj.features || []; // ALL countries on Earth
       world
         .polygonsData(polys)
         .polygonAltitude(0.008)   // flat — no "popping up" on hover
         .polygonCapColor((d) => (d === polyHoverFeat ? "rgba(201,162,75,0.5)" : "rgba(201,162,75,0.02)"))
         .polygonSideColor(() => "rgba(201,162,75,0.06)")
-        .polygonStrokeColor((d) => (d === polyHoverFeat ? "rgba(227,201,138,0.95)" : "rgba(201,162,75,0.18)"))
+        .polygonStrokeColor((d) => (d === polyHoverFeat ? "rgba(227,201,138,0.95)" : "rgba(201,162,75,0.16)"))
         .polygonLabel((d) => d.properties.ADMIN)
         .onPolygonHover((feat) => {
-          polyHoverFeat = feat && ARAB_SET.has(feat.properties.ADMIN) ? feat : null;
-          polyHoverCountry = polyHoverFeat ? polyHoverFeat.properties.ADMIN : null;
+          polyHoverFeat = feat || null;
+          polyHoverCountry = feat ? feat.properties.ADMIN : null;
+          if (feat) lastHoverLatLng = centroid(feat);
           refreshPolygonStyles();
           recomputeHover();
         });
@@ -240,7 +272,7 @@ async function enterCountry(country) {
   currentEra = 0;
 
   // 1. cinematic zoom: fly the globe down toward the country
-  const loc = ARAB_COUNTRIES.find((c) => c.country === country);
+  const loc = lastHoverLatLng || ARAB_COUNTRIES.find((c) => c.country === country) || null;
   if (world && loc) world.pointOfView({ lat: loc.lat, lng: loc.lng, altitude: 0.62 }, 1100);
 
   // fetch in parallel with the zoom
@@ -605,6 +637,17 @@ soundBtn.addEventListener("click", () => {
 /* ====================== HELPERS ====================== */
 
 function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+// Rough centroid of a country polygon, for aiming the globe camera.
+function centroid(feat) {
+  try {
+    const geom = feat.geometry;
+    const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+    let lng = 0, lat = 0, n = 0;
+    polys.forEach((poly) => poly[0].forEach((pt) => { lng += pt[0]; lat += pt[1]; n++; }));
+    return n ? { lat: lat / n, lng: lng / n } : null;
+  } catch (e) { return null; }
+}
 
 function toRoman(n) {
   const map = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]];
