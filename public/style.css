@@ -370,7 +370,8 @@ body {
 
 /* Cover Flow inside an era */
 .album {
-  --cover: min(58vh, 90vw, 600px);     /* the hero photo size — big & responsive */
+  --cover: min(58vh, 92vw, 600px);      /* the hero photo size — big & responsive */
+  --cover: min(58svh, 92vw, 600px);     /* svh = stable on mobile (ignores the address bar) */
   display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
   perspective: 2600px; margin-top: 2vh;
   padding: 3vh calc(50% - var(--cover) / 2) 1vh;
@@ -584,7 +585,7 @@ body {
 .story-exit { z-index: 60; }
 .story-rail { width: 100%; }
 
-.beat { position: relative; height: 100vh; scroll-snap-align: start; display: flex; align-items: flex-end; overflow: hidden; }
+.beat { position: relative; height: 100vh; height: 100svh; scroll-snap-align: start; display: flex; align-items: flex-end; overflow: hidden; }
 .beat-bg { position: absolute; inset: 0; background: #0a0a12 center / cover no-repeat; transform: scale(1.08); }
 .beat.in .beat-bg { animation: kenburns 15s ease-out forwards; }
 .beat-scrim {
@@ -676,6 +677,31 @@ body {
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 @media (max-width: 560px) {
-  .era-stage { padding-top: 4vh; }
-  .nav-arrow { width: 46px; height: 46px; font-size: 1.6rem; }
+  .era-stage { padding-top: 3vh; }
+  .nav-arrow { width: 44px; height: 44px; font-size: 1.5rem; }
+  .nav-prev { left: 8px; } .nav-next { right: 8px; }
+  /* the bottom hint is desktop-centric ("scroll to zoom") and collides on phones;
+     the tagline already says how to explore, so hide it on small screens */
+  .globe-hint { display: none; }
+  .globe-overlay { top: 4vh; }
+  .globe-overlay h1 { font-size: clamp(2rem, 11vw, 3rem); }
+  .globe-overlay .tagline { font-size: 0.95rem; padding: 0 18px; }
+  .era-copy { padding: 11px 18px; }
+  .era-h { font-size: clamp(1.35rem, 5.4vw, 2rem); }
+  .era-p { font-size: 0.92rem; -webkit-line-clamp: 3; }
+  .dossier-overview { font-size: 1.08rem; }
+  .shelf-title, .dossier-funfacts h3 { font-size: 1.3rem; }
+  .beat-text { font-size: clamp(1.25rem, 5.6vw, 1.7rem); }
+  .beat-inner { padding: 0 24px 16vh; }
+  /* phone QR: centered along the bottom (hint is hidden on mobile, so no crowding) */
+  .phone-btn { left: 50%; right: auto; transform: translateX(-50%); bottom: 5vh; }
+  .phone-card { left: 50%; right: auto; transform: translateX(-50%); bottom: 6vh; width: 88vw; }
+}
+
+/* short screens (landscape phones, small windows): shrink the hero photo so the
+   timeline and "hear the legend" button still fit without overlap */
+@media (max-height: 700px) {
+  .album { --cover: min(54svh, 92vw, 520px); margin-top: 1vh; }
+  .era-stage { padding-top: 2.5vh; }
+  .era-p { -webkit-line-clamp: 2; }
 }
