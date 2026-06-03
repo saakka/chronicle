@@ -334,7 +334,7 @@ function initGlobe2D() {
     rotLng: 35, rotLat: 20,           // longitude/latitude at the centre of the disc
     dragging: false, lastX: 0, lastY: 0, moved: 0,
     autoRotate: true, hoverFeat: null,
-    features: [], cx: 0, cy: 0, R: 0, dwell: null,
+    features: [], cx: 0, cy: 0, R: 0, R0: 0, zoom: 1, vel: 0, lastT: 0, dwell: null,
   };
 
   // Earth texture, sampled per-pixel to paint a real rotating globe (no WebGL).
@@ -354,22 +354,32 @@ function initGlobe2D() {
     img.src = "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg";
   })();
 
+  function makeBuffer() {
+    bufD = Math.max(80, Math.min(Math.round(2 * s.R), 700));   // sphere render resolution (sharper)
+    buf = document.createElement("canvas"); buf.width = bufD; buf.height = bufD;
+    bufCtx = buf.getContext("2d");
+    bufImg = bufCtx.createImageData(bufD, bufD);
+    s.bufKey = null;                                            // force a fresh sphere paint
+  }
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = window.innerWidth, h = window.innerHeight;
     canvas.width = w * dpr; canvas.height = h * dpr;
     canvas.style.width = w + "px"; canvas.style.height = h + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    s.cx = w / 2; s.cy = h / 2; s.R = Math.min(w, h) * 0.34;
-    bufD = Math.max(80, Math.min(Math.round(2 * s.R), 700));   // sphere render resolution (sharper)
-    buf = document.createElement("canvas"); buf.width = bufD; buf.height = bufD;
-    bufCtx = buf.getContext("2d");
-    bufImg = bufCtx.createImageData(bufD, bufD);
-    s.bufKey = null;                                            // force a fresh sphere paint after resize
+    s.cx = w / 2; s.cy = h / 2; s.R0 = Math.min(w, h) * 0.34; s.R = s.R0 * s.zoom;
+    makeBuffer();
   }
+  function applyZoom() { s.R = s.R0 * s.zoom; makeBuffer(); }
   resize();
   let resizeT = null;
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(resize, 120); });
+  // scroll to zoom (matches the hint; the 3D globe already zooms on its own)
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    s.zoom = Math.max(0.8, Math.min(2.2, s.zoom * (e.deltaY < 0 ? 1.12 : 0.89)));
+    applyZoom();
+  }, { passive: false });
 
   fetch(COUNTRIES_GEOJSON)
     .then((r) => r.json())
@@ -512,7 +522,12 @@ function initGlobe2D() {
         s.pendingHover = null;
       }
       ctx.fillStyle = "#3b34dd"; ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);   // Radio-Garden blue
-      if (s.autoRotate && !s.dragging && !s.hoverFeat && !busy) s.rotLng += 0.11;
+      const now = performance.now();
+      const dt = s.lastT ? Math.min(60, now - s.lastT) : 16; s.lastT = now;
+      if (!s.dragging && !s.hoverFeat && !busy) {
+        if (Math.abs(s.vel) > 0.0006) { s.rotLng += s.vel * dt; s.vel *= Math.pow(0.94, dt / 16); }  // fling momentum
+        else if (s.autoRotate) s.rotLng += 0.006 * dt;                                                 // gentle, fps-independent spin
+      }
       renderSphere();
       drawHighlight();
     }
@@ -536,17 +551,21 @@ function initGlobe2D() {
     }
   }
   canvas.addEventListener("pointerdown", (e) => {
-    s.dragging = true; s.moved = 0; s.lastX = e.clientX; s.lastY = e.clientY;
+    s.dragging = true; s.moved = 0; s.vel = 0; s.moveT = performance.now();
+    s.lastX = e.clientX; s.lastY = e.clientY;
     clearTimeout(s.dwell); s.hoverFeat = null;
     try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
     canvas.style.cursor = "grabbing";
   });
   canvas.addEventListener("pointermove", (e) => {
     if (s.dragging) {
+      const now = performance.now(), mdt = Math.max(1, now - (s.moveT || now)); s.moveT = now;
       const dx = e.clientX - s.lastX, dy = e.clientY - s.lastY;
       s.moved += Math.abs(dx) + Math.abs(dy);
-      s.rotLng -= dx * 0.25; s.rotLat += dy * 0.25;
+      const dLng = -dx * 0.25;
+      s.rotLng += dLng; s.rotLat += dy * 0.25;
       s.rotLat = Math.max(-82, Math.min(82, s.rotLat));
+      s.vel = dLng / mdt;                       // deg/ms → fling momentum on release
       s.lastX = e.clientX; s.lastY = e.clientY;
     } else {
       s.pendingHover = { x: e.clientX, y: e.clientY };   // resolved once per frame in render()
