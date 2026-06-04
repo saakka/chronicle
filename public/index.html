@@ -4,6 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Chronicle — a planet of history</title>
+  <meta name="description" content="Spin a 3D globe and step into any country's history as an illustrated, era-by-era story." />
+  <!-- social share preview -->
+  <meta property="og:title" content="Chronicle — a planet of history" />
+  <meta property="og:description" content="Spin the world, rest on any land, and step into its story — an illustrated timeline for every country." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://chronicle-ijys.onrender.com/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Chronicle — a planet of history" />
+  <meta name="twitter:description" content="Spin the world, rest on any land, and step into its story." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Ctext%20y='13'%20font-size='13'%3E🌍%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -15,7 +24,7 @@
   <link rel="preconnect" href="https://unpkg.com" crossorigin />
   <link rel="dns-prefetch" href="https://unpkg.com" />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital@0;1&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=4" />
+  <link rel="stylesheet" href="style.css?v=5" />
 </head>
 <body>
   <!-- ====================== GLOBE (landing) ====================== -->
@@ -26,6 +35,10 @@
       <p class="kicker">✦ &nbsp; a planet of history &nbsp; ✦</p>
       <h1>Chronicle</h1>
       <p class="tagline">Every country hides an epic. &nbsp;Spin the world, rest on any land, and step into its story.</p>
+      <div class="globe-search">
+        <input id="country-search" list="country-list" placeholder="Search a country…" autocomplete="off" aria-label="Search a country" />
+        <datalist id="country-list"></datalist>
+      </div>
     </div>
 
     <p class="globe-hint" id="globe-hint">

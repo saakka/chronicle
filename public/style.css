@@ -87,6 +87,15 @@ body {
   color: rgba(255,255,255,0.9); font-style: italic; font-size: 1.05rem; margin: 0 auto; max-width: 38ch;
   text-shadow: 0 1px 12px rgba(0,0,0,0.4);
 }
+.globe-search { margin-top: 20px; pointer-events: auto; }   /* overlay is click-through; the input isn't */
+.globe-search input {
+  width: min(300px, 72vw); padding: 9px 18px; border-radius: 999px;
+  background: rgba(8,10,18,0.5); border: 1px solid var(--line); color: #fff;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.9rem; text-align: center;
+  backdrop-filter: blur(6px); outline: none; transition: border-color 0.15s, background 0.15s;
+}
+.globe-search input::placeholder { color: rgba(255,255,255,0.5); }
+.globe-search input:focus { border-color: var(--gold); background: rgba(8,10,18,0.78); }
 .globe-hint {
   position: absolute; bottom: 5vh; left: 50%; transform: translateX(-50%); margin: 0;
   padding: 10px 20px; background: rgba(8,10,18,0.6); border: 1px solid var(--line);

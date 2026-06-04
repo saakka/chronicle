@@ -58,6 +58,13 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- SEARCH + SHARE LINKS (enhancements E4 + E5). (E4) A search box on the landing: a native
+  <datalist> autocompletes every country (built from the globe's polygons in buildCountryIndex);
+  pick one or press Enter → enterByName() computes the centroid and dives straight in. (E5) Deep
+  links — entering a country sets #Country in the URL (shareable; opening …/#Japan jumps straight
+  in via the load-time hash check), cleared on exit; uses history.replaceState (no reload, no
+  hashchange loop). Plus Open Graph + Twitter meta tags so a shared link shows a preview card.
+  Cache-bust v=5. Verified: app.js parses, served HTML carries the OG tags + search input.
 - AUDIT FIXES + FASTER (Ahmad: "fix all of them and make it way faster"). From the audit:
   BUGS — (B1) no fetch timeout → the app hung ~50s on Render cold-start with the `busy` lock
   stuck (couldn't enter another country): added a 30s AbortController on history+story, a

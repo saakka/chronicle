@@ -310,9 +310,44 @@ function loadCountryShapes() {
           lastHoverContinent = feat.properties.CONTINENT || null;
           enterCountry(feat.properties.ADMIN);
         });
+      buildCountryIndex(polys);
+      // deep link: opening …/#Japan jumps straight into that country's story
+      const hash = decodeURIComponent((location.hash || "").replace(/^#/, "")).trim();
+      if (hash) setTimeout(() => enterByName(hash), 500);
     })
     .catch((err) => console.error("Country shapes failed to load:", err));
 }
+
+/* ====================== COUNTRY SEARCH + #DEEP-LINKS ====================== */
+const COUNTRY_INDEX = new Map();   // lowercased ADMIN name -> feature
+function buildCountryIndex(polys) {
+  const dl = document.getElementById("country-list");
+  const names = [];
+  (polys || []).forEach((f) => {
+    const n = (f.properties && f.properties.ADMIN) || "";
+    if (!n) return;
+    COUNTRY_INDEX.set(n.toLowerCase(), f);
+    names.push(n);
+  });
+  if (dl) dl.innerHTML = names.sort().map((n) => '<option value="' + esc(n) + '"></option>').join("");
+}
+function enterByName(name) {
+  if (!name || busy) return false;
+  const f = COUNTRY_INDEX.get(String(name).trim().toLowerCase());
+  if (!f) return false;
+  lastHoverLatLng = centroid(f);
+  lastHoverSubregion = f.properties.SUBREGION || null;
+  lastHoverContinent = f.properties.CONTINENT || null;
+  enterCountry(f.properties.ADMIN);
+  return true;
+}
+(function wireSearch() {
+  const inp = document.getElementById("country-search");
+  if (!inp) return;
+  const go = () => { if (enterByName(inp.value)) inp.blur(); };
+  inp.addEventListener("change", go);                                                 // datalist selection
+  inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } });
+})();
 
 function refreshPolygonStyles() {
   if (!world) return;
@@ -772,6 +807,7 @@ async function enterCountry(country) {
   }
 
   currentEras = data.eras;
+  try { history.replaceState(null, "", "#" + encodeURIComponent(country)); } catch (_) {}   // shareable deep link
   if (data.demo) toast("Demo mode — built-in Egypt sample. Add an API key for any country.");
 
   // Go STRAIGHT into the timeline (skip the country page — it's a tap away from the header).
@@ -1221,6 +1257,7 @@ function exitJourney() {
   busy = false;
   dwellCountry = null;
   clearTimeout(dwellTimer);
+  try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {}   // drop the #country deep link
   polyHoverFeat = null; polyHoverCountry = null; pointHoverCountry = null;
   refreshPolygonStyles();
   globeView.style.display = "";
