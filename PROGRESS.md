@@ -58,6 +58,27 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- KILLED THE LAG + WAY FASTER (Ahmad: "many many lags… make it waaay faster, the portal is taking
+  so much time, same goes for pictures"). Diagnosed live via the browser: globe rendered an
+  uncapped 3840px buffer (~8.3M px/frame) at devicePixelRatio 2, continuously. 20 fixes across
+  three fronts:
+  GLOBE LAG: (1) cap renderer pixel ratio to 1.5 (≈halves GPU pixels/frame — the #1 fix);
+  (2) drop the bump/topology texture (less GPU + one fewer big download).
+  PORTAL SPEED: (3) pre-portal zoom wait 1700→600ms; (4) globe fly 2000→1100ms; (5) portal hold
+  1600→800ms; (6) close 650→380ms; (7) dwell 2000→1400ms (both hover paths) → portal ~3.3s→~1.4s.
+  CSS to match: (8) clip-path 1.25→0.62s; (9) label/ring/rays/dust/flash + fade-out all shortened;
+  (10) rays 200vmax→120vmax + (11) ring shadow 50px→18px (cheaper composite, less jank).
+  LATENCY HIDING: (12) prefetch /api/history the moment you REST on a country (promise-cached per
+  country), so eras are usually ready before the portal ends; enterCountry reuses it.
+  PICTURES: (13) promise-cache image searches (dedupe concurrent + cache results);
+  (14) on legend render, pre-warm ALL beats' searches in parallel (URLs ready → instant page turns)
+  while the <img> still decodes lazily (active+next only); (15) gsrlimit 14→8 (lighter search);
+  (16) gradient placeholder on .beat-bg so it never flashes black.
+  LOAD: (17) server gzip for html/css/js/json — app.js 71.6KB→22.8KB (−68%, verified);
+  (18) Cache-Control (html no-cache, css/js 600s, assets 1d); (19) HTTP/1.1 keep-alive;
+  (20) preconnect+dns-prefetch unpkg (globe lib + Earth textures). Hint copy updated.
+  Verified locally: server compiles, gzip byte-identical on decompress, no JS errors, pre-warm fires
+  all 6 searches, history prefetch reuses one promise/country. Live verification: pixel ratio cap.
 - MUCH FASTER (Ahmad: "stuck in the portal for 10 seconds… photos very very slow, optimize it").
   Root causes found by timing each endpoint, fixed at the source:
   (1) HISTORY was Opus + adaptive thinking + a fat schema (summary + imageQuery + 4 imageQueries per

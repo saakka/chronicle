@@ -17,6 +17,7 @@ Run it with:   python3 server.py    (or double-click start.command)
 Then open:     http://localhost:8000
 """
 
+import gzip
 import json
 import os
 import socket
@@ -421,9 +422,38 @@ CONTENT_TYPES = {
 }
 
 
+GZIP_TYPES = {
+    "text/html", "text/css", "application/javascript",
+    "application/json", "image/svg+xml", "text/plain",
+}
+
+
 class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"   # persistent connections → faster back-to-back requests
+
     def log_message(self, *args):
         pass  # keep the terminal quiet
+
+    def _write_payload(self, status, ctype, raw, cache_control=None):
+        """Send bytes — gzip-compressing text when the client supports it — always with a
+        correct Content-Length so keep-alive works."""
+        body = raw
+        gz = (ctype.split(";")[0].strip() in GZIP_TYPES
+              and "gzip" in self.headers.get("Accept-Encoding", "")
+              and len(raw) >= 600)
+        if gz:
+            body = gzip.compress(raw, 6)
+        self.send_response(status)
+        self.send_header("Content-Type", ctype)
+        if gz:
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
+        if cache_control:
+            self.send_header("Cache-Control", cache_control)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
     def client_ip(self):
         xff = self.headers.get("X-Forwarded-For", "")
@@ -448,12 +478,8 @@ class Handler(BaseHTTPRequestHandler):
             self.serve_static(parsed.path)
 
     def send_json(self, status, obj):
-        data = json.dumps(obj).encode("utf-8")
-        self.send_response(status)
-        self.send_header("content-type", "application/json; charset=utf-8")
-        self.send_header("content-length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+        self._write_payload(status, "application/json; charset=utf-8",
+                             json.dumps(obj).encode("utf-8"), cache_control="no-store")
 
     def handle_history(self, query):
         country = (query.get("country", [""])[0] or "").strip()
@@ -545,6 +571,7 @@ class Handler(BaseHTTPRequestHandler):
             path = "/index.html"
         if path == "/favicon.ico":
             self.send_response(204)  # no icon file — silence the browser's 404
+            self.send_header("Content-Length", "0")
             self.end_headers()
             return
         public_root = os.path.abspath(PUBLIC_DIR)
@@ -558,11 +585,13 @@ class Handler(BaseHTTPRequestHandler):
         ctype = CONTENT_TYPES.get(ext, "application/octet-stream")
         with open(full, "rb") as f:
             data = f.read()
-        self.send_response(200)
-        self.send_header("content-type", ctype)
-        self.send_header("content-length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+        if ext in (".html", ".htm"):
+            cache = "no-cache"                  # always revalidate the page shell
+        elif ext in (".css", ".js"):
+            cache = "public, max-age=600"       # 10 min — snappy repeat visits
+        else:
+            cache = "public, max-age=86400"     # images, fonts, etc.
+        self._write_payload(200, ctype, data, cache_control=cache)
 
 
 def local_ip():

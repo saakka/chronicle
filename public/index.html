@@ -11,6 +11,9 @@
   <link rel="preconnect" href="https://commons.wikimedia.org" />
   <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin />
   <link rel="dns-prefetch" href="https://upload.wikimedia.org" />
+  <!-- warm up the globe library + Earth-texture host so the planet appears sooner -->
+  <link rel="preconnect" href="https://unpkg.com" crossorigin />
+  <link rel="dns-prefetch" href="https://unpkg.com" />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -26,7 +29,7 @@
     </div>
 
     <p class="globe-hint" id="globe-hint">
-      🌍 Drag to spin · scroll to zoom &nbsp;—&nbsp; <strong>rest on a country for 2 seconds</strong> to enter
+      🌍 Drag to spin · scroll to zoom &nbsp;—&nbsp; <strong>rest on a country</strong> to dive in
     </p>
 
     <div class="globe-fallback" id="globe-fallback" hidden></div>

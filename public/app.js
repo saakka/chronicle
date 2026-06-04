@@ -236,7 +236,6 @@ function initGlobe() {
     world = Globe()(el)
       .backgroundImageUrl("https://unpkg.com/three-globe/example/img/night-sky.png")   // epic starfield
       .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
-      .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
       .showAtmosphere(true)
       .atmosphereColor("#7fb2ff")
       .atmosphereAltitude(0.22)
@@ -258,6 +257,11 @@ function initGlobe() {
     console.error("Globe init failed:", err);
     return showFallback();
   }
+
+  // Cap render resolution. Retina/phones default to devicePixelRatio 2–3, which makes
+  // the globe draw 4–9× the pixels EVERY frame (autoRotate + damping run continuously)
+  // — the main cause of the lag. 1.5 keeps it crisp while roughly halving the GPU work.
+  try { world.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)); } catch (_) {}
 
   sizeGlobe();
   globeControls = world.controls();
@@ -562,7 +566,8 @@ function initGlobe2D() {
     if (f) {
       s.vel = 0;                 // stop any fling so the country stays put under the cursor
       setHoverGlobals(f, geo);
-      s.dwell = setTimeout(() => { if (s.hoverFeat === f && !busy) enterCountry(f.admin); }, 2000);
+      prefetchHistory(f.admin);   // start fetching while they rest → ready by portal's end
+      s.dwell = setTimeout(() => { if (s.hoverFeat === f && !busy) enterCountry(f.admin); }, 1400);
     }
   }
   canvas.addEventListener("pointerdown", (e) => {
@@ -632,9 +637,10 @@ function handleDwell(country) {
   dwellCountry = country;
   clearTimeout(dwellTimer);
   if (country) {
+    prefetchHistory(country);   // start fetching while they rest → ready by the portal's end
     dwellTimer = setTimeout(() => {
       if (dwellCountry === country && !busy) enterCountry(country);
-    }, 2000);   // launch the portal after 2s of resting on a country
+    }, 1400);   // launch the portal after a short rest on a country
   }
 }
 
@@ -657,15 +663,37 @@ function playPortal(country) {
   portal.classList.remove("done");
   void portal.offsetWidth;       // reflow so the transition runs
   portal.classList.add("open");
-  return wait(1600);
+  return wait(800);
 }
 
 function endPortal() {
   portal.classList.add("done");
-  setTimeout(() => { portal.hidden = true; portal.classList.remove("open", "done"); }, 650);
+  setTimeout(() => { portal.hidden = true; portal.classList.remove("open", "done"); }, 380);
 }
 
 /* ====================== ENTER A COUNTRY ====================== */
+
+// Cache /api/history per country so the fetch can START the moment a visitor rests on
+// a country (during the dwell) — not only after the portal finishes. enterCountry reuses
+// this promise, so the eras are usually ready by the time the portal ends → no waiting.
+const HISTORY_CACHE = new Map();   // country -> Promise<{data}|{error}>
+function prefetchHistory(country) {
+  if (!country) return Promise.resolve({ error: new Error("No country.") });
+  if (HISTORY_CACHE.has(country)) return HISTORY_CACHE.get(country);
+  const p = (async () => {
+    try {
+      const res = await fetch("/api/history?country=" + encodeURIComponent(country));
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "Something went wrong.");
+      return { data: j };
+    } catch (err) {
+      HISTORY_CACHE.delete(country);   // let a later attempt retry
+      return { error: err instanceof TypeError ? new Error("Can't reach the server.") : err };
+    }
+  })();
+  HISTORY_CACHE.set(country, p);
+  return p;
+}
 
 async function enterCountry(country) {
   if (busy) return;
@@ -677,22 +705,13 @@ async function enterCountry(country) {
 
   // 1. cinematic zoom: fly the globe down toward the country
   const loc = lastHoverLatLng || ARAB_COUNTRIES.find((c) => c.country === country) || null;
-  if (world && loc) world.pointOfView({ lat: loc.lat, lng: loc.lng, altitude: 0.62 }, 2000);
+  if (world && loc) world.pointOfView({ lat: loc.lat, lng: loc.lng, altitude: 0.62 }, 1100);
 
-  // fetch in parallel with the zoom
-  const fetchPromise = (async () => {
-    try {
-      const res = await fetch("/api/history?country=" + encodeURIComponent(country));
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error || "Something went wrong.");
-      return { data: j };
-    } catch (err) {
-      return { error: err instanceof TypeError ? new Error("Can't reach the server.") : err };
-    }
-  })();
+  // Reuse the prefetch started during the hover-dwell (or start it now if entered by click).
+  const fetchPromise = prefetchHistory(country);
 
-  await wait(1700);                       // brief cinematic zoom before the portal opens
-  await playPortal(country);              // portal animation runs on its own clock (~1.6s)
+  await wait(600);                        // quick cinematic zoom before the portal opens
+  await playPortal(country);              // portal animation runs on its own clock (~0.8s)
 
   // Enter the journey IMMEDIATELY with a loading state — never block on the fetch here.
   // (Previously we awaited the history call, which froze the portal for ~10s.)
@@ -899,6 +918,9 @@ function renderLegend(era, data, index) {
   const n = data.beats.length;
   legendBeats = data.beats;
   legendUsedIds = new Set();
+  // Pre-warm EVERY beat's image SEARCH in parallel (promise-cached + deduped) so the photo
+  // URL is ready the instant you turn the page; the <img> still decodes lazily per page.
+  data.beats.forEach((b) => { if (b && b.imageQuery) fetchImages(b.imageQuery, 5); });
   eraLegend.innerHTML = data.beats
     .map((b, i) =>
       '<section class="legend-page" data-page="' + i + '">' +
@@ -1226,15 +1248,23 @@ document.addEventListener("click", (e) => {
 // whose names merely contain a substring (e.g. "chart" in Chartres, "flag" in
 // flagship, "map" in Mapuche, "plan" in Planalto).
 const JUNK_IMAGE = /(\bmaps?\b|\batlas\b|\bcarte\b|\bkarte\b|\bmapa\b|cadastr|\bsurvey\b|locator|\bflags?\b|coat[\s_-]?of[\s_-]?arms|\bseal\b|\bemblem|\blogo|\bdiagram|\bcharts?\b|flowchart|\bicon\b|orthographic|\blocation\b|topograph|administ|\bblank\b|\boutline\b|\bgpx\b|wikimedia|spreadsheet|\bsignature\b|\bplan\b|schematic|\bsketch\b)/i;
-const IMG_CACHE = new Map();   // cache searches so pages don't refetch the same query
+// Promise-cached: identical searches (e.g. pre-warm + the page load) share ONE request,
+// and results are cached for the session so revisits/page-turns are instant.
+const IMG_CACHE = new Map();   // query|max -> Promise<results[]>
 
-async function fetchImages(query, max = 6) {
-  if (!query) return [];
+function fetchImages(query, max = 6) {
+  if (!query) return Promise.resolve([]);
   const cacheKey = query + "|" + max;
   if (IMG_CACHE.has(cacheKey)) return IMG_CACHE.get(cacheKey);
+  const p = _fetchImagesRaw(query, max).catch(() => []);
+  IMG_CACHE.set(cacheKey, p);
+  return p;
+}
+
+async function _fetchImagesRaw(query, max) {
   const params = new URLSearchParams({
     action: "query", format: "json", origin: "*",
-    generator: "search", gsrsearch: query, gsrnamespace: "6", gsrlimit: "14",
+    generator: "search", gsrsearch: query, gsrnamespace: "6", gsrlimit: "8",
     prop: "imageinfo", iiprop: "url|mime|size", iiurlwidth: "700",
   });
   let data;
@@ -1277,9 +1307,7 @@ async function fetchImages(query, max = 6) {
   });
 
   candidates.sort((a, b) => b.score - a.score);
-  const result = candidates.slice(0, max).map(({ thumb, full, caption, id }) => ({ thumb, full, caption, id }));
-  IMG_CACHE.set(cacheKey, result);
-  return result;
+  return candidates.slice(0, max).map(({ thumb, full, caption, id }) => ({ thumb, full, caption, id }));
 }
 
 function coverHtml(img, eager) {
