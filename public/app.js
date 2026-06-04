@@ -1139,11 +1139,11 @@ async function goToEra(index) {
   const era = currentEras[index];
   updateTimeline();
   updateArrows();
-  jEra.textContent = "Era " + toRoman(index + 1) + " · " + (era.period || "");
+  jEra.textContent = (era.title || ("Era " + toRoman(index + 1))) + (era.period ? " · " + era.period : "");
 
   eraLegend.innerHTML =
     '<section class="legend-page active"><div class="beat-scrim"></div><div class="beat-inner">' +
-    '<p class="beat-kicker">Era ' + toRoman(index + 1) + "</p>" +
+    '<p class="beat-kicker">Era ' + toRoman(index + 1) + (era.title ? " · " + esc(era.title) : "") + "</p>" +
     '<p class="beat-text" style="opacity:1;transform:none">Summoning the legend of ' + esc(era.title || "this era") + "…</p></div></section>";
 
   const data = await ensureEraStory(index);
@@ -1164,6 +1164,7 @@ function buildTimeline() {
     .map((e, i) =>
       '<button class="tl-dot" data-go="' + i + '" title="' + esc(e.title || "") + '">' +
         '<span class="tl-num">' + toRoman(i + 1) + "</span>" +
+        '<span class="tl-name">' + esc(e.title || "") + "</span>" +
         '<span class="tl-period">' + esc(e.period || "") + "</span>" +
       "</button>"
     )

@@ -312,7 +312,10 @@ Together they should tell the country's whole story at a glance — they become 
 chapters of an illustrated timeline.
 
 For each era provide ONLY:
-- "title": the name of the era or period (a few words).
+- "title": the SHORT, widely-recognised name of that era, dynasty, kingdom, or period — the \
+label a history lover instantly knows it by (e.g. "Abbasid Caliphate", "Meiji Era", "Viking \
+Age", "Mughal Empire", "Old Kingdom", "Edo Period", "Ottoman Empire"). Make it iconic and \
+concise: at most ~4 words; NO descriptions and NO "and"-joined compounds.
 - "period": its approximate date range, e.g. "c. 3100-2686 BCE", "1789-1815", or \
 "1947-present".
 

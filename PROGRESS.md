@@ -58,6 +58,14 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- ERA NAMES ON EVERY ERA (Ahmad: "add a name for each era for each country, make it simple, ex:
+  Abbasid Caliphate"). The era names existed (history "title") but were hidden in a tooltip — the
+  timeline + header only showed dates. Now: (1) timeline dots show the NAME prominently (display
+  font) above the dates; (2) journey header shows "<Era Name> · <dates>"; (3) legend kicker shows
+  "Era N · <Era Name>". Server prompt tuned so titles are SHORT, iconic period/dynasty names
+  (≤4 words, no "and"-compounds) — verified fresh: Iran → Achaemenid Empire, Parthian Empire,
+  Sassanid Empire, Safavid Empire, Qajar Dynasty, Pahlavi Dynasty, Islamic Republic (all 2 words).
+  CSS: .tl-name added, dots widened to 104px. Cache-bust bumped to v=3.
 - KILLED THE LAG + WAY FASTER (Ahmad: "many many lags… make it waaay faster, the portal is taking
   so much time, same goes for pictures"). Diagnosed live via the browser: globe rendered an
   uncapped 3840px buffer (~8.3M px/frame) at devicePixelRatio 2, continuously. 20 fixes across
