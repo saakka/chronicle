@@ -58,6 +58,16 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- SMOOTHNESS MARATHON, iter 1–2 (Ahmad: "make it smoother … faster … 0 bugs"). Audited live first:
+  globe renders in ~2.6ms/frame (~380fps headroom even with hover-restyle churn), no console errors,
+  pixel-ratio correctly capped at 1.5, memory ~54MB. So the globe is NOT the bottleneck — the real
+  gaps are main-thread/transition/navigation. Fixes: (1) INSTANT ERA SWITCHING — new warmEraHero():
+  goToEra now warms each neighbour era's STORY *and* pre-decodes its first photo (was warming only the
+  story), so flipping eras opens immediately instead of pausing ~0.7s on "Summoning the legend…". Adds
+  ZERO AI spend — neighbour stories were already warmed; this only adds the free Wikimedia image
+  prefetch. (2) MEMOIZED centroid() per feature — the shoelace-area camera-aim math now runs once per
+  country instead of on every hover-change (snappier hovering over complex countries like Russia/USA).
+  (3) Removed dead legendObserver (declared + disconnected, never assigned). Cache-bust v=13.
 - PHOTOS IN <0.2s (Ahmad: "make it appear in less than 0,2sec"). A fresh internet photo can't
   beat the network floor (~0.6–0.8s: Commons search ~500–700ms + download), so "appear in <0.2s"
   is only possible if the image is ALREADY decoded when the legend renders. New preloadHeroImage(data):

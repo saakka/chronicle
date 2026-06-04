@@ -981,8 +981,6 @@ dossier.addEventListener("click", (e) => {
 
 /* ====================== LEGENDS — one illustrated story per era ====================== */
 
-let legendObserver = null;
-
 // Fetch + cache an era's legend (its flagship story). Dedupes via a shared promise;
 // retries on failure. Used both for the current era and to warm neighbours.
 function ensureEraStory(index) {
@@ -1167,6 +1165,20 @@ function preloadHeroImage(data) {
   return Promise.race([work, new Promise((res) => setTimeout(res, 1100))]);
 }
 
+// Warm a NEIGHBOUR era in the background: fetch its story (if needed) AND pre-decode its
+// first photo, so flipping to it later opens instantly instead of pausing on "Summoning…".
+// Uses only the free Wikimedia search (no extra AI calls — the story was already being warmed).
+function warmEraHero(index) {
+  if (index < 0 || index >= currentEras.length) return;
+  const era = currentEras[index];
+  if (!era || era._heroWarmed) return;
+  Promise.resolve(ensureEraStory(index)).then((data) => {
+    if (era._heroWarmed || !data || !data.beats || !data.beats[0]) return;
+    era._heroWarmed = true;          // mark only once we actually have a story to warm from
+    preloadHeroImage(data);          // fills IMG_CACHE + browser image cache for this era
+  }).catch(() => {});
+}
+
 async function goToEra(index) {
   if (index < 0 || index >= currentEras.length) return;
   currentEra = index;
@@ -1194,8 +1206,8 @@ async function goToEra(index) {
   await preloadHeroImage(data);                          // open the legend WITH its first photo
   if (currentEra !== index || journey.hidden) return;    // user moved on during the preload
   renderLegend(era, data, index);
-  ensureEraStory(index + 1);   // warm neighbours so prev/next is instant
-  ensureEraStory(index - 1);
+  warmEraHero(index + 1);   // warm neighbours' STORY *and* first photo → instant era switching
+  warmEraHero(index - 1);
 }
 
 function buildTimeline() {
@@ -1224,7 +1236,6 @@ function updateArrows() {
 }
 
 function exitJourney() {
-  if (legendObserver) { legendObserver.disconnect(); legendObserver = null; }
   journey.hidden = true;
   dossier.hidden = true;
   busy = false;
@@ -1394,7 +1405,11 @@ function toast(message) {
 function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 // Rough centroid of a country polygon, for aiming the globe camera.
+// Memoized per feature — geometry never changes, so the shoelace math runs once per country
+// instead of on every hover-change (keeps globe hovering snappy for complex countries).
 function centroid(feat) {
+  if (feat._centroid !== undefined) return feat._centroid;
+  let result = null;
   try {
     const geom = feat.geometry;
     const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
@@ -1411,11 +1426,14 @@ function centroid(feat) {
       a = Math.abs(a) / 2;
       if (a > bestArea) { bestArea = a; best = ring; }
     });
-    if (!best || !best.length) return null;
-    let lng = 0, lat = 0;
-    best.forEach((pt) => { lng += pt[0]; lat += pt[1]; });
-    return { lat: lat / best.length, lng: lng / best.length };
-  } catch (e) { return null; }
+    if (best && best.length) {
+      let lng = 0, lat = 0;
+      best.forEach((pt) => { lng += pt[0]; lat += pt[1]; });
+      result = { lat: lat / best.length, lng: lng / best.length };
+    }
+  } catch (e) { result = null; }
+  feat._centroid = result;   // cache (including null) so we never recompute
+  return result;
 }
 
 function toRoman(n) {
