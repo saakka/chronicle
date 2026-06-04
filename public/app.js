@@ -657,7 +657,6 @@ function playPortal(country) {
   portal.classList.remove("done");
   void portal.offsetWidth;       // reflow so the transition runs
   portal.classList.add("open");
-  Sound.portal();
   return wait(1600);
 }
 
@@ -953,7 +952,6 @@ function startJourney() {
   jCountry.textContent = currentCountry;
   buildTimeline();
   goToEra(0);             // goToEra renders the legend and warms the neighbouring eras
-  Sound.startAmbient();
 }
 
 // The dossier is now reached from inside the journey, so its button just returns
@@ -1121,7 +1119,6 @@ function updateArrows() {
 }
 
 function exitJourney() {
-  Sound.stopAmbient();
   if (legendObserver) { legendObserver.disconnect(); legendObserver = null; }
   journey.hidden = true;
   dossier.hidden = true;
@@ -1138,7 +1135,6 @@ function exitJourney() {
 
 function travelTo(index) {
   if (index < 0 || index >= currentEras.length || index === currentEra) return;
-  Sound.chime();
   goToEra(index);
 }
 
@@ -1295,121 +1291,6 @@ function toast(message) {
     setTimeout(() => { toastEl.hidden = true; }, 300);
   }, 3600);
 }
-
-/* ====================== SOUND (Web Audio — no files needed) ====================== */
-
-const Sound = (() => {
-  let ctx = null, master = null, ambient = null, muted = true;  // silent by default
-
-  function ensure() {
-    if (ctx) return ctx;
-    try {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      ctx = new AC();
-      master = ctx.createGain();
-      master.gain.value = muted ? 0 : 0.5;     // soft overall; silent if muted
-      master.connect(ctx.destination);
-    } catch (e) { ctx = null; }
-    return ctx;
-  }
-  function resume() { if (ctx && ctx.state === "suspended") ctx.resume(); }
-  function unlock() { ensure(); resume(); }
-  function now() { return ctx.currentTime; }
-
-  // Plucked string (oud / qanun) via Karplus-Strong synthesis — warm, soft.
-  function pluck(freq, start, gain, dur, decay) {
-    dur = dur || 1.7; decay = decay == null ? 0.996 : decay;
-    const sr = ctx.sampleRate;
-    const N = Math.max(2, Math.floor(sr / freq));
-    const total = Math.floor(sr * dur);
-    const ab = ctx.createBuffer(1, total, sr);
-    const out = ab.getChannelData(0);
-    const buf = new Float32Array(N);
-    for (let i = 0; i < N; i++) buf[i] = Math.random() * 2 - 1;
-    let idx = 0;
-    for (let i = 0; i < total; i++) {
-      const cur = buf[idx], nxt = buf[(idx + 1) % N];
-      const v = (cur + nxt) * 0.5 * decay;
-      out[i] = cur; buf[idx] = v; idx = (idx + 1) % N;
-    }
-    const fade = Math.floor(sr * 0.2);
-    for (let i = 0; i < fade; i++) out[total - 1 - i] *= i / fade;
-    const src = ctx.createBufferSource(); src.buffer = ab;
-    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600;
-    const g = ctx.createGain(); g.gain.value = gain;
-    src.connect(lp); lp.connect(g); g.connect(master);
-    src.start(start);
-  }
-
-  // Ney (reed flute) — soft breathy sustained tone with gentle vibrato.
-  function ney(freq, start, dur, gain) {
-    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = freq;
-    const vib = ctx.createOscillator(); vib.type = "sine"; vib.frequency.value = 5;
-    const vibg = ctx.createGain(); vibg.gain.value = freq * 0.008;
-    vib.connect(vibg); vibg.connect(o.frequency); vib.start(start); vib.stop(start + dur + 0.1);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, start);
-    g.gain.exponentialRampToValueAtTime(gain, start + dur * 0.35);
-    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-    o.connect(g); g.connect(master);
-    o.start(start); o.stop(start + dur + 0.1);
-  }
-
-  // Hijaz maqam on D — the unmistakable "Arabic" colour.
-  const HIJAZ = [293.66, 311.13, 369.99, 392.0, 440.0, 466.16, 587.33];
-
-  function portal() {
-    if (muted || !ensure()) return; resume();
-    const t = now();
-    [HIJAZ[0], HIJAZ[2], HIJAZ[4], HIJAZ[6]].forEach((f, i) => pluck(f, t + i * 0.2, 0.16, 1.9, 0.997));
-    ney(HIJAZ[0], t + 0.1, 2.6, 0.05);   // soft reed swell underneath
-  }
-  function chime() {
-    if (muted || !ensure()) return; resume();
-    pluck(HIJAZ[4], now(), 0.12, 1.3, 0.996);
-  }
-  function startAmbient() {
-    if (muted || ambient || !ensure()) return; resume();
-    ambient = ctx.createGain(); ambient.gain.value = 0; ambient.connect(master);
-    const a = ctx.createOscillator(); a.type = "sine"; a.frequency.value = 146.83;     // D3
-    const b = ctx.createOscillator(); b.type = "sine"; b.frequency.value = 220.0;       // A3 (fifth)
-    const c = ctx.createOscillator(); c.type = "triangle"; c.frequency.value = 73.42;   // D2 drone
-    [a, b, c].forEach((o) => o.connect(ambient));
-    a.start(); b.start(); c.start();
-    ambient.gain.linearRampToValueAtTime(0.03, now() + 3);
-    ambient._osc = [a, b, c];
-  }
-  function stopAmbient() {
-    if (!ambient) return;
-    const a = ambient; ambient = null;
-    try {
-      a.gain.cancelScheduledValues(now());
-      a.gain.linearRampToValueAtTime(0.0001, now() + 1.2);
-      a._osc.forEach((o) => o.stop(now() + 1.4));
-    } catch (e) {}
-  }
-  function setMuted(m) {
-    muted = m;
-    if (master) master.gain.value = m ? 0 : 0.5;
-    if (m) stopAmbient();
-  }
-  return { unlock, portal, chime, startAmbient, stopAmbient, setMuted, isMuted: () => muted };
-})();
-
-// Browsers only allow audio after a user gesture — unlock on the first one.
-window.addEventListener("pointerdown", () => Sound.unlock(), { once: true });
-window.addEventListener("keydown", () => Sound.unlock(), { once: true });
-
-const soundBtn = document.getElementById("sound-btn");
-soundBtn.textContent = Sound.isMuted() ? "🔇" : "🔊";   // reflect the silent default
-soundBtn.title = "Sound off — click for music";
-soundBtn.addEventListener("click", () => {
-  const m = !Sound.isMuted();
-  Sound.setMuted(m);
-  soundBtn.textContent = m ? "🔇" : "🔊";
-  if (!m && !journey.hidden) Sound.startAmbient();
-});
 
 /* ====================== HELPERS ====================== */
 
