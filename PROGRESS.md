@@ -58,6 +58,16 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- SMOOTHNESS MARATHON, iter 3 — OUT-OF-CONTEXT PHOTO FIX (caught live on Japan/Jomon: the hero was a
+  modern illuminated glass building). Root cause: a beat's specific query ("Jomon period hunter-gatherer
+  settlement reconstruction") returns 0 Commons hits, so loadPageImage fell back to the BARE COUNTRY name
+  ("Japan") — which returns generic *modern* photos (satellite shots, Tokyo Tower, glass facades) that jar
+  against an ancient era. Verified live: "Japan" → satellite/tower/facade; "Japan Jomon period" → fire-pit,
+  clay dogū figure, Jōmon artifacts. Two fixes: (1) CLIENT — new eraFallbackQuery() scopes the fallback to
+  "country + era title" in BOTH preloadHeroImage and loadPageImage (kept identical so the <0.2s preload still
+  matches what page 0 shows). (2) SERVER — STORY_PROMPT now demands a 2-4 word CONCRETE proper-noun imageQuery
+  (a named artifact/place/person a museum would photograph) and explicitly bans abstract phrases like
+  "settlement reconstruction"/"daily life" that return no photo. Cache-bust v=14.
 - SMOOTHNESS MARATHON, iter 1–2 (Ahmad: "make it smoother … faster … 0 bugs"). Audited live first:
   globe renders in ~2.6ms/frame (~380fps headroom even with hover-restyle churn), no console errors,
   pixel-ratio correctly capped at 1.5, memory ~54MB. So the globe is NOT the bottleneck — the real

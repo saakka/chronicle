@@ -1053,7 +1053,7 @@ function loadPageImage(i) {
   // shared + promise-cached across all beats), then prefer the specific one. That's a single
   // ~0.7s round-trip instead of up to three sequential — a photo shows in well under a second,
   // and a photo-poor subject still gets a relevant country photo instead of a blank page.
-  const broad = (currentCountry || "").trim();
+  const broad = eraFallbackQuery(legendEraTitle);
   Promise.all([
     fetchImages(legendBeats[i].imageQuery, 6).catch(() => []),
     broad ? fetchImages(broad, 8).catch(() => []) : Promise.resolve([]),
@@ -1146,10 +1146,17 @@ function subjectCaption(q) {
 // Pre-decode the FIRST page's photo (into the browser cache) BEFORE the legend is shown, so the
 // legend opens WITH its image already in place — the photo "appears" in <0.2s rather than popping
 // in a moment later. Capped so a slow image never holds the legend back more than ~1.1s.
-function preloadHeroImage(data) {
+// Fallback image search for when a beat's own (often very specific) query finds nothing: search the
+// country SCOPED TO THE ERA ("Japan Jomon Period") rather than the bare country name — a bare country
+// search returns generic *modern* photos (skylines, satellites, towers) that jar against an ancient era.
+function eraFallbackQuery(eraTitle) {
+  return ((currentCountry || "") + " " + (eraTitle || "")).trim();
+}
+
+function preloadHeroImage(data, eraTitle) {
   const beat = data && data.beats && data.beats[0];
   if (!beat) return Promise.resolve();
-  const broad = (currentCountry || "").trim();
+  const broad = eraFallbackQuery(eraTitle);
   const work = Promise.all([
     fetchImages(beat.imageQuery, 6).catch(() => []),
     broad ? fetchImages(broad, 8).catch(() => []) : Promise.resolve([]),
@@ -1175,7 +1182,7 @@ function warmEraHero(index) {
   Promise.resolve(ensureEraStory(index)).then((data) => {
     if (era._heroWarmed || !data || !data.beats || !data.beats[0]) return;
     era._heroWarmed = true;          // mark only once we actually have a story to warm from
-    preloadHeroImage(data);          // fills IMG_CACHE + browser image cache for this era
+    preloadHeroImage(data, era.title); // fills IMG_CACHE + browser image cache for this era
   }).catch(() => {});
 }
 
@@ -1203,7 +1210,7 @@ async function goToEra(index) {
     if (rb) rb.addEventListener("click", (e) => { e.stopPropagation(); goToEra(index); });
     return;
   }
-  await preloadHeroImage(data);                          // open the legend WITH its first photo
+  await preloadHeroImage(data, era.title);               // open the legend WITH its first photo
   if (currentEra !== index || journey.hidden) return;    // user moved on during the preload
   renderLegend(era, data, index);
   warmEraHero(index + 1);   // warm neighbours' STORY *and* first photo → instant era switching
