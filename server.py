@@ -269,7 +269,9 @@ STORY_PROMPT = (
     "Break it into 6 sequential BEATS. Each beat is ONE punchy sentence (about 18-28 words; never more than two "
     "very short sentences) that moves the story forward, plus an 'imageQuery': a short search phrase naming ONE "
     "striking, photographable subject for that beat — a specific monument, artifact, artwork, statue, building, "
-    "ruin, or famous person (prefer proper nouns). NEVER a map, diagram, document, or chart. "
+    "ruin, or famous person (prefer proper nouns). Include the country or place name in the "
+    "imageQuery when it sharpens the result (e.g. 'Charlemagne statue Aachen', not just 'statue'). "
+    "NEVER a map, diagram, document, chart, stamp, banknote, or book cover. "
     "Country and era: "
 )
 STORY_SCHEMA = {

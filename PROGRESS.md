@@ -58,6 +58,17 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- CLICK-TO-OPEN + ON-TOPIC PHOTOS (Ahmad: "open the country when you click on it, not hover";
+  "audit the photos, replace out-of-context ones"). (1) Entry is now on CLICK/tap, not the
+  hover-dwell: removed the auto-enter timers in handleDwell + the 2D setHover. Hovering still
+  highlights the country + warms history (debounced prefetch); onPolygonClick (WebGL) and the
+  2D tap-to-enter open it. Hint → "click a country to dive in". (2) PHOTO RELEVANCE: image
+  scoring now LEADS with title↔query overlap (relevance * 8) so an on-topic match beats a big
+  off-topic photo — size/shape only break ties (was size-dominant → out-of-context winners).
+  Tightened JUNK_IMAGE (stamps, banknotes, postcards, posters, caricatures, infographics,
+  screenshots). STORY imageQuery now asked to include the place name to disambiguate. Verified
+  via stub: picks "Charlemagne statue Aachen" (14.3) over a big landscape (7.3); hover no longer
+  enters. Cache-bust v=6.
 - SEARCH + SHARE LINKS (enhancements E4 + E5). (E4) A search box on the landing: a native
   <datalist> autocompletes every country (built from the globe's polygons in buildCountryIndex);
   pick one or press Enter → enterByName() computes the centroid and dives straight in. (E5) Deep

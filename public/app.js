@@ -597,13 +597,11 @@ function initGlobe2D() {
   function setHover(f, geo) {
     if (s.hoverFeat === f) return;
     s.hoverFeat = f;
-    clearTimeout(s.dwell);
     canvas.style.cursor = f ? "pointer" : "grab";
     if (f) {
       s.vel = 0;                 // stop any fling so the country stays put under the cursor
       setHoverGlobals(f, geo);
-      queuePrefetch(f.admin);   // debounced — only a genuine rest prefetches
-      s.dwell = setTimeout(() => { if (s.hoverFeat === f && !busy) enterCountry(f.admin); }, 1400);
+      queuePrefetch(f.admin);   // warm history while they aim — clicking/tapping enters
     }
   }
   canvas.addEventListener("pointerdown", (e) => {
@@ -671,13 +669,7 @@ function handleDwell(country) {
   if (globeControls && globeControls.autoRotate) return; // wait until the attract-spin stops
   if (country === dwellCountry) return;
   dwellCountry = country;
-  clearTimeout(dwellTimer);
-  queuePrefetch(country);   // debounced; null cancels — only deliberate rests prefetch
-  if (country) {
-    dwellTimer = setTimeout(() => {
-      if (dwellCountry === country && !busy) enterCountry(country);
-    }, 1400);   // launch the portal after a short rest on a country
-  }
+  queuePrefetch(country);   // warm history while they aim — entering is on CLICK now (not hover)
 }
 
 /* ====================== PORTAL ====================== */
@@ -1318,7 +1310,7 @@ document.addEventListener("click", (e) => {
 // Word-boundaried so it drops the dull stuff WITHOUT nuking legitimate photos
 // whose names merely contain a substring (e.g. "chart" in Chartres, "flag" in
 // flagship, "map" in Mapuche, "plan" in Planalto).
-const JUNK_IMAGE = /(\bmaps?\b|\batlas\b|\bcarte\b|\bkarte\b|\bmapa\b|cadastr|\bsurvey\b|locator|\bflags?\b|coat[\s_-]?of[\s_-]?arms|\bseal\b|\bemblem|\blogo|\bdiagram|\bcharts?\b|flowchart|\bicon\b|orthographic|\blocation\b|topograph|administ|\bblank\b|\boutline\b|\bgpx\b|wikimedia|spreadsheet|\bsignature\b|\bplan\b|schematic|\bsketch\b)/i;
+const JUNK_IMAGE = /(\bmaps?\b|\batlas\b|\bcarte\b|\bkarte\b|\bmapa\b|cadastr|\bsurvey\b|locator|\bflags?\b|coat[\s_-]?of[\s_-]?arms|\bseal\b|\bemblem|\blogo|\bdiagram|\bcharts?\b|flowchart|\bicon\b|orthographic|\blocation\b|topograph|administ|\bblank\b|\boutline\b|\bgpx\b|wikimedia|spreadsheet|\bsignature\b|\bplan\b|schematic|\bsketch\b|\bstamps?\b|banknote|postcard|\bposter\b|caricature|infographic|screenshot)/i;
 // Promise-cached: identical searches (e.g. pre-warm + the page load) share ONE request,
 // and results are cached for the session so revisits/page-turns are instant.
 const IMG_CACHE = new Map();   // query|max -> Promise<results[]>
@@ -1351,6 +1343,7 @@ async function _fetchImagesRaw(query, max) {
   );
 
   const candidates = [];
+  const qWords = (query || "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3);
   ordered.forEach((page, i) => {
     const info = (page.imageinfo && page.imageinfo[0]) || {};
     const mime = info.mime || "";
@@ -1368,8 +1361,13 @@ async function _fetchImagesRaw(query, max) {
     if (w && w < 500) return;                         // skip tiny / thumbnail-only
     const area = w && h ? w * h : 500 * 500;
     const ratio = w && h ? Math.min(w, h) / Math.max(w, h) : 0.6; // 1 = square, →0 = sliver
-    // favour big, well-proportioned, still-relevant images ("most intriguing")
-    const score = Math.log(area) + ratio * 1.4 - i * 0.04;
+    // RELEVANCE FIRST: how much of the query actually appears in the file's title? A real
+    // on-topic match outweighs a big-but-unrelated photo — that's what let out-of-context
+    // images win before. Size/shape only break ties among relevant results.
+    const tlc = title.toLowerCase();
+    const matched = qWords.filter((w2) => tlc.includes(w2)).length;
+    const relevance = qWords.length ? matched / qWords.length : 0;     // 0..1 share of query words present
+    const score = relevance * 8 + Math.log(area) * 0.4 + ratio * 1.0 - i * 0.25;
     let caption = title.split(":").slice(1).join(":").replace(/\.[^.]+$/, "").replace(/_/g, " ").trim();
     caption = caption
       .split(/\s[-–—]\s/)[0]                              // drop "- Archivio..." tails
