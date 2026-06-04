@@ -100,6 +100,26 @@ def rate_ok(ip):
         return True
 
 
+# --- Daily spend ceiling: a HARD cap on real AI generations per day, so an abuser or a
+# viral spike can't run up your bill. Counts only cache MISSES (actual AI calls), never
+# cached hits, and resets at UTC midnight. Tune with the RATE_DAILY env var. ---
+RATE_DAILY = int(os.environ.get("RATE_DAILY", "1000"))
+_DAILY = {"day": -1, "count": 0}
+
+
+def daily_budget_ok():
+    """Reserve one AI generation against the daily cap. False once the cap is reached."""
+    today = int(time.time() // 86400)
+    with _RATE_LOCK:
+        if _DAILY["day"] != today:
+            _DAILY["day"] = today
+            _DAILY["count"] = 0
+        if _DAILY["count"] >= RATE_DAILY:
+            return False
+        _DAILY["count"] += 1
+        return True
+
+
 def load_gemini_key():
     """Gemini API key from env or gemini-key.txt (for the country profiles)."""
     key = os.environ.get("GEMINI_API_KEY", "").strip()
@@ -513,6 +533,9 @@ class Handler(BaseHTTPRequestHandler):
         if cache_key in CACHE:
             self.send_json(200, CACHE[cache_key])
             return
+        if not daily_budget_ok():
+            self.send_json(429, {"error": "Chronicle has reached today's exploration limit — please come back tomorrow."})
+            return
 
         data, error = fetch_history_from_ai(country)
         if error:
@@ -540,6 +563,9 @@ class Handler(BaseHTTPRequestHandler):
         if key in PROFILE_CACHE:
             self.send_json(200, PROFILE_CACHE[key])
             return
+        if not daily_budget_ok():
+            self.send_json(429, {"error": "Chronicle has reached today's exploration limit — please come back tomorrow."})
+            return
         data, error = fetch_country_profile(country)
         if error:
             self.send_json(502, {"error": error})
@@ -561,6 +587,9 @@ class Handler(BaseHTTPRequestHandler):
         key = (country + "|" + era).lower()
         if key in STORY_CACHE:
             self.send_json(200, STORY_CACHE[key])
+            return
+        if not daily_budget_ok():
+            self.send_json(429, {"error": "Chronicle has reached today's exploration limit — please come back tomorrow."})
             return
         subject = "%s — %s%s" % (country, era, (" (" + period + ")") if period else "")
         data, error = fetch_story(subject)

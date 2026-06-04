@@ -58,6 +58,15 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- DAILY SPEND CEILING — bill protection (Ahmad: audit "major issues" → "fix it"). The per-minute
+  rate limit bounded the request RATE but not the daily TOTAL, so a sustained abuser or viral
+  spike could run up the Claude bill (≈80/min × all day). Added a HARD daily cap on real AI
+  generations: daily_budget_ok() (RATE_DAILY env, default 1000), counting only cache MISSES
+  (cached countries stay free and are always served), resetting at UTC midnight. Once the cap is
+  hit, /api/history|profile|story return 429 "reached today's exploration limit — come back
+  tomorrow" WITHOUT making an AI call → worst-case bill ≈ $2.50/day. Verified with a temp server
+  (RATE_DAILY=2): calls 1–2 served, call 3 → 429 (no AI call), a cached country still 200,
+  /api/ping unaffected. Tune RATE_DAILY in Render → Environment.
 - FASTER LEGEND PHOTOS (Ahmad: "some legend page photos take so much time to appear"). Audited
   live by timing each beat's search + image-load: searches were instant (pre-warmed) and most
   thumbs loaded <1s, BUT (a) a page's image only began loading when you reached the PREVIOUS page
