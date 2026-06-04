@@ -1268,7 +1268,7 @@ document.addEventListener("click", (e) => {
 // Word-boundaried so it drops the dull stuff WITHOUT nuking legitimate photos
 // whose names merely contain a substring (e.g. "chart" in Chartres, "flag" in
 // flagship, "map" in Mapuche, "plan" in Planalto).
-const JUNK_IMAGE = /(\bmaps?\b|\batlas\b|\bcarte\b|\bkarte\b|\bmapa\b|cadastr|\bsurvey\b|locator|\bflags?\b|coat[\s_-]?of[\s_-]?arms|\bseal\b|\bemblem|\blogo|\bdiagram|\bcharts?\b|flowchart|\bicon\b|orthographic|\blocation\b|topograph|administ|\bblank\b|\boutline\b|\bgpx\b|wikimedia|spreadsheet|\bsignature\b|\bplan\b|schematic|\bsketch\b|\bstamps?\b|banknote|postcard|\bposter\b|caricature|infographic|screenshot)/i;
+const JUNK_IMAGE = /(\bmaps?\b|\batlas\b|\bcarte\b|\bkarte\b|\bmapa\b|cadastr|\bsurvey\b|locator|\bflags?\b|coat[\s_-]?of[\s_-]?arms|\bseal\b|\bemblem|\blogo|\bdiagram|\bcharts?\b|flowchart|\bicon\b|orthographic|\blocation\b|topograph|administ|\bblank\b|\boutline\b|\bgpx\b|wikimedia|spreadsheet|\bsignature\b|\bplan\b|schematic|\bsketch\b|\bstamps?\b|banknote|postcard|\bposter\b|caricature|infographic|screenshot|chronolog|\btimeline|genealog|family[\s_-]?tree)/i;
 // Promise-cached: identical searches (e.g. pre-warm + the page load) share ONE request,
 // and results are cached for the session so revisits/page-turns are instant.
 const IMG_CACHE = new Map();   // query|max -> Promise<results[]>
@@ -1325,7 +1325,11 @@ async function _fetchImagesRaw(query, max) {
     const tlc = title.toLowerCase();
     const matched = qWords.filter((w2) => tlc.includes(w2)).length;
     const relevance = qWords.length ? matched / qWords.length : 0;     // 0..1 share of query words present
-    const score = relevance * 8 + Math.log(area) * 0.4 + ratio * 1.0 - i * 0.25;
+    // Real PHOTOGRAPHS are JPEG; diagrams, charts, maps, timelines, family trees and logos are
+    // PNG. Strongly prefer JPEG so a perfectly-named "…chronology.png" diagram can't out-score an
+    // actual photo on relevance alone.
+    const photoish = mime === "image/jpeg" ? 4 : 0;
+    const score = relevance * 6 + photoish + Math.log(area) * 0.4 + ratio * 1.0 - i * 0.25;
     let caption = title.split(":").slice(1).join(":").replace(/\.[^.]+$/, "").replace(/_/g, " ").trim();
     caption = caption
       .split(/\s[-–—]\s/)[0]                              // drop "- Archivio..." tails

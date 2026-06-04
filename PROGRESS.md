@@ -58,6 +58,15 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- PHOTOS: REJECT NON-PHOTO IMAGES (Ahmad: "photos still not displaying"). Diagnosed on the live
+  site: photos DO load + display, but the relevance-first scoring let a perfectly-named NON-photo
+  win — Spain page 1 was "Visigothic_Kingdom_chronology-gl.png" (a chronology DIAGRAM) and page 0
+  a dark murky image, which reads as "no real photo." Fix: (1) strongly prefer JPEG — real
+  photographs are JPEG, while diagrams/charts/maps/timelines/logos are PNG — via +4 "photoish" in
+  the score and rebalancing relevance 8→6, so a perfectly-named .png diagram can't out-score an
+  actual photo; (2) expanded JUNK_IMAGE to also drop chronology / timeline / genealogy /
+  family-tree. Verified via stub: chronology.png is junk-rejected AND a JPEG photo out-scores a
+  perfect-relevance PNG diagram. Cache-bust v=9.
 - DAILY SPEND CEILING — bill protection (Ahmad: audit "major issues" → "fix it"). The per-minute
   rate limit bounded the request RATE but not the daily TOTAL, so a sustained abuser or viral
   spike could run up the Claude bill (≈80/min × all day). Added a HARD daily cap on real AI
