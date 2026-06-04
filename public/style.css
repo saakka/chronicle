@@ -291,15 +291,17 @@ body {
 .journey { position: fixed; inset: 0; z-index: 40; overflow: hidden; color: #fff; }
 .journey[hidden] { display: none; }
 
-/* the current era's legend is a page-turning album of full-screen pages */
-.era-legend { position: absolute; inset: 0; overflow: hidden; background: #07131f; }
+/* the current era's legend is a page-turning album — pages swing in 3D like a book */
+.era-legend { position: absolute; inset: 0; overflow: hidden; background: #07131f; perspective: 2200px; }
 .legend-page {
   position: absolute; inset: 0; display: flex; align-items: flex-end; overflow: hidden;
-  opacity: 0; transform: translateX(7%) scale(0.985); pointer-events: none; will-change: transform, opacity;
-  transition: opacity 0.5s ease, transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0; transform: rotateY(-24deg) translateX(16%) scale(0.94);   /* waiting on the right */
+  transform-origin: center center; backface-visibility: hidden;
+  pointer-events: none; will-change: transform, opacity;
+  transition: opacity 0.5s ease, transform 0.66s cubic-bezier(0.33, 0, 0.18, 1);
 }
-.legend-page.prev { transform: translateX(-7%) scale(0.985); }   /* already turned → slides left */
-.legend-page.active { opacity: 1; transform: none; pointer-events: auto; }
+.legend-page.prev { transform: rotateY(24deg) translateX(-16%) scale(0.94); }   /* turned away to the left */
+.legend-page.active { opacity: 1; transform: rotateY(0deg) translateX(0) scale(1); pointer-events: auto; }
 .legend-page.active .beat-bg { animation: kenburns 16s ease-out forwards; }
 .legend-page.active .beat-text { opacity: 1; transform: none; transition-delay: 0.15s; }
 .page-hint {
@@ -694,8 +696,10 @@ body {
 
 /* respect users who prefer less motion */
 @media (prefers-reduced-motion: reduce) {
-  .bg-layer.active, .beat.in .beat-bg { animation: none !important; }
+  .bg-layer.active, .beat.in .beat-bg, .legend-page.active .beat-bg { animation: none !important; }
   .era-stage > * { transition: opacity 0.2s ease !important; transform: none !important; }
+  /* no 3D swing — just a gentle cross-fade between pages */
+  .legend-page { transform: none !important; transition: opacity 0.35s ease !important; }
 }
 .lightbox figcaption { color: var(--gold-soft); margin-top: 14px; font-style: italic; }
 .lightbox-close {

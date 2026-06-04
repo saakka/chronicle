@@ -37,7 +37,7 @@
   <div id="app"></div>
 
   <div id="start">
-    <div class="eyebrow">EA · FreeKick FC</div>
+    <div class="eyebrow">Club World · Free Kick</div>
     <h1>FREE&nbsp;KICK</h1>
     <div class="keys">
       <div class="k"><div class="i">🖱️</div><div class="d"><b>Move</b> to aim the reticle on goal</div></div>
@@ -67,7 +67,7 @@
     spinMax:1.0, spinMouseSens:0.0042, spinKeySens:2.1,
     authNear:0.5, authFar:0.97,          // spin authority fades between these flight fractions
     keeperReact:0.24, keeperDecide:0.17, // reacts, tracks briefly, then COMMITS (late curl beats him)
-    keeperSpeed:7.3, keeperRange:2.45, keeperCatchR:0.62, keeperReachY:2.18,
+    keeperSpeed:7.3, keeperRange:2.3, keeperCatchR:0.62, keeperReachY:2.18,
     aimRangeX:5.6, aimYmin:0.2, aimYmax:4.3
   };
   var GOAL_HALF=CONFIG.goalW/2, WALL_Z=CONFIG.ballZ-CONFIG.wallDist;
@@ -281,7 +281,7 @@
   var keeper={x:0,y:0,dive:0,dir:1,react:0,decide:0,targetX:0,committed:false,parry:0};
   var wall={jump:0,t:0};
   var wind={x:0,z:0,ang:0,mag:0};
-  function newWind(){ wind.ang=rand(0,TAU); wind.mag=rand(0.15,1); var s=wind.mag*4.2; wind.x=Math.cos(wind.ang)*s; wind.z=Math.sin(wind.ang)*s; }
+  function newWind(){ wind.ang=rand(0,TAU); wind.mag=rand(0.2,1); var s=wind.mag*6.5; wind.x=Math.cos(wind.ang)*s; wind.z=Math.sin(wind.ang)*s; wind.kmh=Math.round(wind.mag*36); }
   newWind();
   var runup=0, kicker={x:-0.9,z:CONFIG.ballZ+0.85,step:0};
   var result=null, resultT=0, caption='', captionT=0, big='', bigT=0, bigColor='#fff';
@@ -601,7 +601,8 @@
       var len=R*(0.45+0.5*wind.mag); ctx.save(); ctx.translate(wx,wy); ctx.rotate(wind.ang);
       ctx.strokeStyle='#ff7a33'; ctx.lineWidth=4; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(-len*0.55,0); ctx.lineTo(len-8,0); ctx.stroke();
       ctx.fillStyle='#ff7a33'; ctx.beginPath(); ctx.moveTo(len,0); ctx.lineTo(len-13,-8); ctx.lineTo(len-13,8); ctx.closePath(); ctx.fill(); ctx.restore();
-      ctx.fillStyle='#cfe0ff'; ctx.font='800 11px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('WIND',wx,wy+R+18); ctx.textAlign='start'; })();
+      ctx.fillStyle='#cfe0ff'; ctx.font='800 11px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('WIND',wx,wy+R+17);
+      ctx.fillStyle='#ff9b5c'; ctx.font='800 14px Trebuchet MS'; ctx.fillText((wind.kmh||0)+' km/h',wx,wy+R+33); ctx.textAlign='start'; })();
     // EXIT button (bottom-left)
     (function(){ var ex=66,ey=H-66,R=36;
       ctx.fillStyle='rgba(8,46,58,0.72)'; ctx.beginPath(); ctx.arc(ex,ey,R,0,TAU); ctx.fill();
@@ -664,7 +665,7 @@
       var sp=Math.hypot(vel.x,vel.y,vel.z);
       vel.x+=(ax - vel.x*CONFIG.drag)*sub;
       vel.y+=(ay - vel.y*CONFIG.drag)*sub;
-      vel.z+=(- vel.z*CONFIG.drag + wind.z*0.3)*sub; vel.x+=wind.x*0.3*sub;   // wind drift
+      vel.z+=(- vel.z*CONFIG.drag + wind.z*0.34)*sub; vel.x+=wind.x*0.34*sub;   // wind drift (golf-style)
       var pz=ball.z;
       ball.x+=vel.x*sub; ball.y+=vel.y*sub; ball.z+=vel.z*sub;
       ballRot+=sp*sub*1.1;
