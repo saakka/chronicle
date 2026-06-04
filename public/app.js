@@ -691,13 +691,20 @@ async function enterCountry(country) {
     }
   })();
 
-  await wait(2200);                       // 2.2s cinematic zoom before the portal opens
-  const portalDone = playPortal(country); // portal opens over the zoomed globe
+  await wait(1700);                       // brief cinematic zoom before the portal opens
+  await playPortal(country);              // portal animation runs on its own clock (~1.6s)
+
+  // Enter the journey IMMEDIATELY with a loading state — never block on the fetch here.
+  // (Previously we awaited the history call, which froze the portal for ~10s.)
+  globeView.style.display = "none";
+  showJourneyLoading();
+  endPortal();
+
   const { data, error } = await fetchPromise;
-  await portalDone;
 
   if (error || !data || !Array.isArray(data.eras) || !data.eras.length) {
-    endPortal();
+    journey.hidden = true;
+    globeView.style.display = "";
     busy = false;
     if (world) world.pointOfView({ lat: 24, lng: 42, altitude: 2.1 }, 900);
     toast(error ? error.message : "No history found. Try another country.");
@@ -705,13 +712,12 @@ async function enterCountry(country) {
   }
 
   currentEras = data.eras;
-  ensureEraStory(0);   // warm the first era's legend during the portal → instant timeline
   if (data.demo) toast("Demo mode — built-in Egypt sample. Add an API key for any country.");
 
   // Go STRAIGHT into the timeline (skip the country page — it's a tap away from the header).
-  globeView.style.display = "none";
-  startJourney();
-  endPortal();
+  buildTimeline();
+  goToEra(0);   // renders the first era's legend and warms the neighbouring eras
+  busy = false;
 }
 
 /* ====================== COUNTRY DOSSIER ====================== */
@@ -887,8 +893,12 @@ function ensureEraStory(index) {
 
 // Render the era's legend as a page-turning album: full-screen "pages" (picture + narration).
 let currentBeat = 0;
+let legendBeats = [];           // current legend's beats (for lazy per-page image loading)
+let legendUsedIds = new Set();  // never repeat a picture within one legend
 function renderLegend(era, data, index) {
   const n = data.beats.length;
+  legendBeats = data.beats;
+  legendUsedIds = new Set();
   eraLegend.innerHTML = data.beats
     .map((b, i) =>
       '<section class="legend-page" data-page="' + i + '">' +
@@ -903,24 +913,35 @@ function renderLegend(era, data, index) {
         "</div>" +
       "</section>")
     .join("");
+  goToPage(0);   // shows page 1 and lazy-loads its photo (+ prefetches the next)
+}
 
+// Lazily load ONE page's background photo. Idempotent, and uses the 700px THUMB
+// (not the 1280px full) so it appears fast. Only the visible page and the next
+// one (prefetched) ever fetch — so we load ~2 photos, not all six at once.
+function loadPageImage(i) {
   const pages = eraLegend.querySelectorAll(".legend-page");
-  const usedIds = new Set();   // never repeat a picture within the legend
-  pages.forEach((el, i) => {
-    fetchImages(data.beats[i].imageQuery, 5).then((imgs) => {
-      if (currentEra !== index || journey.hidden) return;            // user moved on
-      const pick = imgs.find((im) => !usedIds.has(im.id || im.thumb)) || imgs[0];
-      if (!pick) return;
-      usedIds.add(pick.id || pick.thumb);
-      const bg = el.querySelector(".beat-bg");
-      if (bg) {
-        const im = new Image();
-        im.onload = () => { bg.style.backgroundImage = "url('" + (pick.full || pick.thumb).replace(/'/g, "%27") + "')"; bg.classList.add("ready"); };
-        im.src = pick.full || pick.thumb;
-      }
-    });
-  });
-  goToPage(0);
+  const el = pages[i];
+  if (!el || !legendBeats[i]) return;
+  const bg = el.querySelector(".beat-bg");
+  if (!bg || bg.dataset.state) return;        // already loading or loaded
+  bg.dataset.state = "loading";
+  const myEra = currentEra;
+  fetchImages(legendBeats[i].imageQuery, 5).then((imgs) => {
+    if (currentEra !== myEra || journey.hidden) { bg.dataset.state = ""; return; }  // user moved on
+    const pick = imgs.find((im) => !legendUsedIds.has(im.id || im.thumb)) || imgs[0];
+    if (!pick) { bg.dataset.state = ""; return; }
+    legendUsedIds.add(pick.id || pick.thumb);
+    const src = pick.thumb || pick.full;      // 700px thumb — fast; not the heavy 1280px full
+    const im = new Image();
+    im.onload = () => {
+      bg.style.backgroundImage = "url('" + src.replace(/'/g, "%27") + "')";
+      bg.classList.add("ready");
+      bg.dataset.state = "done";
+    };
+    im.onerror = () => { bg.dataset.state = ""; };
+    im.src = src;
+  }).catch(() => { bg.dataset.state = ""; });
 }
 
 // Show one page; pages before it have "turned" (slide left), pages after wait (right).
@@ -932,6 +953,8 @@ function goToPage(p) {
     pg.classList.toggle("active", i === currentBeat);
     pg.classList.toggle("prev", i < currentBeat);
   });
+  loadPageImage(currentBeat);       // the page you're now on
+  loadPageImage(currentBeat + 1);   // prefetch the next so the turn reveals instantly
   updateArrows();
 }
 
@@ -944,6 +967,24 @@ function nextPage() {
 function prevPage() {
   if (currentBeat > 0) goToPage(currentBeat - 1);
   else if (currentEra > 0) travelTo(currentEra - 1);
+}
+
+// Show the journey frame instantly (header + a "summoning" page) while /api/history
+// is still in flight, so the portal never has to wait on the network.
+function showJourneyLoading() {
+  dossier.hidden = true;
+  journey.hidden = false;
+  jCountry.textContent = currentCountry;
+  jEra.textContent = "";
+  timeline.innerHTML = "";
+  currentBeat = 0;
+  legendBeats = [];
+  eraLegend.innerHTML =
+    '<section class="legend-page active"><div class="beat-scrim"></div><div class="beat-inner">' +
+    '<p class="beat-kicker">' + esc(currentCountry || "") + "</p>" +
+    '<p class="beat-text" style="opacity:1;transform:none">Summoning the chronicle…</p>' +
+    '<p class="page-hint">one moment</p></div></section>';
+  updateArrows();
 }
 
 function startJourney() {

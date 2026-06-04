@@ -58,6 +58,25 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- MUCH FASTER (Ahmad: "stuck in the portal for 10 seconds… photos very very slow, optimize it").
+  Root causes found by timing each endpoint, fixed at the source:
+  (1) HISTORY was Opus + adaptive thinking + a fat schema (summary + imageQuery + 4 imageQueries per
+      era × 10) → ~22s. The live legend flow never reads those fields (legend text/images come from
+      /api/story; the old slideshow that used them is dead code). Slimmed the schema to title+period
+      only, switched to claude-haiku-4-5, max_tokens 1200 → **22s → 5.4s**.
+  (2) LEGEND (/api/story) was ~13s: Gemini-2.5-flash "thinks" by default (~10s) and Claude Sonnet's
+      constrained-JSON decoding for 6 beats was also ~10s. Disabled Gemini thinking (thinkingBudget:0)
+      and moved the writer (legends + profiles) to claude-haiku-4-5 → **13s → ~2.4s**, prose still vivid.
+  (3) PORTAL no longer blocks on the fetch. enterCountry used to `await` the history call between the
+      portal animation and the journey (the "stuck 10s"). Now the portal runs on its own ~3.3s clock,
+      the journey opens immediately with a "Summoning the chronicle…" state, and the timeline + first
+      legend fill in when history resolves (showJourneyLoading()).
+  (4) LEGEND PHOTOS load lazily: only the active page (+ the next, prefetched) fetch an image, using the
+      700px thumb instead of the 1280px full — was loading all six 1280px backgrounds at once. New
+      loadPageImage(i), idempotent, called from goToPage. Verified via stub: render fetches only q0+q1;
+      turning two pages fetches q0..q3; pages 5–6 stay deferred until reached.
+  Verified end-to-end in preview: portal→journey at ~6s with 10 timeline dots + loading state, then the
+  real Iceland legend ("Ingólfr Arnarson cast his high-seat pillars overboard…"); layout intact.
 - SMOOTHER (Ahmad: "make it more smooth"). Two real wins: (1) GLOBE dynamic resolution — render the
   textured sphere at a lighter buffer (~460px) WHILE moving (drag/fling/auto-rotate) for a solid-60fps
   spin, and sharpen to a crisp buffer (~760px) the instant it settles on a hovered country; buffer is

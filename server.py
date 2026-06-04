@@ -41,6 +41,8 @@ PUBLIC_DIR = os.path.join(HERE, "public")
 
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 MODEL = "claude-opus-4-8"
+HISTORY_MODEL = "claude-haiku-4-5"    # fast: the 10-era list (no extended thinking)
+WRITER_MODEL = "claude-haiku-4-5"     # fast prose for the short legend beats & profiles
 
 
 def load_api_key():
@@ -186,6 +188,9 @@ def _gemini_json(prompt, schema, temperature):
             "responseMimeType": "application/json",
             "responseSchema": schema,
             "temperature": temperature,
+            # gemini-2.5-flash "thinks" by default (~10s). We just need a short JSON
+            # legend, so switch thinking OFF — responses drop to ~1-2s.
+            "thinkingConfig": {"thinkingBudget": 0},
         },
     }
     request = urllib.request.Request(
@@ -212,7 +217,7 @@ def _claude_json(prompt, schema, max_tokens=3500):
     if not API_KEY:
         return None, "No Anthropic key set (add api-key.txt)."
     body = {
-        "model": MODEL,
+        "model": WRITER_MODEL,
         "max_tokens": max_tokens,
         "output_config": {"format": {"type": "json_schema", "schema": schema}},
         "messages": [{"role": "user", "content": prompt}],
@@ -298,28 +303,20 @@ def fetch_story(subject):
 # The instructions and output shape we send to the AI
 # ---------------------------------------------------------------------------
 
-SYSTEM_PROMPT = """You are a meticulous historian and visual curator.
+SYSTEM_PROMPT = """You are a meticulous historian.
 
 Given a country, produce exactly 10 of the most historically significant ERAS in \
 that country's history, ordered chronologically from earliest to most recent. \
-Together they should tell the country's whole story at a glance.
+Together they should tell the country's whole story at a glance — they become the \
+chapters of an illustrated timeline.
 
-For each era provide:
-- "title": the name of the era or period.
+For each era provide ONLY:
+- "title": the name of the era or period (a few words).
 - "period": its approximate date range, e.g. "c. 3100-2686 BCE", "1789-1815", or \
 "1947-present".
-- "summary": 2-3 clear, plain-language sentences on what defined this era and why \
-it matters.
-- "imageQuery": a short search phrase (2 to 5 words) naming the single most iconic, \
-CONCRETE, photographable subject of this era (a famous monument, artifact, ruler, \
-artwork, battle, building, or place). Prefer well-known proper nouns (e.g. "Great \
-Pyramid of Giza", "Tutankhamun gold mask"). Include the country/place name if helpful.
-- "imageQueries": an array of 4 DISTINCT, varied search phrases for this era so a gallery \
-shows variety — e.g. a monument, an artifact, a key person, and a place/scene. Each must \
-be a different concrete subject (NOT four phrasings of the same thing), all genuinely from \
-this era. Prefer proper nouns.
 
-Be historically accurate; never invent. Return exactly 10 eras."""
+Be historically accurate; never invent. Keep it terse — titles and dates only, no \
+descriptions. Return exactly 10 eras."""
 
 SCHEMA = {
     "type": "object",
@@ -332,11 +329,8 @@ SCHEMA = {
                 "properties": {
                     "title": {"type": "string"},
                     "period": {"type": "string"},
-                    "summary": {"type": "string"},
-                    "imageQuery": {"type": "string"},
-                    "imageQueries": {"type": "array", "items": {"type": "string"}},
                 },
-                "required": ["title", "period", "summary", "imageQuery", "imageQueries"],
+                "required": ["title", "period"],
                 "additionalProperties": False,
             },
         },
@@ -353,12 +347,10 @@ SCHEMA = {
 def fetch_history_from_ai(country):
     """Ask Claude for the country's 10 eras. Returns (data, error_message)."""
     body = {
-        "model": MODEL,
-        "max_tokens": 8000,
-        "thinking": {"type": "adaptive"},
+        "model": HISTORY_MODEL,
+        "max_tokens": 1200,    # 10 eras of title+period only — small + fast
         "system": SYSTEM_PROMPT,
         "output_config": {
-            "effort": "medium",
             "format": {"type": "json_schema", "schema": SCHEMA},
         },
         "messages": [{"role": "user", "content": "Country: " + country}],
