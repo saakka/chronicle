@@ -331,9 +331,27 @@ function buildCountryIndex(polys) {
   });
   if (dl) dl.innerHTML = names.sort().map((n) => '<option value="' + esc(n) + '"></option>').join("");
 }
+// Common shorthands → a substring the index will then resolve (Natural Earth uses long names).
+const COUNTRY_ALIASES = {
+  usa: "united states", us: "united states", america: "united states",
+  uk: "united kingdom", britain: "united kingdom", "great britain": "united kingdom", england: "united kingdom",
+  holland: "netherlands", uae: "united arab emirates", "south korea": "korea", "north korea": "korea",
+};
+function findCountryFeature(name) {
+  let q = String(name || "").trim().toLowerCase();
+  if (!q) return null;
+  if (COUNTRY_ALIASES[q]) q = COUNTRY_ALIASES[q];
+  if (COUNTRY_INDEX.has(q)) return COUNTRY_INDEX.get(q);
+  let starts = null, contains = null;                       // forgiving: prefix, then substring
+  for (const [k, f] of COUNTRY_INDEX) {
+    if (k.startsWith(q)) { if (!starts) starts = f; }
+    else if (k.includes(q)) { if (!contains) contains = f; }
+  }
+  return starts || contains || null;
+}
 function enterByName(name) {
-  if (!name || busy) return false;
-  const f = COUNTRY_INDEX.get(String(name).trim().toLowerCase());
+  if (busy) return false;
+  const f = findCountryFeature(name);
   if (!f) return false;
   lastHoverLatLng = centroid(f);
   lastHoverSubregion = f.properties.SUBREGION || null;
@@ -344,7 +362,12 @@ function enterByName(name) {
 (function wireSearch() {
   const inp = document.getElementById("country-search");
   if (!inp) return;
-  const go = () => { if (enterByName(inp.value)) inp.blur(); };
+  const go = () => {
+    const v = inp.value.trim();
+    if (!v) return;
+    if (enterByName(v)) inp.blur();
+    else toast('Couldn’t find "' + v + '" — try a name from the list.');
+  };
   inp.addEventListener("change", go);                                                 // datalist selection
   inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } });
 })();
@@ -1097,98 +1120,12 @@ function cleanSubject(q) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 }
 
-// Striking PUBLIC-DOMAIN artworks/artifacts from The Met's open collection.
-const MET_CACHE = new Map();
-async function fetchMetArt(query, country, max) {
-  if (!query) return [];
-  const key = query + "|" + country + "|" + max;
-  if (MET_CACHE.has(key)) return MET_CACHE.get(key);
-  const c = (country || "").trim().toLowerCase();
-  let result = [];
-  try {
-    const sr = await fetch("https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=" + encodeURIComponent(query));
-    const sj = await sr.json();
-    const ids = (sj.objectIDs || []).slice(0, 12);
-    const objs = await Promise.all(ids.map((id) =>
-      fetch("https://collectionapi.metmuseum.org/public/collection/v1/objects/" + id).then((r) => r.json()).catch(() => null)
-    ));
-    for (const o of objs) {
-      if (!o || !o.isPublicDomain || !o.primaryImageSmall) continue;   // public domain only
-      if (c) {
-        // keep only art whose own metadata ties it to this country/culture
-        const meta = ((o.department || "") + " " + (o.culture || "") + " " + (o.country || "") + " " + (o.region || "")).toLowerCase();
-        if (!meta.includes(c)) continue;
-      }
-      result.push({
-        thumb: o.primaryImageSmall,
-        full: o.primaryImage || o.primaryImageSmall,
-        caption: cleanSubject(o.title || query),
-        id: "met:" + o.objectID,
-      });
-      if (result.length >= max) break;
-    }
-  } catch (e) { result = []; }
-  MET_CACHE.set(key, result);
-  return result;
-}
-
-// One DISTINCT photo per subject — never the same picture (or subject) twice.
-// Wikimedia only, so the album appears fast; museum art is added separately.
-async function fetchVariedImages(queries, max) {
-  const qs = [], seenQ = new Set();
-  for (const q of queries) {                          // drop duplicate/blank queries
-    const c = (q || "").trim().toLowerCase();
-    if (c && !seenQ.has(c)) { seenQ.add(c); qs.push(q); }
-  }
-  const use = qs.slice(0, Math.max(max, 8));
-  const lists = await Promise.all(use.map((q) => fetchImages(q, 4)));
-  const out = [], seen = new Set();
-  for (let k = 0; k < lists.length && out.length < max; k++) {
-    for (const im of lists[k]) {                      // first not-yet-used photo for this subject
-      const id = im.id || im.thumb;
-      if (seen.has(id)) continue;
-      seen.add(id);
-      out.push(Object.assign({}, im, { caption: subjectCaption(use[k]) }));
-      break;                                          // exactly one per subject
-    }
-  }
-  return out;
-}
-
 // Clean caption: the subject, minus a redundant trailing country name.
 function subjectCaption(q) {
   let cap = cleanSubject(q);
   const c = (currentCountry || "").trim();
   if (c && cap.toLowerCase().endsWith(" " + c.toLowerCase())) cap = cap.slice(0, -(c.length + 1)).trim();
   return cap || cleanSubject(q);   // never blank (e.g. if the query was just the country name)
-}
-
-// Fetch (once) an era's images and cache them on the era object. Shared promise
-// dedupes concurrent calls so preloading a neighbour can't double-fetch.
-function ensureEraImages(i) {
-  const era = currentEras[i];
-  if (!era) return Promise.resolve([]);
-  if (Array.isArray(era.images)) return Promise.resolve(era.images);
-  if (!era._imgPromise) {
-    const qs = (Array.isArray(era.imageQueries) && era.imageQueries.length)
-      ? [era.imageQuery].concat(era.imageQueries).filter(Boolean)
-      : [era.imageQuery, era.title + " " + currentCountry, currentCountry + " " + (era.period || ""), era.title].filter(Boolean);
-    era._imgPromise = fetchVariedImages(qs, 7).then((imgs) => { era.images = imgs; return imgs; });
-  }
-  return era._imgPromise;
-}
-
-// Lazily fetch a striking public-domain museum piece or two for an era (separate
-// from the fast Wikimedia path, so it never delays the photos appearing).
-function ensureEraArt(i) {
-  const era = currentEras[i];
-  if (!era) return Promise.resolve([]);
-  if (era._art) return Promise.resolve(era._art);
-  if (!era._artPromise) {
-    const artQ = (currentCountry + " " + (era.title || "")).trim();
-    era._artPromise = fetchMetArt(artQ, currentCountry, 2).then((a) => { era._art = a || []; return era._art; });
-  }
-  return era._artPromise;
 }
 
 async function goToEra(index) {
@@ -1209,7 +1146,10 @@ async function goToEra(index) {
   if (!data || !Array.isArray(data.beats) || !data.beats.length) {
     eraLegend.innerHTML =
       '<section class="legend-page active"><div class="beat-scrim"></div><div class="beat-inner">' +
-      '<p class="beat-text" style="opacity:1;transform:none">The legend could not be summoned right now. Try another era.</p></div></section>';
+      '<p class="beat-text" style="opacity:1;transform:none">The legend could not be summoned right now.</p>' +
+      '<button class="retry-btn" id="legend-retry">↻ Try again</button></div></section>';
+    const rb = document.getElementById("legend-retry");
+    if (rb) rb.addEventListener("click", (e) => { e.stopPropagation(); goToEra(index); });
     return;
   }
   renderLegend(era, data, index);
@@ -1381,34 +1321,6 @@ async function _fetchImagesRaw(query, max) {
   return candidates.slice(0, max).map(({ thumb, full, caption, id }) => ({ thumb, full, caption, id }));
 }
 
-function coverHtml(img, eager) {
-  const caption = esc(img.caption || "");
-  const load = eager ? 'fetchpriority="high" loading="eager"' : 'loading="lazy"';
-  return (
-    '<figure class="cover" data-full="' + esc(img.full || img.thumb) + '" data-caption="' + caption + '">' +
-      "<img " + load + ' decoding="async" src="' + esc(img.thumb) + '" alt="' + caption + '" />' +
-      (caption ? "<figcaption>" + caption + "</figcaption>" : "") +
-    "</figure>"
-  );
-}
-
-function applyCoverflow(album) {
-  // Use untransformed layout (offsetLeft) + scrollLeft so reading positions never
-  // forces a reflow off the transformed covers — smoother scrolling.
-  const center = album.scrollLeft + album.clientWidth / 2;
-  const half = album.clientWidth / 2 || 1;
-  album.querySelectorAll(".cover").forEach((cover) => {
-    const coverCenter = cover.offsetLeft + cover.offsetWidth / 2;
-    const k = Math.max(-1.4, Math.min(1.4, (coverCenter - center) / half));
-    const rot = -k * 38;
-    const scale = 1 - Math.min(Math.abs(k), 1) * 0.32;
-    const tz = -Math.abs(k) * 120;
-    cover.style.transform = "translate3d(0,0," + tz + "px) rotateY(" + rot + "deg) scale(" + scale + ")";
-    cover.style.zIndex = String(1000 - Math.round(Math.abs(k) * 1000));
-    cover.style.opacity = String(1 - Math.min(Math.abs(k), 1) * 0.28);
-  });
-}
-
 /* ====================== LIGHTBOX + TOAST ====================== */
 
 function openLightbox(src, caption) {
@@ -1441,9 +1353,23 @@ function centroid(feat) {
   try {
     const geom = feat.geometry;
     const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
-    let lng = 0, lat = 0, n = 0;
-    polys.forEach((poly) => poly[0].forEach((pt) => { lng += pt[0]; lat += pt[1]; n++; }));
-    return n ? { lat: lat / n, lng: lng / n } : null;
+    // Aim at the LARGEST landmass only. Averaging all of a country's far-flung territories
+    // (e.g. USA + Alaska + Hawaii, or Russia spanning the dateline) lands the camera mid-ocean.
+    let best = null, bestArea = -1;
+    polys.forEach((poly) => {
+      const ring = poly[0] || [];
+      if (ring.length < 3) return;
+      let a = 0;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        a += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
+      }
+      a = Math.abs(a) / 2;
+      if (a > bestArea) { bestArea = a; best = ring; }
+    });
+    if (!best || !best.length) return null;
+    let lng = 0, lat = 0;
+    best.forEach((pt) => { lng += pt[0]; lat += pt[1]; });
+    return { lat: lat / best.length, lng: lng / best.length };
   } catch (e) { return null; }
 }
 

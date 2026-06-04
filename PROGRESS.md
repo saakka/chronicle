@@ -58,6 +58,16 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- AUDIT-2 FIXES (Ahmad: "audit again" → "fix that"). (#1) Search is now forgiving + gives
+  feedback: aliases (USA/UK/Britain/Holland/UAE…), prefix-then-substring fallback, and a toast
+  when nothing matches (was: silent no-op). (#2) Multi-polygon zoom — centroid() aims at the
+  LARGEST landmass (shoelace area) instead of averaging all of a country's territories, so
+  USA/Russia/Indonesia no longer fly the camera mid-ocean. (#4) A failed legend now shows a
+  "↻ Try again" button that re-runs the era. (#5) Deleted ~120 lines of dead slideshow/Met-art
+  code (fetchMetArt, fetchVariedImages, ensureEraImages/Art, coverHtml, applyCoverflow,
+  MET_CACHE) — KEPT cleanSubject/subjectCaption (still used by the live dossier gallery).
+  Verified: app.js parses, zero dangling refs, search aliases/prefix/miss correct, centroid
+  picks the big polygon. Cache-bust app.js v=7 / style.css v=6.
 - CLICK-TO-OPEN + ON-TOPIC PHOTOS (Ahmad: "open the country when you click on it, not hover";
   "audit the photos, replace out-of-context ones"). (1) Entry is now on CLICK/tap, not the
   hover-dwell: removed the auto-enter timers in handleDwell + the 2D setHover. Hovering still
