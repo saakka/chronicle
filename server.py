@@ -460,7 +460,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def client_ip(self):
         xff = self.headers.get("X-Forwarded-For", "")
-        return xff.split(",")[0].strip() if xff else self.client_address[0]
+        # Use the RIGHTMOST hop (the one Render's proxy appended), not the client-controlled
+        # leftmost value — so X-Forwarded-For can't be spoofed to dodge the per-IP limit.
+        return xff.split(",")[-1].strip() if xff else self.client_address[0]
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -474,6 +476,8 @@ class Handler(BaseHTTPRequestHandler):
             self.handle_profile(parse_qs(parsed.query))
         elif parsed.path == "/api/story":
             self.handle_story(parse_qs(parsed.query))
+        elif parsed.path == "/api/ping":
+            self.send_json(200, {"ok": True})   # cheap wake-up ping (no AI, not rate-limited)
         elif parsed.path == "/api/lan":
             ip = local_ip()
             self.send_json(200, {"ip": ip or "", "url": ("http://%s:%d" % (ip, PORT)) if ip else ""})

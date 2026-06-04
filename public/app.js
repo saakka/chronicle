@@ -273,7 +273,8 @@ function initGlobe() {
   world.pointOfView({ lat: 24, lng: 42, altitude: 2.1 }, 0);
 
   // Rotation pauses while you rest on a country (recomputeHover) and resumes after.
-  window.addEventListener("resize", sizeGlobe);
+  let _resizeT = null;
+  window.addEventListener("resize", () => { clearTimeout(_resizeT); _resizeT = setTimeout(sizeGlobe, 120); });
 
   loadCountryShapes();
 }
@@ -566,7 +567,7 @@ function initGlobe2D() {
     if (f) {
       s.vel = 0;                 // stop any fling so the country stays put under the cursor
       setHoverGlobals(f, geo);
-      prefetchHistory(f.admin);   // start fetching while they rest → ready by portal's end
+      queuePrefetch(f.admin);   // debounced — only a genuine rest prefetches
       s.dwell = setTimeout(() => { if (s.hoverFeat === f && !busy) enterCountry(f.admin); }, 1400);
     }
   }
@@ -636,8 +637,8 @@ function handleDwell(country) {
   if (country === dwellCountry) return;
   dwellCountry = country;
   clearTimeout(dwellTimer);
+  queuePrefetch(country);   // debounced; null cancels — only deliberate rests prefetch
   if (country) {
-    prefetchHistory(country);   // start fetching while they rest → ready by the portal's end
     dwellTimer = setTimeout(() => {
       if (dwellCountry === country && !busy) enterCountry(country);
     }, 1400);   // launch the portal after a short rest on a country
@@ -677,18 +678,50 @@ function endPortal() {
 // a country (during the dwell) — not only after the portal finishes. enterCountry reuses
 // this promise, so the eras are usually ready by the time the portal ends → no waiting.
 const HISTORY_CACHE = new Map();   // country -> Promise<{data}|{error}>
+// fetch JSON with a hard timeout — a sleeping free-tier server must never hang the UI.
+async function getJSON(url, timeoutMs = 30000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+    const j = await res.json();
+    if (!res.ok) throw new Error((j && j.error) || "Something went wrong.");
+    return j;
+  } finally { clearTimeout(t); }
+}
+
+// Fetch (once) an era's legend, caching it ON the era object so a prefetch during the
+// hover-dwell and the later goToEra() share ONE request.
+function warmEraStory(country, era) {
+  if (!era || era._story || era._storyPromise) return;
+  era._storyPromise = getJSON("/api/story?country=" + encodeURIComponent(country) +
+      "&era=" + encodeURIComponent(era.title || "") + "&period=" + encodeURIComponent(era.period || ""))
+    .then((j) => { era._story = (j && j.story) || null; era._storyPromise = null; return era._story; })
+    .catch(() => { era._story = null; era._storyPromise = null; return null; });
+}
+
+// Debounced history prefetch: only fire after the visitor genuinely RESTS (~600ms) on a
+// country, so quick fly-overs don't burn API calls or trip the rate limit.
+let _prefetchTimer = null;
+function queuePrefetch(country) {
+  clearTimeout(_prefetchTimer);
+  if (!country) return;
+  _prefetchTimer = setTimeout(() => prefetchHistory(country), 600);
+}
+
 function prefetchHistory(country) {
   if (!country) return Promise.resolve({ error: new Error("No country.") });
   if (HISTORY_CACHE.has(country)) return HISTORY_CACHE.get(country);
   const p = (async () => {
     try {
-      const res = await fetch("/api/history?country=" + encodeURIComponent(country));
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error || "Something went wrong.");
+      const j = await getJSON("/api/history?country=" + encodeURIComponent(country));
+      if (j && Array.isArray(j.eras) && j.eras[0]) warmEraStory(country, j.eras[0]);  // chain era-I legend → instant first page
       return { data: j };
     } catch (err) {
       HISTORY_CACHE.delete(country);   // let a later attempt retry
-      return { error: err instanceof TypeError ? new Error("Can't reach the server.") : err };
+      const waking = err && err.name === "AbortError";
+      return { error: waking ? new Error("The server is waking up — give it a few seconds and tap again.")
+                             : (err instanceof TypeError ? new Error("Can't reach the server.") : err) };
     }
   })();
   HISTORY_CACHE.set(country, p);
@@ -720,7 +753,13 @@ async function enterCountry(country) {
   showJourneyLoading();
   endPortal();
 
+  // If the free server was asleep, reassure (instead of a silent blank) while it wakes.
+  const wakeHint = setTimeout(() => {
+    const el = document.querySelector("#era-legend .legend-page.active .beat-text");
+    if (el && busy && !currentEras.length) el.textContent = "Waking the server — the first visit can take ~30s…";
+  }, 4000);
   const { data, error } = await fetchPromise;
+  clearTimeout(wakeHint);
 
   if (error || !data || !Array.isArray(data.eras) || !data.eras.length) {
     journey.hidden = true;
@@ -899,17 +938,8 @@ function ensureEraStory(index) {
   const era = currentEras[index];
   if (!era) return Promise.resolve(null);
   if (era._story) return Promise.resolve(era._story);
-  if (!era._storyPromise) {
-    era._storyPromise = fetch(
-      "/api/story?country=" + encodeURIComponent(currentCountry) +
-      "&era=" + encodeURIComponent(era.title || "") +
-      "&period=" + encodeURIComponent(era.period || "")
-    )
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { era._story = (j && j.story) || null; era._storyPromise = null; return era._story; })
-      .catch(() => { era._story = null; era._storyPromise = null; return null; });
-  }
-  return era._storyPromise;
+  warmEraStory(currentCountry, era);   // reuses the legend prefetched during the dwell; has a timeout
+  return era._storyPromise || Promise.resolve(era._story || null);
 }
 
 // Render the era's legend as a page-turning album: full-screen "pages" (picture + narration).
@@ -1260,7 +1290,9 @@ function fetchImages(query, max = 6) {
   if (!query) return Promise.resolve([]);
   const cacheKey = query + "|" + max;
   if (IMG_CACHE.has(cacheKey)) return IMG_CACHE.get(cacheKey);
-  const p = _fetchImagesRaw(query, max).catch(() => []);
+  const p = _fetchImagesRaw(query, max)
+    .then((r) => { if (!r || !r.length) IMG_CACHE.delete(cacheKey); return r || []; })   // don't cache empty/failed → let it retry next time
+    .catch(() => { IMG_CACHE.delete(cacheKey); return []; });
   IMG_CACHE.set(cacheKey, p);
   return p;
 }
@@ -1433,5 +1465,8 @@ function esc(value) {
 })();
 
 /* ====================== START ====================== */
+
+// Wake the (free) server right away so it's warm by the time a country is picked.
+fetch("/api/ping", { cache: "no-store" }).catch(() => {});
 
 initGlobe();

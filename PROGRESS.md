@@ -58,6 +58,21 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- AUDIT FIXES + FASTER (Ahmad: "fix all of them and make it way faster"). From the audit:
+  BUGS — (B1) no fetch timeout → the app hung ~50s on Render cold-start with the `busy` lock
+  stuck (couldn't enter another country): added a 30s AbortController on history+story, a
+  "Waking the server…" hint after 4s, and a clear "give it a few seconds" retry message.
+  (B2) history prefetch fired on EVERY hover → debounced to a 600ms rest (rapid fly-overs
+  coalesce to one, leaving cancels) — saves API calls + avoids self-rate-limiting. (B3) failed/
+  empty image searches were cached forever → now NOT cached, so they retry. (B4) per-IP limit
+  trusted the spoofable LEFTMOST X-Forwarded-For → now RIGHTMOST (the hop Render appends).
+  (B5) WebGL resize debounced (120ms). FASTER — (E1) warm-up: ping /api/ping on landing so the
+  free instance is awake by the time a country is picked; the history prefetch now CHAINS
+  era-I's legend (warmEraStory) so the first page is ready when the portal ends. (E3 already
+  shipped: legend page 1 shows "Era N · <Name>" + the dramatic headline.) Verified: server
+  compiles, /api/ping 200, gzip intact, app.js parses, debounce+cancel proven via stub.
+  Queued next: country search (E4), share links + OG tags (E5), GitHub auto-deploy (E2);
+  dead-code removal deferred (zero runtime impact, risky surgery — separate pass).
 - ERA NAMES ON EVERY ERA (Ahmad: "add a name for each era for each country, make it simple, ex:
   Abbasid Caliphate"). The era names existed (history "title") but were hidden in a tooltip — the
   timeline + header only showed dates. Now: (1) timeline dots show the NAME prominently (display
