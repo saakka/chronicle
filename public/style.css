@@ -350,6 +350,7 @@ body {
 }
 
 .nav-arrow {
+  display: none;   /* removed from view — tap, swipe, ←/→, and the timeline all navigate */
   position: fixed; top: 46%; z-index: 48;
   width: 56px; height: 56px; border-radius: 50%;
   font-size: 2rem; line-height: 1; color: #fff;

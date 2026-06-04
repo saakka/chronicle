@@ -933,7 +933,7 @@ function renderLegend(era, data, index) {
             : "") +
           '<p class="beat-num">Page ' + (i + 1) + " of " + n + "</p>" +
           '<p class="beat-text">' + esc(b.text || "") + "</p>" +
-          (i < n - 1 ? '<p class="page-hint">tap, swipe, or ›  to turn the page</p>' : '<p class="page-hint">› for the next era</p>') +
+          (i < n - 1 ? '<p class="page-hint">tap or swipe to turn the page</p>' : '<p class="page-hint">tap or swipe for the next era</p>') +
         "</div>" +
       "</section>")
     .join("");
