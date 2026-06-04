@@ -261,8 +261,9 @@ STORY_PROMPT = (
     "the flagship tale a history lover would instantly recognise. Use ENTIRELY your own original wording "
     "(do not copy any book, show, or article). Be TIGHT, vivid and cinematic with NO filler or throat-clearing. "
     "Break it into 6 sequential BEATS. Each beat is ONE punchy sentence (about 18-28 words; never more than two "
-    "very short sentences) that moves the story forward, plus an 'imageQuery': a short search phrase for a "
-    "concrete, photographable subject (a monument, artifact, artwork, place, or historical figure) for that beat. "
+    "very short sentences) that moves the story forward, plus an 'imageQuery': a short search phrase naming ONE "
+    "striking, photographable subject for that beat — a specific monument, artifact, artwork, statue, building, "
+    "ruin, or famous person (prefer proper nouns). NEVER a map, diagram, document, or chart. "
     "Country and era: "
 )
 STORY_SCHEMA = {

@@ -218,3 +218,12 @@ Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
   warmed during the portal. Verified: Egypt lands straight on Era I legend "Narmer: The Uniter of Two Lands"
   (6 beats, picture+text), 10 era dots, no slideshow. (Minor: one beat pulled a historical map — could
   tighten beat image filtering next.)
+- LEGEND = PAGE-TURNING ALBUM (Ahmad: go straight to first era's legend; story turned page-by-page like an
+  album; the "wiki page" was a Wikimedia map). The era's legend is now a horizontal paged album: each beat =
+  a full-screen page (picture + narration); turn pages via ‹ › arrows, tap (right=next, left edge=back),
+  swipe, or ←/→ keys; pages slide (turned ones go left). At an album's edges, turning flips into the
+  neighbouring era; the era dots jump to any era. Replaced the vertical scroll-snap with the pager
+  (.legend-page .active/.prev). Image filter: also drop atlas/carte/karte/mapa/survey/cadastr; STORY_PROMPT
+  now forbids maps/diagrams/documents and asks for a striking photographable subject per beat. Verified:
+  Egypt → 6-page album ("The Unification of Egypt: Narmer Forges a Kingdom"), pages turn 0→1→2→back, no
+  info page on entry. (Note: dossier-skip needs a hard-refresh if an old build is cached.)

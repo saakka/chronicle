@@ -58,7 +58,7 @@
   // ===================================================================
   var CONFIG = {
     ballZ:19.0, ballR:0.11, goalW:7.32, goalH:2.44,
-    wallDist:9.15, wallCount:4, wallHalfW:1.0, wallBaseH:1.7, wallJump:0.16, wallMargin:0.1,
+    wallDist:9.15, wallCount:4, wallHalfW:1.0, wallBaseH:1.7, wallJump:0.42, wallMargin:0.12,
     wallCenterX:-0.4,
     gravity:10.2, drag:0.05,
     minSpeed:17, maxSpeed:31, chargeTime:1.0,
@@ -67,7 +67,7 @@
     spinMax:1.0, spinMouseSens:0.0042, spinKeySens:2.1,
     authNear:0.5, authFar:0.97,          // spin authority fades between these flight fractions
     keeperReact:0.24, keeperDecide:0.17, // reacts, tracks briefly, then COMMITS (late curl beats him)
-    keeperSpeed:6.0, keeperRange:2.05, keeperCatchR:0.6, keeperReachY:2.12,
+    keeperSpeed:7.3, keeperRange:2.45, keeperCatchR:0.62, keeperReachY:2.18,
     aimRangeX:5.6, aimYmin:0.2, aimYmax:4.3
   };
   var GOAL_HALF=CONFIG.goalW/2, WALL_Z=CONFIG.ballZ-CONFIG.wallDist;
@@ -280,6 +280,9 @@
   var ballRot=0, distFrac=0, trail=[], path=[];
   var keeper={x:0,y:0,dive:0,dir:1,react:0,decide:0,targetX:0,committed:false,parry:0};
   var wall={jump:0,t:0};
+  var wind={x:0,z:0,ang:0,mag:0};
+  function newWind(){ wind.ang=rand(0,TAU); wind.mag=rand(0.15,1); var s=wind.mag*4.2; wind.x=Math.cos(wind.ang)*s; wind.z=Math.sin(wind.ang)*s; }
+  newWind();
   var runup=0, kicker={x:-0.9,z:CONFIG.ballZ+0.85,step:0};
   var result=null, resultT=0, caption='', captionT=0, big='', bigT=0, bigColor='#fff';
   var goals=0, shots=0, streak=0, clock=2640; // 44:00
@@ -302,29 +305,25 @@
   }
   function drawStands(t){
     if(!crowdTex) crowdTex=makeCrowd(1024,256);
-    function band(p1,p2,p3,p4,shade){
+    function band(p1,p2,p3,p4){
       if(!p1||!p2||!p3||!p4)return;
       var minx=Math.min(p1.x,p2.x,p3.x,p4.x),maxx=Math.max(p1.x,p2.x,p3.x,p4.x);
       var miny=Math.min(p1.y,p2.y,p3.y,p4.y),maxy=Math.max(p1.y,p2.y,p3.y,p4.y);
       ctx.save(); ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.lineTo(p3.x,p3.y); ctx.lineTo(p4.x,p4.y); ctx.closePath(); ctx.clip();
       ctx.drawImage(crowdTex,minx,miny,Math.max(1,maxx-minx),Math.max(1,maxy-miny));
-      if(shade){ ctx.fillStyle='rgba(4,8,18,'+shade+')'; ctx.fillRect(minx,miny,maxx-minx,maxy-miny); }
+      ctx.fillStyle='rgba(255,255,255,0.14)'; ctx.fillRect(minx,miny,maxx-minx,maxy-miny);   // daylight wash
       ctx.restore();
     }
-    // back stand: lower + upper tier with a gangway gap, side stands, dark roof overhang
-    band(P(-36,1.2,-23),P(36,1.2,-23),P(36,6,-24),P(-36,6,-24),0);       // back lower
-    band(P(-36,7,-24),P(36,7,-24),P(36,12.5,-25),P(-36,12.5,-25),0.12);  // back upper (shaded)
-    band(P(-26,1,-22),P(-26,9,-23),P(-31,11,8),P(-26,1,8),0.05);         // left
-    band(P(26,1,-22),P(26,9,-23),P(31,11,8),P(26,1,8),0.18);             // right (away from light)
-    quad(P(-36,12.5,-25),P(36,12.5,-25),P(36,14.5,-25),P(-36,14.5,-25),'#05080f'); // roof
-    // sparse camera flashes / twinkle
-    for(var i=0;i<14;i++){ if(Math.random()<0.5)continue; var fx=rand(-34,34), fy=rand(1.5,12), fz=-23;
-      var fp=P(fx,fy,fz); if(!fp)continue; ctx.fillStyle='rgba(255,255,255,'+rand(0.3,0.9)+')';
-      ctx.beginPath(); ctx.arc(fp.x,fp.y,rand(0.8,1.8),0,TAU); ctx.fill(); }
+    // a low perimeter stand, daytime — thin band behind goal + sides
+    band(P(-46,0.6,-25),P(46,0.6,-25),P(46,6,-26),P(-46,6,-26));
+    band(P(-32,0.6,-25),P(-32,6,-26),P(-36,7,16),P(-32,0.6,16));
+    band(P(32,0.6,-25),P(32,6,-26),P(36,7,16),P(32,0.6,16));
+    // advertising perimeter wall under the stand
+    quad(P(-46,0,-24.6),P(46,0,-24.6),P(46,0.6,-25),P(-46,0.6,-25),'#16315a');
   }
   function drawAds(t){
     // scrolling advertising boards just behind the goal
-    var z=-2.7, txt='   EA SPORTS   ·   IT’S IN THE GAME   ·   FREEKICK FC   ·   ';
+    var z=-2.7, txt='   FREE KICK   ·   CLUB WORLD   ·   GOAL ZONE   ·   ';
     var p1=P(-13,0,z),p2=P(13,0,z),p3=P(13,1.0,z),p4=P(-13,1.0,z);
     quad(p1,p2,p3,p4,'#0b1f3a');
     if(p1&&p2){ ctx.save(); ctx.beginPath(); ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.lineTo(p3.x,p3.y);ctx.lineTo(p4.x,p4.y);ctx.closePath(); ctx.clip();
@@ -334,15 +333,14 @@
       ctx.restore(); }
   }
   function drawPitch(t){
-    var Xw=95, zN=eyeR.z-0.3, zF=-42;
-    // base green fills the whole visible field (bright daytime)
-    quad(P(-Xw,0,zF),P(Xw,0,zF),P(Xw,0,zN),P(-Xw,0,zN),'#43a047');
-    // mow stripes across the play area
-    var k=0; for(var z=zF; z<zN; z+=2.4){ var z2=Math.min(z+2.4,zN);
-      quad(P(-Xw,0,z),P(Xw,0,z),P(Xw,0,z2),P(-Xw,0,z2),(k++%2===0)?'#4cab50':'#3f9c43'); }
-    // grass grain (subtle, over the turf only)
+    // screen-space green base below the horizon (guarantees no sky gaps), then perspective stripes
+    var hp=P(0,0,-34), horY=hp?hp.y:H*0.3;
+    ctx.fillStyle='#2f9e39'; ctx.fillRect(0,horY-2,W,H-horY+2);
+    var zN=24.5, zF=-40, k=0, xi;
+    for(var z=zF; z<zN; z+=2.4){ var z2=Math.min(z+2.4,zN), col=(k++%2===0)?'#3cb045':'#2e9a38';
+      for(xi=-7; xi<7; xi++){ quad(P(xi*9.2,0,z),P((xi+1)*9.2,0,z),P((xi+1)*9.2,0,z2),P(xi*9.2,0,z2),col); } }
     if(!grainTex) grainTex=makeGrain(128);
-    var hor=P(0,0,zF-2); ctx.globalAlpha=0.28; ctx.drawImage(grainTex,0,(hor?hor.y:0),W,H-(hor?hor.y:0)); ctx.globalAlpha=1;
+    ctx.globalAlpha=0.12; ctx.drawImage(grainTex,0,horY,W,H-horY); ctx.globalAlpha=1;
     // lines
     function seg(ax,az,bx,bz,wm){ var a=P(ax,0,az),b=P(bx,0,bz); if(!a||!b)return; var w=(a.s+b.s)*0.5*(wm||0.1);
       strokeW(a,b,w,'#f3faf3',0.95); }
@@ -445,13 +443,16 @@
   }
   function drawWall(){
     var n=CONFIG.wallCount, sp=0.52, sx=CONFIG.wallCenterX-(n-1)*sp/2, hairs=['#241a12','#3a2a18','#16110b','#4a3522'];
-    for(var i=0;i<n;i++) drawPlayer(sx+i*sp, WALL_Z, {h:1.82, face:1, jump:wall.jump,
-      shirt:'#2a323e', shorts:'#cdd3da', socks:'#2a323e', skin:['#e3a978','#caa07a','#8d5a3b','#e8b48c'][i%4], hair:hairs[i%4],
-      arms: wall.jump>0.08?'up':'cross'});
+    var idle=(state===ST.SETUP||state===ST.CHARGE);
+    for(var i=0;i<n;i++){ var ph=tSec*1.3+i*1.1;
+      var bob=idle?Math.max(0,Math.sin(ph))*0.03:0, swayX=idle?Math.sin(ph*0.7)*0.04:0;
+      drawPlayer(sx+i*sp+swayX, WALL_Z, {h:1.82, face:1, jump:wall.jump+bob,
+        shirt:'#c0392b', shorts:'#ffffff', socks:'#c0392b', skin:['#e3a978','#caa07a','#8d5a3b','#e8b48c'][i%4], hair:hairs[i%4],
+        arms: wall.jump>0.08?'up':'cross'}); }
   }
   function drawKeeper(){
     drawPlayer(keeper.x,0.35,{h:1.85, face:1, dive:keeper.dive, dir:keeper.dir,
-      shirt:'#16c8b7', shorts:'#0c3b3b', socks:'#16c8b7', skin:'#e3a978', hair:'#1a130c', arms:keeper.dive>0.12?'dive':'up'});
+      shirt:'#ec7a1c', shorts:'#222831', socks:'#ec7a1c', skin:'#e3a978', hair:'#1a130c', arms:keeper.dive>0.12?'dive':'up'});
   }
   function drawKicker(){
     var run=(state===ST.RUNUP||state===ST.FLIGHT)?kicker.step:0;
@@ -480,7 +481,7 @@
   }
 
   function drawScene(t){
-    drawSky(); drawStands(t); drawAds(t); drawPitch(t);
+    drawSky(); drawPitch(t); drawStands(t); drawAds(t);
     drawGoalNet();                          // back net (behind the actors)
     TRIS.length=0;
     buildGoalPosts(); drawWall(); drawKeeper(); drawKicker(); drawBall();
@@ -507,7 +508,7 @@
   function postFX(){
     // vignette
     var vg=ctx.createRadialGradient(W/2,H*0.45,Math.min(W,H)*0.28,W/2,H*0.52,Math.max(W,H)*0.78);
-    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(10,30,40,0.22)');
+    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.14)');
     ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
     // film grain (tiled, jittered)
     if(!grainTex) grainTex=makeGrain(128);
@@ -515,7 +516,7 @@
     for(var gx=-ox;gx<W;gx+=128)for(var gy=-oy;gy<H;gy+=128) ctx.drawImage(grainTex,gx,gy);
     ctx.globalAlpha=1;
     // broadcast colour grade: cool sky, warm turf
-    var cg=ctx.createLinearGradient(0,0,0,H); cg.addColorStop(0,'rgba(30,55,95,0.07)'); cg.addColorStop(0.55,'rgba(0,0,0,0)'); cg.addColorStop(1,'rgba(90,55,20,0.06)');
+    var cg=ctx.createLinearGradient(0,0,0,H); cg.addColorStop(0,'rgba(255,250,235,0.03)'); cg.addColorStop(0.55,'rgba(0,0,0,0)'); cg.addColorStop(1,'rgba(0,25,12,0.04)');
     ctx.fillStyle=cg; ctx.fillRect(0,0,W,H);
   }
 
@@ -593,6 +594,19 @@
     // hint
     if(state===ST.SETUP){ ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font='13px Trebuchet MS'; ctx.textAlign='center';
       ctx.fillText('Aim · hold to power · release in the green · then steer it in the air',W/2,H-24); ctx.textAlign='start'; }
+    // WIND dial (top-right)
+    (function(){ var wx=W-70,wy=78,R=32;
+      ctx.fillStyle='rgba(8,20,38,0.6)'; ctx.beginPath(); ctx.arc(wx,wy,R+6,0,TAU); ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(wx,wy,R,0,TAU); ctx.stroke();
+      var len=R*(0.45+0.5*wind.mag); ctx.save(); ctx.translate(wx,wy); ctx.rotate(wind.ang);
+      ctx.strokeStyle='#ff7a33'; ctx.lineWidth=4; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(-len*0.55,0); ctx.lineTo(len-8,0); ctx.stroke();
+      ctx.fillStyle='#ff7a33'; ctx.beginPath(); ctx.moveTo(len,0); ctx.lineTo(len-13,-8); ctx.lineTo(len-13,8); ctx.closePath(); ctx.fill(); ctx.restore();
+      ctx.fillStyle='#cfe0ff'; ctx.font='800 11px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('WIND',wx,wy+R+18); ctx.textAlign='start'; })();
+    // EXIT button (bottom-left)
+    (function(){ var ex=66,ey=H-66,R=36;
+      ctx.fillStyle='rgba(8,46,58,0.72)'; ctx.beginPath(); ctx.arc(ex,ey,R,0,TAU); ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(ex,ey,R,0,TAU); ctx.stroke();
+      ctx.fillStyle='#e6f0f8'; ctx.font='800 15px Trebuchet MS'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('EXIT',ex,ey); ctx.textAlign='start'; ctx.textBaseline='alphabetic'; })();
     // replay banner
     if(state===ST.REPLAY){ ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.fillRect(0,0,W,46);
       ctx.fillStyle='#ff4d4d'; ctx.beginPath(); ctx.arc(28,23,7,0,TAU); ctx.fill();
@@ -650,7 +664,7 @@
       var sp=Math.hypot(vel.x,vel.y,vel.z);
       vel.x+=(ax - vel.x*CONFIG.drag)*sub;
       vel.y+=(ay - vel.y*CONFIG.drag)*sub;
-      vel.z+=(- vel.z*CONFIG.drag)*sub;
+      vel.z+=(- vel.z*CONFIG.drag + wind.z*0.3)*sub; vel.x+=wind.x*0.3*sub;   // wind drift
       var pz=ball.z;
       ball.x+=vel.x*sub; ball.y+=vel.y*sub; ball.z+=vel.z*sub;
       ballRot+=sp*sub*1.1;
@@ -776,7 +790,7 @@
     state=ST.SETUP; result=null; bigT=0; captionT=Math.min(captionT,0.4);
     ball={x:0,y:CONFIG.ballR,z:CONFIG.ballZ}; vel={x:0,y:0,z:0}; spin={x:0,y:0}; spinInput={x:0,y:0}; trail=[]; path=[];
     keeper={x:0,y:0,dive:0,dir:1,react:0,decide:0,targetX:0,committed:false,parry:0}; wall={jump:0,t:0};
-    kicker.step=0; power=0; perfect=false; knuckle=false; clock+=rand(20,45);
+    kicker.step=0; power=0; perfect=false; knuckle=false; clock+=rand(20,45); newWind();
   }
 
   // ===================================================================
@@ -791,6 +805,7 @@
       if(state===ST.CHARGE){ power=clamp((now-chargeT)/1000/CONFIG.chargeTime,0,1); }
       if(state===ST.RUNUP){ runup+=dtReal; kicker.step+=dtReal*22; kicker.x=lerp(-0.9,-0.12,clamp(runup/0.28,0,1)); kicker.z=lerp(CONFIG.ballZ+0.85,CONFIG.ballZ+0.25,clamp(runup/0.28,0,1));
         if(runup>=0.28){ state=ST.FLIGHT; cam.flash=0.28; cam.shake=0.35; Snd.kick(power); } }   // contact boom
+      if(state===ST.SETUP||state===ST.CHARGE||state===ST.RUNUP){ keeper.x=Math.sin(tSec*1.7)*1.65; keeper.dir=Math.cos(tSec*1.7)>=0?1:-1; }  // keeper shuffles the line
       if(state===ST.FLIGHT){ flightKeys(dtReal); updateWall(dt); updateKeeper(dt); stepFlight(dt); }
       if(state===ST.RESULT){ resultT+=dtReal; bigT=Math.max(0,bigT-dtReal*0.5);
         if(result==='goal'){ if(resultT>2.4 && path.length){ startReplay(); } }

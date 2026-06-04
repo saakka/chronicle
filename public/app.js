@@ -886,33 +886,29 @@ function ensureEraStory(index) {
   return era._storyPromise;
 }
 
-// Render the era's legend as full-screen story beats (one picture + narration each).
+// Render the era's legend as a page-turning album: full-screen "pages" (picture + narration).
+let currentBeat = 0;
 function renderLegend(era, data, index) {
   const n = data.beats.length;
   eraLegend.innerHTML = data.beats
     .map((b, i) =>
-      '<section class="beat" data-beat="' + i + '">' +
+      '<section class="legend-page" data-page="' + i + '">' +
         '<div class="beat-bg"></div><div class="beat-scrim"></div>' +
         '<div class="beat-inner">' +
-          '<p class="beat-kicker">Era ' + toRoman(index + 1) + " · " + esc(era.period || "") + "</p>" +
-          (i === 0 ? '<h2 class="beat-storytitle">' + esc(data.title || era.title || "") + "</h2>" : "") +
-          '<p class="beat-num">' + (i + 1) + " / " + n + "</p>" +
+          (i === 0
+            ? '<p class="beat-kicker">Era ' + toRoman(index + 1) + ' · the legend</p><h2 class="beat-storytitle">' + esc(data.title || era.title || "") + "</h2>"
+            : "") +
+          '<p class="beat-num">Page ' + (i + 1) + " of " + n + "</p>" +
           '<p class="beat-text">' + esc(b.text || "") + "</p>" +
+          (i < n - 1 ? '<p class="page-hint">tap, swipe, or ›  to turn the page</p>' : '<p class="page-hint">› for the next era</p>') +
         "</div>" +
       "</section>")
     .join("");
-  eraLegend.scrollTop = 0;
 
-  const beats = eraLegend.querySelectorAll(".beat");
-  if (legendObserver) legendObserver.disconnect();
-  legendObserver = new IntersectionObserver(
-    (entries) => entries.forEach((en) => { if (en.isIntersecting) en.target.classList.add("in"); }),
-    { root: eraLegend, threshold: 0.5 }
-  );
+  const pages = eraLegend.querySelectorAll(".legend-page");
   const usedIds = new Set();   // never repeat a picture within the legend
-  beats.forEach((el, i) => {
-    legendObserver.observe(el);
-    fetchImages(data.beats[i].imageQuery, 4).then((imgs) => {
+  pages.forEach((el, i) => {
+    fetchImages(data.beats[i].imageQuery, 5).then((imgs) => {
       if (currentEra !== index || journey.hidden) return;            // user moved on
       const pick = imgs.find((im) => !usedIds.has(im.id || im.thumb)) || imgs[0];
       if (!pick) return;
@@ -925,7 +921,30 @@ function renderLegend(era, data, index) {
       }
     });
   });
-  if (beats[0]) beats[0].classList.add("in");
+  goToPage(0);
+}
+
+// Show one page; pages before it have "turned" (slide left), pages after wait (right).
+function goToPage(p) {
+  const pages = eraLegend.querySelectorAll(".legend-page");
+  if (!pages.length) return;
+  currentBeat = Math.max(0, Math.min(pages.length - 1, p));
+  pages.forEach((pg, i) => {
+    pg.classList.toggle("active", i === currentBeat);
+    pg.classList.toggle("prev", i < currentBeat);
+  });
+  updateArrows();
+}
+
+// Turn the page; at the album's edges, flip into the neighbouring era's album.
+function nextPage() {
+  const pages = eraLegend.querySelectorAll(".legend-page");
+  if (currentBeat < pages.length - 1) goToPage(currentBeat + 1);
+  else if (currentEra < currentEras.length - 1) travelTo(currentEra + 1);
+}
+function prevPage() {
+  if (currentBeat > 0) goToPage(currentBeat - 1);
+  else if (currentEra > 0) travelTo(currentEra - 1);
 }
 
 function startJourney() {
@@ -1060,16 +1079,15 @@ async function goToEra(index) {
   jEra.textContent = "Era " + toRoman(index + 1) + " · " + (era.period || "");
 
   eraLegend.innerHTML =
-    '<section class="beat in"><div class="beat-scrim"></div><div class="beat-inner">' +
+    '<section class="legend-page active"><div class="beat-scrim"></div><div class="beat-inner">' +
     '<p class="beat-kicker">Era ' + toRoman(index + 1) + "</p>" +
     '<p class="beat-text" style="opacity:1;transform:none">Summoning the legend of ' + esc(era.title || "this era") + "…</p></div></section>";
-  eraLegend.scrollTop = 0;
 
   const data = await ensureEraStory(index);
   if (currentEra !== index || journey.hidden) return;   // user moved on while it loaded
   if (!data || !Array.isArray(data.beats) || !data.beats.length) {
     eraLegend.innerHTML =
-      '<section class="beat in"><div class="beat-scrim"></div><div class="beat-inner">' +
+      '<section class="legend-page active"><div class="beat-scrim"></div><div class="beat-inner">' +
       '<p class="beat-text" style="opacity:1;transform:none">The legend could not be summoned right now. Try another era.</p></div></section>';
     return;
   }
@@ -1097,8 +1115,9 @@ function updateTimeline() {
 }
 
 function updateArrows() {
-  navPrev.disabled = currentEra <= 0;
-  navNext.disabled = currentEra >= currentEras.length - 1;
+  const pages = eraLegend.querySelectorAll(".legend-page").length;
+  navPrev.disabled = currentEra <= 0 && currentBeat <= 0;
+  navNext.disabled = currentEra >= currentEras.length - 1 && currentBeat >= pages - 1;
 }
 
 function exitJourney() {
@@ -1123,21 +1142,36 @@ function travelTo(index) {
   goToEra(index);
 }
 
-navPrev.addEventListener("click", () => travelTo(currentEra - 1));
-navNext.addEventListener("click", () => travelTo(currentEra + 1));
+// The ‹ › arrows turn the album pages (and flip to the neighbouring era at the edges).
+navPrev.addEventListener("click", prevPage);
+navNext.addEventListener("click", nextPage);
 exitBtn.addEventListener("click", exitJourney);
+
+// Tap the page to turn it forward (tap the left edge to go back) — like flipping an album.
+eraLegend.addEventListener("click", (e) => {
+  if (e.target.closest("a, button")) return;
+  (e.clientX < window.innerWidth * 0.28 ? prevPage : nextPage)();
+});
+// Swipe horizontally to turn pages.
+let swipeX = null;
+eraLegend.addEventListener("pointerdown", (e) => { swipeX = e.clientX; });
+eraLegend.addEventListener("pointerup", (e) => {
+  if (swipeX == null) return;
+  const dx = e.clientX - swipeX; swipeX = null;
+  if (dx <= -45) nextPage(); else if (dx >= 45) prevPage();
+});
 
 timeline.addEventListener("click", (e) => {
   const dot = e.target.closest("[data-go]");
-  if (dot) travelTo(parseInt(dot.getAttribute("data-go"), 10));
+  if (dot) travelTo(parseInt(dot.getAttribute("data-go"), 10));   // jump to any era
 });
 
 document.addEventListener("keydown", (e) => {
   if (!lightbox.hidden) { if (e.key === "Escape") closeLightbox(); return; }
   if (journey.hidden) return;
-  // ←/→ switch eras (↑/↓ scroll the legend natively); Esc returns to the globe.
-  if (e.key === "ArrowRight") travelTo(currentEra + 1);
-  else if (e.key === "ArrowLeft") travelTo(currentEra - 1);
+  // ←/→ turn the legend's pages; Esc returns to the globe.
+  if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") { e.preventDefault(); nextPage(); }
+  else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); prevPage(); }
   else if (e.key === "Escape") exitJourney();
 });
 
@@ -1154,7 +1188,7 @@ document.addEventListener("click", (e) => {
 // Word-boundaried so it drops the dull stuff WITHOUT nuking legitimate photos
 // whose names merely contain a substring (e.g. "chart" in Chartres, "flag" in
 // flagship, "map" in Mapuche, "plan" in Planalto).
-const JUNK_IMAGE = /(\bmaps?\b|locator|\bflags?\b|coat[\s_-]?of[\s_-]?arms|\bseal\b|\bemblem|\blogo|\bdiagram|\bcharts?\b|flowchart|\bicon\b|orthographic|\blocation\b|topograph|administ|\bblank\b|\boutline\b|\bgpx\b|wikimedia|spreadsheet|\bsignature\b|\bplan\b|schematic|\bsketch\b)/i;
+const JUNK_IMAGE = /(\bmaps?\b|\batlas\b|\bcarte\b|\bkarte\b|\bmapa\b|cadastr|\bsurvey\b|locator|\bflags?\b|coat[\s_-]?of[\s_-]?arms|\bseal\b|\bemblem|\blogo|\bdiagram|\bcharts?\b|flowchart|\bicon\b|orthographic|\blocation\b|topograph|administ|\bblank\b|\boutline\b|\bgpx\b|wikimedia|spreadsheet|\bsignature\b|\bplan\b|schematic|\bsketch\b)/i;
 const IMG_CACHE = new Map();   // cache searches so pages don't refetch the same query
 
 async function fetchImages(query, max = 6) {

@@ -291,13 +291,21 @@ body {
 .journey { position: fixed; inset: 0; z-index: 40; overflow: hidden; color: #fff; }
 .journey[hidden] { display: none; }
 
-/* the current era's legend scrolls vertically through full-screen beats */
-.era-legend {
-  position: absolute; inset: 0; overflow-y: scroll; scroll-snap-type: y mandatory;
-  background: #07131f; -webkit-overflow-scrolling: touch;
+/* the current era's legend is a page-turning album of full-screen pages */
+.era-legend { position: absolute; inset: 0; overflow: hidden; background: #07131f; }
+.legend-page {
+  position: absolute; inset: 0; display: flex; align-items: flex-end; overflow: hidden;
+  opacity: 0; transform: translateX(7%) scale(0.985); pointer-events: none; will-change: transform, opacity;
+  transition: opacity 0.5s ease, transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.era-legend::-webkit-scrollbar { display: none; }
-.era-legend { scrollbar-width: none; }
+.legend-page.prev { transform: translateX(-7%) scale(0.985); }   /* already turned → slides left */
+.legend-page.active { opacity: 1; transform: none; pointer-events: auto; }
+.legend-page.active .beat-bg { animation: kenburns 16s ease-out forwards; }
+.legend-page.active .beat-text { opacity: 1; transform: none; transition-delay: 0.15s; }
+.page-hint {
+  margin: 14px 0 0; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.74rem;
+  letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.6);
+}
 
 .journey-bg { position: absolute; inset: 0; }
 .bg-layer {
