@@ -77,6 +77,10 @@ Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
   LOAD: (17) server gzip for html/css/js/json — app.js 71.6KB→22.8KB (−68%, verified);
   (18) Cache-Control (html no-cache, css/js 600s, assets 1d); (19) HTTP/1.1 keep-alive;
   (20) preconnect+dns-prefetch unpkg (globe lib + Earth textures). Hint copy updated.
+  Plus: (21) PAUSE the globe's WebGL render loop while reading a legend (it kept drawing ~8M
+  px/frame behind the hidden page) and resume on exit; (22) cache-bust asset URLs (app.js?v=,
+  style.css?v=) so redeploys actually reach browsers — a public-URL Render deploy has NO
+  auto-deploy webhook, so deploys are triggered manually (Render ▸ Manual Deploy) for now.
   Verified locally: server compiles, gzip byte-identical on decompress, no JS errors, pre-warm fires
   all 6 searches, history prefetch reuses one promise/country. Live verification: pixel ratio cap.
 - MUCH FASTER (Ahmad: "stuck in the portal for 10 seconds… photos very very slow, optimize it").

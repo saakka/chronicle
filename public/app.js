@@ -716,6 +716,7 @@ async function enterCountry(country) {
   // Enter the journey IMMEDIATELY with a loading state — never block on the fetch here.
   // (Previously we awaited the history call, which froze the portal for ~10s.)
   globeView.style.display = "none";
+  try { if (world && world.pauseAnimation) world.pauseAnimation(); } catch (_) {}  // stop the globe's GPU loop while reading the legend
   showJourneyLoading();
   endPortal();
 
@@ -724,6 +725,7 @@ async function enterCountry(country) {
   if (error || !data || !Array.isArray(data.eras) || !data.eras.length) {
     journey.hidden = true;
     globeView.style.display = "";
+    try { if (world && world.resumeAnimation) world.resumeAnimation(); } catch (_) {}
     busy = false;
     if (world) world.pointOfView({ lat: 24, lng: 42, altitude: 2.1 }, 900);
     toast(error ? error.message : "No history found. Try another country.");
@@ -1191,6 +1193,7 @@ function exitJourney() {
   polyHoverFeat = null; polyHoverCountry = null; pointHoverCountry = null;
   refreshPolygonStyles();
   globeView.style.display = "";
+  try { if (world && world.resumeAnimation) world.resumeAnimation(); } catch (_) {}  // globe was paused on enter
   sizeGlobe();
   if (world) world.pointOfView({ lat: 24, lng: 42, altitude: 2.1 }, 900); // zoom back out
   if (globeControls) globeControls.autoRotate = true;                     // resume the living spin
