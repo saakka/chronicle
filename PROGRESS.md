@@ -58,6 +58,15 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- FASTER LEGEND PHOTOS (Ahmad: "some legend page photos take so much time to appear"). Audited
+  live by timing each beat's search + image-load: searches were instant (pre-warmed) and most
+  thumbs loaded <1s, BUT (a) a page's image only began loading when you reached the PREVIOUS page
+  (lazy +1), so a slow-to-generate Wikimedia thumbnail left a page blank until you arrived and
+  waited; and (b) some beat queries returned NO image (e.g. "Indus Valley standardized weights")
+  → blank placeholder forever. Fixes: (1) after page 1, WARM all remaining pages' photos in the
+  background, staggered 300ms (700px thumbs), so every image gets the whole reading-time to load
+  before you turn to it; (2) if a beat's own query finds nothing, FALL BACK to the era's general
+  imagery (era title + country) so a page is never blank. Cache-bust app.js v=8.
 - AUDIT-2 FIXES (Ahmad: "audit again" → "fix that"). (#1) Search is now forgiving + gives
   feedback: aliases (USA/UK/Britain/Holland/UAE…), prefix-then-substring fallback, and a toast
   when nothing matches (was: silent no-op). (#2) Multi-polygon zoom — centroid() aims at the

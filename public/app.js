@@ -995,14 +995,15 @@ function ensureEraStory(index) {
 
 // Render the era's legend as a page-turning album: full-screen "pages" (picture + narration).
 let currentBeat = 0;
-let legendBeats = [];           // current legend's beats (for lazy per-page image loading)
+let legendBeats = [];           // current legend's beats (for per-page image loading)
 let legendUsedIds = new Set();  // never repeat a picture within one legend
+let legendEraTitle = "";        // fallback image query when a beat's own query finds nothing
 function renderLegend(era, data, index) {
   const n = data.beats.length;
   legendBeats = data.beats;
   legendUsedIds = new Set();
-  // Pre-warm EVERY beat's image SEARCH in parallel (promise-cached + deduped) so the photo
-  // URL is ready the instant you turn the page; the <img> still decodes lazily per page.
+  legendEraTitle = era.title || data.title || "";
+  // Pre-warm EVERY beat's image SEARCH in parallel (promise-cached + deduped) so URLs are ready.
   data.beats.forEach((b) => { if (b && b.imageQuery) fetchImages(b.imageQuery, 5); });
   eraLegend.innerHTML = data.beats
     .map((b, i) =>
@@ -1018,7 +1019,11 @@ function renderLegend(era, data, index) {
         "</div>" +
       "</section>")
     .join("");
-  goToPage(0);   // shows page 1 and lazy-loads its photo (+ prefetches the next)
+  goToPage(0);   // shows page 1 + loads its photo (and prefetches the next)
+  // Then WARM the rest of the pages' photos in the background, staggered (700px thumbs), so
+  // every page's image is ready before you turn to it — slow-to-generate thumbnails get a
+  // head start instead of only starting to load once you arrive on the page.
+  for (let i = 2; i < n; i++) setTimeout(() => loadPageImage(i), (i - 1) * 300);
 }
 
 // Lazily load ONE page's background photo. Idempotent, and uses the 700px THUMB
@@ -1032,10 +1037,9 @@ function loadPageImage(i) {
   if (!bg || bg.dataset.state) return;        // already loading or loaded
   bg.dataset.state = "loading";
   const myEra = currentEra;
-  fetchImages(legendBeats[i].imageQuery, 5).then((imgs) => {
-    if (currentEra !== myEra || journey.hidden) { bg.dataset.state = ""; return; }  // user moved on
-    const pick = imgs.find((im) => !legendUsedIds.has(im.id || im.thumb)) || imgs[0];
-    if (!pick) { bg.dataset.state = ""; return; }
+  const moved = () => currentEra !== myEra || journey.hidden;
+  const pickFrom = (imgs) => (imgs || []).find((im) => !legendUsedIds.has(im.id || im.thumb)) || (imgs || [])[0] || null;
+  const show = (pick) => {
     legendUsedIds.add(pick.id || pick.thumb);
     const src = pick.thumb || pick.full;      // 700px thumb — fast; not the heavy 1280px full
     const im = new Image();
@@ -1046,6 +1050,20 @@ function loadPageImage(i) {
     };
     im.onerror = () => { bg.dataset.state = ""; };
     im.src = src;
+  };
+  fetchImages(legendBeats[i].imageQuery, 5).then((imgs) => {
+    if (moved()) { bg.dataset.state = ""; return; }
+    const pick = pickFrom(imgs);
+    if (pick) return show(pick);
+    // The beat's own query found nothing → fall back to the era's general imagery so the
+    // page never stays blank (e.g. "Indus Valley standardized weights" → "Indus Valley India").
+    const fb = ((legendEraTitle || "") + " " + (currentCountry || "")).trim();
+    if (!fb) { bg.dataset.state = ""; return; }
+    fetchImages(fb, 6).then((imgs2) => {
+      if (moved()) { bg.dataset.state = ""; return; }
+      const p2 = pickFrom(imgs2);
+      if (p2) show(p2); else bg.dataset.state = "";
+    }).catch(() => { bg.dataset.state = ""; });
   }).catch(() => { bg.dataset.state = ""; });
 }
 
