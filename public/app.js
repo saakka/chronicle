@@ -1051,20 +1051,24 @@ function loadPageImage(i) {
     im.onerror = () => { bg.dataset.state = ""; };
     im.src = src;
   };
-  fetchImages(legendBeats[i].imageQuery, 5).then((imgs) => {
-    if (moved()) { bg.dataset.state = ""; return; }
-    const pick = pickFrom(imgs);
-    if (pick) return show(pick);
-    // The beat's own query found nothing → fall back to the era's general imagery so the
-    // page never stays blank (e.g. "Indus Valley standardized weights" → "Indus Valley India").
-    const fb = ((legendEraTitle || "") + " " + (currentCountry || "")).trim();
-    if (!fb) { bg.dataset.state = ""; return; }
-    fetchImages(fb, 6).then((imgs2) => {
+  // Try the specific beat query, then BROADEN: era + country, then just the country (which is
+  // always photo-rich). A photo-poor subject — where Commons only has maps/diagrams that the junk
+  // filter strips — still gets a relevant image instead of a blank page.
+  const queries = [
+    legendBeats[i].imageQuery,
+    ((legendEraTitle || "") + " " + (currentCountry || "")).trim(),
+    (currentCountry || "").trim(),
+  ].filter(Boolean);
+  (async () => {
+    for (const q of queries) {
+      let imgs = [];
+      try { imgs = await fetchImages(q, 6); } catch (_) {}
       if (moved()) { bg.dataset.state = ""; return; }
-      const p2 = pickFrom(imgs2);
-      if (p2) show(p2); else bg.dataset.state = "";
-    }).catch(() => { bg.dataset.state = ""; });
-  }).catch(() => { bg.dataset.state = ""; });
+      const pick = pickFrom(imgs);
+      if (pick) { show(pick); return; }
+    }
+    bg.dataset.state = "";   // nothing matched anywhere (very rare)
+  })();
 }
 
 // Show one page; pages before it have "turned" (slide left), pages after wait (right).

@@ -58,6 +58,14 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- PHOTOS: 3-LEVEL FALLBACK fixes blank legend pages (Ahmad: "photos still not displaying"). Live
+  diagnosis: fetchImages works (Eiffel→5) and Commons HAS results, but VERBOSE/SPECIFIC beat
+  queries ("Visigothic crown artifact Spain museum", "Roderic Visigothic king medieval artwork")
+  return few matches that the junk filter (maps/diagrams) strips → 0 photos; the single fallback
+  (era+country) hit the same map-heavy results → also 0 → BLANK pages. Story-dependent, hence
+  intermittent. Fix: loadPageImage now broadens through a chain — beat query → era+country → JUST
+  the country (always photo-rich) — so a page is never blank, even for photo-poor historical
+  subjects. Verified parse + chain present. Cache-bust v=10.
 - PHOTOS: REJECT NON-PHOTO IMAGES (Ahmad: "photos still not displaying"). Diagnosed on the live
   site: photos DO load + display, but the relevance-first scoring let a perfectly-named NON-photo
   win — Spain page 1 was "Visigothic_Kingdom_chronology-gl.png" (a chronology DIAGRAM) and page 0
