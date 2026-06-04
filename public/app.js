@@ -1023,7 +1023,7 @@ function renderLegend(era, data, index) {
   // Then WARM the rest of the pages' photos in the background, staggered (700px thumbs), so
   // every page's image is ready before you turn to it — slow-to-generate thumbnails get a
   // head start instead of only starting to load once you arrive on the page.
-  for (let i = 2; i < n; i++) setTimeout(() => loadPageImage(i), (i - 1) * 300);
+  for (let i = 2; i < n; i++) setTimeout(() => loadPageImage(i), (i - 1) * 150);
 }
 
 // Lazily load ONE page's background photo. Idempotent, and uses the 700px THUMB
@@ -1051,24 +1051,19 @@ function loadPageImage(i) {
     im.onerror = () => { bg.dataset.state = ""; };
     im.src = src;
   };
-  // Try the specific beat query, then BROADEN: era + country, then just the country (which is
-  // always photo-rich). A photo-poor subject — where Commons only has maps/diagrams that the junk
-  // filter strips — still gets a relevant image instead of a blank page.
-  const queries = [
-    legendBeats[i].imageQuery,
-    ((legendEraTitle || "") + " " + (currentCountry || "")).trim(),
-    (currentCountry || "").trim(),
-  ].filter(Boolean);
-  (async () => {
-    for (const q of queries) {
-      let imgs = [];
-      try { imgs = await fetchImages(q, 6); } catch (_) {}
-      if (moved()) { bg.dataset.state = ""; return; }
-      const pick = pickFrom(imgs);
-      if (pick) { show(pick); return; }
-    }
-    bg.dataset.state = "";   // nothing matched anywhere (very rare)
-  })();
+  // Search the specific beat query AND a country-level fallback IN PARALLEL (the country search is
+  // shared + promise-cached across all beats), then prefer the specific one. That's a single
+  // ~0.7s round-trip instead of up to three sequential — a photo shows in well under a second,
+  // and a photo-poor subject still gets a relevant country photo instead of a blank page.
+  const broad = (currentCountry || "").trim();
+  Promise.all([
+    fetchImages(legendBeats[i].imageQuery, 6).catch(() => []),
+    broad ? fetchImages(broad, 8).catch(() => []) : Promise.resolve([]),
+  ]).then(([specific, country]) => {
+    if (moved()) { bg.dataset.state = ""; return; }
+    const pick = pickFrom(specific) || pickFrom(country);
+    if (pick) show(pick); else bg.dataset.state = "";
+  }).catch(() => { bg.dataset.state = ""; });
 }
 
 // Show one page; pages before it have "turned" (slide left), pages after wait (right).

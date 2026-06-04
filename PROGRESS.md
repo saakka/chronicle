@@ -58,6 +58,14 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- PHOTOS UNDER 1s (Ahmad: "its slow, photos need to appear under 1s"). MEASURED live: a single
+  search+download is already ~0.6–0.8s (search ~500–700ms dominates; Commons-CDN download only
+  40–320ms). The slowness was the 3-level SEQUENTIAL fallback added last step — a photo-poor beat
+  did up to 3 searches back-to-back (~1.8s+). Fix: loadPageImage now races the specific beat query
+  AND a country-level fallback IN PARALLEL (the country search is shared + promise-cached across
+  all 6 beats), preferring the specific result — one ~0.7s round-trip instead of three. Warm-all
+  stagger 300→150ms for faster background fill. Net: a photo shows in well under a second whether
+  the era is photo-rich or photo-poor. Cache-bust v=11.
 - PHOTOS: 3-LEVEL FALLBACK fixes blank legend pages (Ahmad: "photos still not displaying"). Live
   diagnosis: fetchImages works (Eiffel→5) and Commons HAS results, but VERBOSE/SPECIFIC beat
   queries ("Visigothic crown artifact Spain museum", "Roderic Visigothic king medieval artwork")
