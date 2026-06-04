@@ -1145,6 +1145,28 @@ function subjectCaption(q) {
   return cap || cleanSubject(q);   // never blank (e.g. if the query was just the country name)
 }
 
+// Pre-decode the FIRST page's photo (into the browser cache) BEFORE the legend is shown, so the
+// legend opens WITH its image already in place — the photo "appears" in <0.2s rather than popping
+// in a moment later. Capped so a slow image never holds the legend back more than ~1.1s.
+function preloadHeroImage(data) {
+  const beat = data && data.beats && data.beats[0];
+  if (!beat) return Promise.resolve();
+  const broad = (currentCountry || "").trim();
+  const work = Promise.all([
+    fetchImages(beat.imageQuery, 6).catch(() => []),
+    broad ? fetchImages(broad, 8).catch(() => []) : Promise.resolve([]),
+  ]).then(([s, c]) => {
+    const pick = s[0] || c[0];               // same top pick loadPageImage(0) will use
+    if (!pick) return;
+    return new Promise((res) => {
+      const im = new Image();
+      im.onload = im.onerror = () => res();
+      im.src = (pick.thumb || pick.full);
+    });
+  });
+  return Promise.race([work, new Promise((res) => setTimeout(res, 1100))]);
+}
+
 async function goToEra(index) {
   if (index < 0 || index >= currentEras.length) return;
   currentEra = index;
@@ -1169,6 +1191,8 @@ async function goToEra(index) {
     if (rb) rb.addEventListener("click", (e) => { e.stopPropagation(); goToEra(index); });
     return;
   }
+  await preloadHeroImage(data);                          // open the legend WITH its first photo
+  if (currentEra !== index || journey.hidden) return;    // user moved on during the preload
   renderLegend(era, data, index);
   ensureEraStory(index + 1);   // warm neighbours so prev/next is instant
   ensureEraStory(index - 1);

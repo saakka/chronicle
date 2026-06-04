@@ -58,6 +58,16 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- PHOTOS IN <0.2s (Ahmad: "make it appear in less than 0,2sec"). A fresh internet photo can't
+  beat the network floor (~0.6–0.8s: Commons search ~500–700ms + download), so "appear in <0.2s"
+  is only possible if the image is ALREADY decoded when the legend renders. New preloadHeroImage(data):
+  before goToEra calls renderLegend, it runs the SAME parallel beat+country search loadPageImage(0)
+  would, takes the top pick (s[0]||c[0] — exactly what page 0 shows), and pre-decodes it via
+  `new Image()` (capped at 1100ms so a photo-poor era never stalls the legend). Result: the legend
+  opens WITH its first photo already in the browser cache → it paints in <0.2s (no spinner, no fade-in
+  wait). Trade-off: the "Summoning the legend…" screen lingers up to ~1.1s longer; page-turns stay
+  instant via warm-all (150ms stagger). A moved()/era-changed guard skips the stale render if the
+  user navigates away mid-preload. Cache-bust v=12.
 - PHOTOS UNDER 1s (Ahmad: "its slow, photos need to appear under 1s"). MEASURED live: a single
   search+download is already ~0.6–0.8s (search ~500–700ms dominates; Commons-CDN download only
   40–320ms). The slowness was the 3-level SEQUENTIAL fallback added last step — a photo-poor beat
