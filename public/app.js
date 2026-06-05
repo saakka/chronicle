@@ -1188,6 +1188,7 @@ function warmEraHero(index) {
 
 async function goToEra(index) {
   if (index < 0 || index >= currentEras.length) return;
+  const myCountry = currentCountry;   // if a new journey starts mid-load, bail rather than render stale content
   currentEra = index;
   const era = currentEras[index];
   updateTimeline();
@@ -1200,7 +1201,7 @@ async function goToEra(index) {
     '<p class="beat-text" style="opacity:1;transform:none">Summoning the legend of ' + esc(era.title || "this era") + "…</p></div></section>";
 
   const data = await ensureEraStory(index);
-  if (currentEra !== index || journey.hidden) return;   // user moved on while it loaded
+  if (currentEra !== index || journey.hidden || currentCountry !== myCountry) return;   // user moved on / new journey
   if (!data || !Array.isArray(data.beats) || !data.beats.length) {
     eraLegend.innerHTML =
       '<section class="legend-page active"><div class="beat-scrim"></div><div class="beat-inner">' +
@@ -1211,7 +1212,7 @@ async function goToEra(index) {
     return;
   }
   await preloadHeroImage(data, era.title);               // open the legend WITH its first photo
-  if (currentEra !== index || journey.hidden) return;    // user moved on during the preload
+  if (currentEra !== index || journey.hidden || currentCountry !== myCountry) return;  // moved on / new journey
   renderLegend(era, data, index);
   warmEraHero(index + 1);   // warm neighbours' STORY *and* first photo → instant era switching
   warmEraHero(index - 1);
@@ -1312,17 +1313,19 @@ document.addEventListener("click", (e) => {
 const JUNK_IMAGE = /(\bmaps?\b|\batlas\b|\bcarte\b|\bkarte\b|\bmapa\b|cadastr|\bsurvey\b|locator|\bflags?\b|coat[\s_-]?of[\s_-]?arms|\bseal\b|\bemblem|\blogo|\bdiagram|\bcharts?\b|flowchart|\bicon\b|orthographic|\blocation\b|topograph|administ|\bblank\b|\boutline\b|\bgpx\b|wikimedia|spreadsheet|\bsignature\b|\bplan\b|schematic|\bsketch\b|\bstamps?\b|banknote|postcard|\bposter\b|caricature|infographic|screenshot|chronolog|\btimeline|genealog|family[\s_-]?tree)/i;
 // Promise-cached: identical searches (e.g. pre-warm + the page load) share ONE request,
 // and results are cached for the session so revisits/page-turns are instant.
-const IMG_CACHE = new Map();   // query|max -> Promise<results[]>
+// Keyed by QUERY ALONE (not query+max): Commons always returns the same 8 results regardless of
+// `max` — we only slice locally — so a warm at max=5 and a load at max=6 must share one request.
+const IMG_CACHE = new Map();   // query -> Promise<results[] up to 8>
 
 function fetchImages(query, max = 6) {
   if (!query) return Promise.resolve([]);
-  const cacheKey = query + "|" + max;
-  if (IMG_CACHE.has(cacheKey)) return IMG_CACHE.get(cacheKey);
-  const p = _fetchImagesRaw(query, max)
-    .then((r) => { if (!r || !r.length) IMG_CACHE.delete(cacheKey); return r || []; })   // don't cache empty/failed → let it retry next time
-    .catch(() => { IMG_CACHE.delete(cacheKey); return []; });
-  IMG_CACHE.set(cacheKey, p);
-  return p;
+  let cached = IMG_CACHE.get(query);
+  if (cached) return cached.then((r) => r.slice(0, max));
+  const p = _fetchImagesRaw(query, 8)
+    .then((r) => { if (!r || !r.length) IMG_CACHE.delete(query); return r || []; })   // don't cache empty/failed → let it retry next time
+    .catch(() => { IMG_CACHE.delete(query); return []; });
+  IMG_CACHE.set(query, p);
+  return p.then((r) => r.slice(0, max));
 }
 
 async function _fetchImagesRaw(query, max) {

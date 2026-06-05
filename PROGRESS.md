@@ -58,6 +58,20 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- BUG+PERF AUDIT, iter 4 (Ahmad: "check for bugs and perf issues"). Ran 3 parallel deep-read audits
+  (app.js correctness, app.js perf, server.py) + verified every finding against the code. Fixed the two
+  confirmed high-value ones: (1) PERF — IMG_CACHE was keyed by "query|max", but _fetchImagesRaw always asks
+  Commons for 8 and only slices locally, so the legend's pre-warm (max=5) and the page loads (max=6) used
+  DIFFERENT keys → every era-open silently double-fetched ~6 Wikimedia searches. Now keyed by query alone
+  (fetch 8 once, slice per caller) → ~halves Commons requests per era and isolates callers with a fresh slice.
+  (2) BUG — goToEra's post-await guards checked currentEra/journey.hidden but NOT the country, so exiting
+  mid-load and quickly entering a DIFFERENT country could render the old country's legend into the new
+  journey; now captures myCountry at entry and bails if it changed. Cache-bust v=15.
+  REPORTED (not yet fixed, lower-risk/by-design): server check-then-act cache race → duplicate paid AI calls
+  if two users hit the same uncached country at once (daily cap backstops the bill); no do_HEAD (HEAD→501
+  though _write_payload supports it); handle_story doesn't length-cap era/period; 2D-fallback globe repaints
+  per-pixel during idle spin and doesn't pause when hidden (only affects no-WebGL users); unbounded caches +
+  _RATE_BY_IP keys never pruned (instance restarts on spin-down so low real risk).
 - SMOOTHNESS MARATHON, iter 3 — OUT-OF-CONTEXT PHOTO FIX (caught live on Japan/Jomon: the hero was a
   modern illuminated glass building). Root cause: a beat's specific query ("Jomon period hunter-gatherer
   settlement reconstruction") returns 0 Commons hits, so loadPageImage fell back to the BARE COUNTRY name
