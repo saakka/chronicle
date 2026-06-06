@@ -58,6 +58,17 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- SERVER HARDENING, iter 5 (Ahmad: "ok, treat it" — apply the audit's batch #1–#4). server.py only (no
+  client change, no cache-bust). (1) SINGLE-FLIGHT: new key_lock() — a per-key lock so concurrent requests
+  for the SAME uncached country/era collapse onto ONE AI call (the rest wait, then serve the freshly-cached
+  result) instead of each paying for a duplicate generation. Wrapped all three AI handlers (history/profile/
+  story) with a lock + double-check; lock keys namespaced h:/p:/s: so endpoints don't serialise each other.
+  (2) handle_story now length-caps country/era/period (was uncapped → oversized prompt/cache key). (3) do_HEAD
+  = do_GET (HEAD returned 501 even though _write_payload supports it — uptime monitors / link previews now work).
+  (4) history AI-call timeout 180s→60s (Haiku takes ~5s; bounds the single-flight wait + thread-hold); added
+  TypeError to both JSON-parse except guards; prune fully-stale _RATE_BY_IP keys once the map exceeds 2000 so it
+  can't grow forever. VERIFIED LOCALLY: key_lock serializes same-key + parallelizes diff-key, no deadlock;
+  HEAD→200 no-body; oversized era→400; static/404/ping intact; py_compile clean.
 - BUG+PERF AUDIT, iter 4 (Ahmad: "check for bugs and perf issues"). Ran 3 parallel deep-read audits
   (app.js correctness, app.js perf, server.py) + verified every finding against the code. Fixed the two
   confirmed high-value ones: (1) PERF — IMG_CACHE was keyed by "query|max", but _fetchImagesRaw always asks

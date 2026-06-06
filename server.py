@@ -88,6 +88,9 @@ def rate_ok(ip):
     now = time.monotonic()
     with _RATE_LOCK:
         _RATE_GLOBAL[:] = [t for t in _RATE_GLOBAL if now - t < RATE_WINDOW]
+        if len(_RATE_BY_IP) > 2000:   # keep the per-IP map from growing forever: drop fully-stale IPs
+            for k in [k for k, v in _RATE_BY_IP.items() if not any(now - t < RATE_WINDOW for t in v)]:
+                del _RATE_BY_IP[k]
         if len(_RATE_GLOBAL) >= RATE_GLOBAL:
             return False
         hits = [t for t in _RATE_BY_IP.get(ip, []) if now - t < RATE_WINDOW]
@@ -118,6 +121,23 @@ def daily_budget_ok():
             return False
         _DAILY["count"] += 1
         return True
+
+
+# --- Single-flight: collapse concurrent requests for the SAME uncached key onto ONE AI call, so
+# two people opening the same new country at the same moment don't both pay for a generation. ---
+_INFLIGHT_LOCK = threading.Lock()
+_INFLIGHT = {}   # namespaced cache key -> threading.Lock
+
+
+def key_lock(key):
+    """Return a per-key lock so only one thread computes a given uncached key; the rest wait, then
+    find it freshly cached. Bounded by the (finite) country/era key space."""
+    with _INFLIGHT_LOCK:
+        lk = _INFLIGHT.get(key)
+        if lk is None:
+            lk = threading.Lock()
+            _INFLIGHT[key] = lk
+        return lk
 
 
 def load_gemini_key():
@@ -264,7 +284,7 @@ def _claude_json(prompt, schema, max_tokens=3500):
         return None, "The AI returned no usable answer."
     try:
         return json.loads(block["text"]), None
-    except (ValueError, KeyError):
+    except (ValueError, KeyError, TypeError):
         return None, "The AI's answer was incomplete."
 
 
@@ -396,7 +416,7 @@ def fetch_history_from_ai(country):
     )
 
     try:
-        with urllib.request.urlopen(request, timeout=180) as response:
+        with urllib.request.urlopen(request, timeout=60) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as err:
         detail = err.read().decode("utf-8", "replace")
@@ -421,7 +441,7 @@ def fetch_history_from_ai(country):
 
     try:
         data = json.loads(text_block["text"])
-    except (ValueError, KeyError):
+    except (ValueError, KeyError, TypeError):
         return None, "The AI's answer was incomplete. Please try again."
 
     return data, None
@@ -508,6 +528,8 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.serve_static(parsed.path)
 
+    do_HEAD = do_GET   # _write_payload already omits the body for HEAD; route it like GET
+
     def send_json(self, status, obj):
         self._write_payload(status, "application/json; charset=utf-8",
                              json.dumps(obj).encode("utf-8"), cache_control="no-store")
@@ -535,23 +557,27 @@ class Handler(BaseHTTPRequestHandler):
         if cache_key in CACHE:
             self.send_json(200, CACHE[cache_key])
             return
-        if not daily_budget_ok():
-            self.send_json(429, {"error": "Chronicle has reached today's exploration limit — please come back tomorrow."})
-            return
+        with key_lock("h:" + cache_key):       # one generation per country; duplicates wait then hit cache
+            if cache_key in CACHE:              # another thread filled it while we waited
+                self.send_json(200, CACHE[cache_key])
+                return
+            if not daily_budget_ok():
+                self.send_json(429, {"error": "Chronicle has reached today's exploration limit — please come back tomorrow."})
+                return
 
-        data, error = fetch_history_from_ai(country)
-        if error:
-            self.send_json(502, {"error": error})
-            return
+            data, error = fetch_history_from_ai(country)
+            if error:
+                self.send_json(502, {"error": error})
+                return
 
-        eras = data.get("eras") if isinstance(data, dict) else None
-        if not isinstance(eras, list) or not eras:
-            # Don't cache an empty/garbled answer — let the next attempt retry.
-            self.send_json(502, {"error": "The AI's answer was incomplete. Please try again."})
-            return
-        result = {"demo": False, "country": data.get("country", country), "eras": eras}
-        CACHE[cache_key] = result
-        self.send_json(200, result)
+            eras = data.get("eras") if isinstance(data, dict) else None
+            if not isinstance(eras, list) or not eras:
+                # Don't cache an empty/garbled answer — let the next attempt retry.
+                self.send_json(502, {"error": "The AI's answer was incomplete. Please try again."})
+                return
+            result = {"demo": False, "country": data.get("country", country), "eras": eras}
+            CACHE[cache_key] = result
+            self.send_json(200, result)
 
     def handle_profile(self, query):
         country = (query.get("country", [""])[0] or "").strip()
@@ -565,19 +591,23 @@ class Handler(BaseHTTPRequestHandler):
         if key in PROFILE_CACHE:
             self.send_json(200, PROFILE_CACHE[key])
             return
-        if not daily_budget_ok():
-            self.send_json(429, {"error": "Chronicle has reached today's exploration limit — please come back tomorrow."})
-            return
-        data, error = fetch_country_profile(country)
-        if error:
-            self.send_json(502, {"error": error})
-            return
-        if not isinstance(data, dict) or not data.get("overview"):
-            self.send_json(502, {"error": "The profile came back empty. Please try again."})
-            return
-        result = {"country": country, "profile": data}
-        PROFILE_CACHE[key] = result
-        self.send_json(200, result)
+        with key_lock("p:" + key):
+            if key in PROFILE_CACHE:
+                self.send_json(200, PROFILE_CACHE[key])
+                return
+            if not daily_budget_ok():
+                self.send_json(429, {"error": "Chronicle has reached today's exploration limit — please come back tomorrow."})
+                return
+            data, error = fetch_country_profile(country)
+            if error:
+                self.send_json(502, {"error": error})
+                return
+            if not isinstance(data, dict) or not data.get("overview"):
+                self.send_json(502, {"error": "The profile came back empty. Please try again."})
+                return
+            result = {"country": country, "profile": data}
+            PROFILE_CACHE[key] = result
+            self.send_json(200, result)
 
     def handle_story(self, query):
         country = (query.get("country", [""])[0] or "").strip()
@@ -586,25 +616,32 @@ class Handler(BaseHTTPRequestHandler):
         if not country or not era:
             self.send_json(400, {"error": "Need a country and an era."})
             return
+        if len(country) > 60 or len(era) > 80 or len(period) > 40:
+            self.send_json(400, {"error": "That request looks too long."})
+            return
         key = (country + "|" + era).lower()
         if key in STORY_CACHE:
             self.send_json(200, STORY_CACHE[key])
             return
-        if not daily_budget_ok():
-            self.send_json(429, {"error": "Chronicle has reached today's exploration limit — please come back tomorrow."})
-            return
-        subject = "%s — %s%s" % (country, era, (" (" + period + ")") if period else "")
-        data, error = fetch_story(subject)
-        if error:
-            self.send_json(502, {"error": error})
-            return
-        beats = data.get("beats") if isinstance(data, dict) else None
-        if not isinstance(beats, list) or not beats:
-            self.send_json(502, {"error": "The story came back empty. Please try again."})
-            return
-        result = {"country": country, "era": era, "story": data}
-        STORY_CACHE[key] = result
-        self.send_json(200, result)
+        with key_lock("s:" + key):
+            if key in STORY_CACHE:
+                self.send_json(200, STORY_CACHE[key])
+                return
+            if not daily_budget_ok():
+                self.send_json(429, {"error": "Chronicle has reached today's exploration limit — please come back tomorrow."})
+                return
+            subject = "%s — %s%s" % (country, era, (" (" + period + ")") if period else "")
+            data, error = fetch_story(subject)
+            if error:
+                self.send_json(502, {"error": error})
+                return
+            beats = data.get("beats") if isinstance(data, dict) else None
+            if not isinstance(beats, list) or not beats:
+                self.send_json(502, {"error": "The story came back empty. Please try again."})
+                return
+            result = {"country": country, "era": era, "story": data}
+            STORY_CACHE[key] = result
+            self.send_json(200, result)
 
     def serve_static(self, path):
         if path in ("", "/"):
