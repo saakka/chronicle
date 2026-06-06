@@ -577,7 +577,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             result = {"demo": False, "country": data.get("country", country), "eras": eras}
             CACHE[cache_key] = result
-            self.send_json(200, result)
+        self.send_json(200, result)   # send OUTSIDE the lock — a slow client must not block same-key waiters
 
     def handle_profile(self, query):
         country = (query.get("country", [""])[0] or "").strip()
@@ -607,7 +607,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             result = {"country": country, "profile": data}
             PROFILE_CACHE[key] = result
-            self.send_json(200, result)
+        self.send_json(200, result)   # send OUTSIDE the lock
 
     def handle_story(self, query):
         country = (query.get("country", [""])[0] or "").strip()
@@ -641,7 +641,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             result = {"country": country, "era": era, "story": data}
             STORY_CACHE[key] = result
-            self.send_json(200, result)
+        self.send_json(200, result)   # send OUTSIDE the lock
 
     def serve_static(self, path):
         if path in ("", "/"):

@@ -1182,7 +1182,7 @@ function warmEraHero(index) {
   Promise.resolve(ensureEraStory(index)).then((data) => {
     if (era._heroWarmed || !data || !data.beats || !data.beats[0]) return;
     era._heroWarmed = true;          // mark only once we actually have a story to warm from
-    preloadHeroImage(data, era.title); // fills IMG_CACHE + browser image cache for this era
+    preloadHeroImage(data, era.title || data.title); // fills IMG_CACHE + browser image cache for this era
   }).catch(() => {});
 }
 
@@ -1211,7 +1211,7 @@ async function goToEra(index) {
     if (rb) rb.addEventListener("click", (e) => { e.stopPropagation(); goToEra(index); });
     return;
   }
-  await preloadHeroImage(data, era.title);               // open the legend WITH its first photo
+  await preloadHeroImage(data, era.title || data.title);               // open the legend WITH its first photo
   if (currentEra !== index || journey.hidden || currentCountry !== myCountry) return;  // moved on / new journey
   renderLegend(era, data, index);
   warmEraHero(index + 1);   // warm neighbours' STORY *and* first photo → instant era switching

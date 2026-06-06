@@ -58,6 +58,16 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- REVIEW FOLLOW-UPS, iter 6 (Ahmad: "review" → "fix"). Applied the self-review's actionable items:
+  (1) CORRECTNESS — preloadHeroImage now receives `era.title || data.title` (was just `era.title`), matching
+  loadPageImage's `legendEraTitle = era.title || data.title || ""`, so the pre-decoded hero always matches what
+  page 0 shows even when an era has no title (previously a rare cache-miss made that beat's photo non-instant).
+  (2) PERF — the success send_json in all three AI handlers now happens OUTSIDE the single-flight lock, so a slow
+  client receiving the (larger) generated response can't hold the per-key lock and block same-key waiters.
+  (3) TESTS — added test_server.py: durable, dependency-free smoke tests (key_lock serialize/parallel + no
+  deadlock, do_HEAD→200, /api/story length cap→400, static serving, path-traversal defence, 404). 11/11 pass
+  locally; py_compile + JS parse clean. Cache-bust v=16. (Deferred: #4 LRU-cap the caches + _INFLIGHT — low
+  real risk since the free instance restarts on idle.)
 - SERVER HARDENING, iter 5 (Ahmad: "ok, treat it" — apply the audit's batch #1–#4). server.py only (no
   client change, no cache-bust). (1) SINGLE-FLIGHT: new key_lock() — a per-key lock so concurrent requests
   for the SAME uncached country/era collapse onto ONE AI call (the rest wait, then serve the freshly-cached
