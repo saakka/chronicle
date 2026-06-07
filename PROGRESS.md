@@ -59,6 +59,17 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- GAME MAP — REBUILT ON LEAFLET ("make the map zoom better, better graphic, more fluid" — Ahmad). Replaced the
+  hand-rolled pan/zoom over a single fixed earth.jpg (which blurred the instant you zoomed in) with a real slippy
+  map: Leaflet 1.9.4 + CARTO dark_all retina tiles (@2x). Now CRISP AT EVERY ZOOM LEVEL (native tiles per level —
+  verified z6 over Paris), buttery inertial pan + smooth zoom animation + native pinch-zoom, dark theme matched to
+  the gold/navy UI (restyled zoom control + attribution). Guess map: click/tap drops a pulsing blue pin, zoom+pan to
+  place precisely; lng normalised across wrapped copies for scoring. Reveal map: blue guess + red truth divIcon pins,
+  dashed-gold connecting polyline, auto fitBounds. setHTML() now tears down the live map (destroyMap) to avoid leaks.
+  Dropped ~4KB of bespoke pinch/transform code from game.js. index.html loads leaflet.css (before game.css so the
+  game's overrides win) + leaflet.js (after app.js) from unpkg, + a carto tile-host preconnect. VERIFIED in the
+  harness (network present): tiles load 8/8 then 18/18 @2x, click→pin→lock works, reveal pins+line+fit correct, mobile
+  375px layout intact, ZERO console errors. Cache-bust game.js v=4 + game.css v=5. Deploying live (Ahmad's OK).
 - GAME MAP — "make the map work better" (Ahmad). Three upgrades to the guess map: (1) BIGGER — guess-phase
   column 760→920px so the map is ~840px wide (easier precise placement). (2) SMOOTHER — zoom now animates
   (transform transition .14s) while pan/pinch stay 1:1 (transition off); finer +/− steps (1.7×→1.6×). (3)

@@ -128,7 +128,7 @@
   /* ---------- tiny DOM helpers ---------- */
   let game;
   const byId = (id) => document.getElementById(id);
-  function setHTML(html) { game.innerHTML = html; }
+  function setHTML(html) { destroyMap(); game.innerHTML = html; }
   function show() { game.hidden = false; document.body.classList.add("game-open"); window.scrollTo(0, 0); }
   function hide() { game.hidden = true; document.body.classList.remove("game-open"); }
 
@@ -139,129 +139,64 @@
     clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2600);
   }
 
-  /* equirectangular helpers: fraction 0..1 across the map → lat/lng and back */
-  const lngToX = (lng) => (lng + 180) / 360 * 100;   // %
-  const latToY = (lat) => (90 - lat) / 180 * 100;    // %
+  /* ---------- Leaflet maps (guess + reveal) ----------
+     A real slippy map: crisp dark tiles at every zoom level, inertial pan,
+     native pinch-zoom and a smooth zoom animation. Replaces the old
+     fixed-texture pan/zoom, which blurred the moment you zoomed in. */
+  const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+  const TILE_OPTS = {
+    subdomains: "abcd", maxZoom: 20,
+    attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> · &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  };
+  // Contain vertical drag (no grey void above/below the world) while letting it wrap horizontally.
+  const WORLD_BOUNDS = [[-85, -100000], [85, 100000]];
+  const COMMON = { worldCopyJump: true, maxBounds: WORLD_BOUNDS, maxBoundsViscosity: 1, minZoom: 1, maxZoom: 16 };
 
-  // Reveal map: static (scale 1) — pins + connecting line drawn by % inside the inner layer.
-  function revealMapMarkup(pins) {
-    let inner = "";
-    (pins || []).forEach((p) => {
-      inner += '<span class="gd-pin gd-pin-' + p.cls + '" style="left:' + lngToX(p.lng) + '%;top:' + latToY(p.lat) + '%" title="' + esc(p.label || "") + '"></span>';
-    });
-    if (pins && pins.length === 2) {
-      inner += '<svg class="gd-line" viewBox="0 0 100 100" preserveAspectRatio="none">' +
-        '<line x1="' + lngToX(pins[0].lng) + '" y1="' + latToY(pins[0].lat) + '" x2="' + lngToX(pins[1].lng) + '" y2="' + latToY(pins[1].lat) + '"/></svg>';
-    }
-    return '<div class="gd-map gd-map-static"><div class="gd-mapinner">' + inner + '</div></div>';
+  let lmap = null, guessMarker = null;
+  function destroyMap() { if (lmap) { try { lmap.remove(); } catch (e) {} lmap = null; guessMarker = null; } }
+  function pinIcon(cls) {
+    return L.divIcon({ className: "gd-mk gd-mk-" + cls, html: '<span class="gd-mk-dot"></span>', iconSize: [22, 22], iconAnchor: [11, 11] });
   }
+  const normLng = (lng) => ((((lng + 180) % 360) + 360) % 360) - 180;   // wrapped copies → [-180,180)
 
-  // Guess map: zoomable + pannable so the pin can be placed precisely (e.g. zoom into a city).
-  function guessMapMarkup() {
-    return '<div id="gd-map" class="gd-map gd-map-live">' +
-             '<div id="gd-mapinner" class="gd-mapinner"></div>' +
-             '<span id="gd-guesspin" class="gd-pin gd-pin-guess" hidden></span>' +
-             '<div class="gd-zoom">' +
-               '<button type="button" id="gd-zin" class="gd-zoombtn" aria-label="Zoom in">+</button>' +
-               '<button type="button" id="gd-zout" class="gd-zoombtn" aria-label="Zoom out">−</button>' +
-             '</div>' +
-             '<p class="gd-maphint">scroll, pinch or +/− to zoom · drag to pan · tap to drop your pin</p>' +
-           '</div>';
+  // Guess map: click / tap anywhere to drop the pin; zoom + pan to place it precisely.
+  function guessMapMarkup() { return '<div id="gd-map" class="gd-map gd-map-live"></div>'; }
+  function setupGuessMap() {
+    if (typeof L === "undefined" || !byId("gd-map")) return;
+    const map = L.map("gd-map", Object.assign({
+      center: [22, 6], zoom: 1, zoomControl: true, attributionControl: true,
+      zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 90, wheelDebounceTime: 18,
+      inertia: true, zoomAnimation: true, fadeAnimation: true,
+    }, COMMON));
+    L.tileLayer(TILE_URL, TILE_OPTS).addTo(map);
+    map.zoomControl.setPosition("topright");
+    map.on("click", (e) => { if (!locked) placeGuess(e.latlng); });
+    lmap = map;
+    setTimeout(() => { if (lmap === map) map.invalidateSize(); }, 60);
   }
-
-  // ---- zoomable-map state + helpers (guess phase) ----
-  let mapS = 1, mapTX = 0, mapTY = 0;   // transform applied to #gd-mapinner
-  let guessFrac = null;                  // {fx,fy} guess position in inner-content fractions (0..1)
-  const MAP_MAX = 8;
-  function mapVP() { const m = byId("gd-map"); const r = m.getBoundingClientRect(); return { w: r.width, h: r.height, left: r.left, top: r.top }; }
-  function clampMap(vp) {
-    mapS = Math.min(MAP_MAX, Math.max(1, mapS));
-    mapTX = Math.min(0, Math.max(vp.w * (1 - mapS), mapTX));   // keep the world covering the viewport
-    mapTY = Math.min(0, Math.max(vp.h * (1 - mapS), mapTY));
-  }
-  function applyMap() {
-    const inner = byId("gd-mapinner"); if (!inner) return;
-    const vp = mapVP(); clampMap(vp);
-    inner.style.transform = "translate(" + mapTX + "px," + mapTY + "px) scale(" + mapS + ")";
-    positionGuessPin(vp);
-  }
-  function positionGuessPin(vp) {
-    const pin = byId("gd-guesspin"); if (!pin || !guessFrac) return;
-    pin.hidden = false;
-    pin.style.left = (mapTX + guessFrac.fx * vp.w * mapS) + "px";   // pin lives in viewport space → constant size
-    pin.style.top = (mapTY + guessFrac.fy * vp.h * mapS) + "px";
-  }
-  function zoomAt(px, py, factor) {
-    const ix = (px - mapTX) / mapS, iy = (py - mapTY) / mapS;       // inner px under the focal point
-    mapS = Math.min(MAP_MAX, Math.max(1, mapS * factor));
-    mapTX = px - ix * mapS; mapTY = py - iy * mapS;                 // keep that point under the cursor
-    applyMap();
-  }
-  function placeGuessAt(px, py) {
-    const vp = mapVP();
-    let fx = (px - mapTX) / (vp.w * mapS), fy = (py - mapTY) / (vp.h * mapS);
-    fx = Math.min(1, Math.max(0, fx)); fy = Math.min(1, Math.max(0, fy));
-    guessFrac = { fx: fx, fy: fy };
-    guess = { lng: fx * 360 - 180, lat: 90 - fy * 180 };
-    positionGuessPin(vp);
+  function placeGuess(latlng) {
+    guess = { lat: latlng.lat, lng: normLng(latlng.lng) };
+    if (!guessMarker) guessMarker = L.marker(latlng, { icon: pinIcon("guess"), keyboard: false, interactive: false }).addTo(lmap);
+    else guessMarker.setLatLng(latlng);
     const lock = byId("gd-lock"); if (lock) { lock.disabled = false; lock.textContent = "Lock in guess"; }
   }
-  function setupGuessMap() {
-    mapS = 1; mapTX = 0; mapTY = 0; guessFrac = null;
-    const map = byId("gd-map"); if (!map) return;
-    const inner = byId("gd-mapinner");
-    applyMap();
-    // smooth the jump on a zoom; keep panning/pinching 1:1 (no transition)
-    const anim = (on) => {
-      if (inner) inner.style.transition = on ? "transform .14s ease-out" : "transform 0s";
-      const pin = byId("gd-guesspin");
-      if (pin) pin.style.transition = on ? "left .14s ease-out, top .14s ease-out" : "left 0s, top 0s";
-    };
-    map.addEventListener("wheel", (e) => {
-      e.preventDefault();
-      const vp = mapVP(); anim(true);
-      zoomAt(e.clientX - vp.left, e.clientY - vp.top, e.deltaY < 0 ? 1.2 : 1 / 1.2);   // anchored on the cursor
-    }, { passive: false });
-    byId("gd-zin").addEventListener("click", (e) => { e.stopPropagation(); const vp = mapVP(); anim(true); zoomAt(vp.w / 2, vp.h / 2, 1.6); });
-    byId("gd-zout").addEventListener("click", (e) => { e.stopPropagation(); const vp = mapVP(); anim(true); zoomAt(vp.w / 2, vp.h / 2, 1 / 1.6); });
-    // pointers: ONE finger = pan + tap-to-place · TWO fingers = pinch-zoom (touch)
-    const pts = new Map();
-    let downXY = null, moved = false, pinchDist = 0, pinchS = 1, pinchMid = null;
-    map.addEventListener("pointerdown", (e) => {
-      if (e.target.closest(".gd-zoom")) return;
-      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      try { map.setPointerCapture(e.pointerId); } catch (_) {}
-      if (pts.size === 1) { downXY = { x: e.clientX, y: e.clientY }; moved = false; anim(false); }
-      else if (pts.size === 2) {
-        const a = [...pts.values()]; pinchDist = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1; pinchS = mapS;
-        const vp = mapVP(); pinchMid = { x: (a[0].x + a[1].x) / 2 - vp.left, y: (a[0].y + a[1].y) / 2 - vp.top };
-        moved = true; anim(false);
-      }
-    });
-    map.addEventListener("pointermove", (e) => {
-      if (!pts.has(e.pointerId)) return;
-      const prev = pts.get(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pts.size >= 2) {                       // pinch-zoom toward the gesture midpoint
-        const a = [...pts.values()]; const dist = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1;
-        const target = Math.min(MAP_MAX, Math.max(1, pinchS * (dist / pinchDist)));
-        const ix = (pinchMid.x - mapTX) / mapS, iy = (pinchMid.y - mapTY) / mapS;
-        mapS = target; mapTX = pinchMid.x - ix * mapS; mapTY = pinchMid.y - iy * mapS; applyMap();
-      } else if (downXY) {                        // one-finger pan (once past the move threshold)
-        if (!moved && Math.hypot(e.clientX - downXY.x, e.clientY - downXY.y) > 5) moved = true;
-        if (moved) { mapTX += e.clientX - prev.x; mapTY += e.clientY - prev.y; applyMap(); }
-      }
-    });
-    const up = (e) => {
-      if (!pts.has(e.pointerId)) return;
-      pts.delete(e.pointerId);
-      if (pts.size === 1) { const r = [...pts.values()][0]; downXY = { x: r.x, y: r.y }; moved = true; return; }   // pinch → pan hand-off, not a tap
-      if (pts.size !== 0) return;
-      if (!moved && !locked) { const vp = mapVP(); placeGuessAt(e.clientX - vp.left, e.clientY - vp.top); }         // a clean tap drops the pin
-      downXY = null; moved = false;
-    };
-    map.addEventListener("pointerup", up);
-    map.addEventListener("pointercancel", up);
-    if (!setupGuessMap._resizeBound) { window.addEventListener("resize", () => { if (byId("gd-mapinner")) applyMap(); }); setupGuessMap._resizeBound = true; }
+
+  // Reveal map: the guess + the truth, a dashed line between them, framed to fit both.
+  function revealMapMarkup() { return '<div id="gd-revealmap" class="gd-map gd-map-static"></div>'; }
+  function buildRevealMap(p) {
+    if (typeof L === "undefined" || !byId("gd-revealmap")) return;
+    const g = [p.glat, p.glng], t = [p.lat, p.lng];
+    const map = L.map("gd-revealmap", Object.assign({
+      zoomControl: false, attributionControl: true, scrollWheelZoom: false, zoomSnap: 0.25,
+    }, COMMON));
+    L.tileLayer(TILE_URL, TILE_OPTS).addTo(map);
+    L.polyline([g, t], { color: "#ffd27a", weight: 2, opacity: .85, dashArray: "5 7", interactive: false }).addTo(map);
+    L.marker(t, { icon: pinIcon("truth"), interactive: false }).addTo(map);
+    L.marker(g, { icon: pinIcon("guess"), interactive: false }).addTo(map);
+    lmap = map;
+    const fit = () => map.fitBounds([g, t], { padding: [55, 55], maxZoom: 7, animate: false });
+    fit();
+    setTimeout(() => { if (lmap === map) { map.invalidateSize(); fit(); } }, 60);
   }
 
   /* ---------- intro ---------- */
@@ -367,10 +302,6 @@
   function renderReveal() {
     const p = plays[plays.length - 1];
     const last = idx === N - 1;
-    const pins = [
-      { lat: p.glat, lng: p.glng, cls: "guess", label: "Your guess" },
-      { lat: p.lat, lng: p.lng, cls: "truth", label: p.name },
-    ];
     setHTML(
       '<button class="gd-exit" id="gd-exit">← Quit</button>' +
       '<div class="gd-reveal">' +
@@ -379,7 +310,7 @@
           '<h2 class="gd-answer">' + esc(p.name) + '</h2></div>' +
         '</div>' +
         '<div class="gd-scorecard">' +
-          revealMapMarkup(pins) +
+          revealMapMarkup() +
           '<div class="gd-scoreline"><span>📍 ' + fmtKm(p.km) + ' away</span>' + bar(p.ls, 5000) + '<b>' + p.ls.toLocaleString() + '</b></div>' +
           '<div class="gd-scoreline"><span>🗓️ you said ' + esc(fmtYear(p.gy)) + ' · it was ' + esc(fmtYear(p.year)) + '</span>' + bar(p.ts, 5000) + '<b>' + p.ts.toLocaleString() + '</b></div>' +
           '<div class="gd-scoreline gd-scoreline-total"><span>Round score</span>' + bar(p.rs, ROUND_MAX) + '<b>' + p.rs.toLocaleString() + ' / ' + ROUND_MAX.toLocaleString() + '</b></div>' +
@@ -387,6 +318,7 @@
         '</div>' +
       '</div>'
     );
+    buildRevealMap(p);
     // re-show the hero image for this round
     fetchHeroImage(p.img).then((url) => { const h = byId("gd-hero"); if (h && url) h.style.backgroundImage = "url('" + url.replace(/'/g, "%27") + "')"; });
     byId("gd-exit").onclick = () => { if (confirmQuit()) hide(); };
