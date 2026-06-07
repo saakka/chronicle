@@ -1,0 +1,150 @@
+/* ============================================================
+   Chronicle Daily — "Where & When"  (game UI)
+   Loads after style.css, so it reuses the global :root vars
+   (--gold, --gold-soft, --display, --muted) with safe fallbacks.
+   ============================================================ */
+
+/* landing-page call-to-action */
+.play-cta {
+  margin-top: 22px; display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--display, "Cinzel", Georgia, serif); font-size: 1.02rem; letter-spacing: .04em;
+  color: #15100a; background: linear-gradient(180deg, #f0d28a, var(--gold, #c9a24b));
+  border: none; border-radius: 999px; padding: 13px 26px; cursor: pointer;
+  box-shadow: 0 10px 30px rgba(201,162,75,.35), inset 0 1px 0 rgba(255,255,255,.5);
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+.play-cta:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(201,162,75,.5), inset 0 1px 0 rgba(255,255,255,.6); }
+.play-cta .play-cta-sub { font-family: ui-sans-serif, system-ui, sans-serif; font-size: .72rem; opacity: .7; letter-spacing: .08em; }
+
+body.game-open { overflow: hidden; }
+
+/* full-screen game surface */
+#game.game {
+  position: fixed; inset: 0; z-index: 70; overflow-y: auto; overscroll-behavior: contain;
+  color: #f3ead7; font-family: "EB Garamond", Georgia, serif;
+  background:
+    radial-gradient(120% 90% at 50% -10%, #2a1c3e 0%, #160f24 42%, #0a0712 100%),
+    #0a0712;
+}
+#game .gd-exit {
+  position: fixed; top: 16px; left: 16px; z-index: 5;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: .82rem; letter-spacing: .04em;
+  color: #e9e2d0; background: rgba(20,16,30,.6); border: 1px solid rgba(201,162,75,.3);
+  border-radius: 999px; padding: 8px 16px; cursor: pointer; backdrop-filter: blur(6px);
+}
+#game .gd-exit:hover { border-color: var(--gold, #c9a24b); color: #fff; }
+
+/* shared bits */
+.gd-kicker { font-family: ui-sans-serif, system-ui, sans-serif; letter-spacing: .26em; text-transform: uppercase;
+  font-size: .74rem; color: var(--gold-soft, #e3c789); margin: 0 0 10px; }
+.gd-title { font-family: var(--display, "Cinzel", Georgia, serif); font-weight: 700; line-height: 1.02;
+  font-size: clamp(2.6rem, 8vw, 4.6rem); margin: 0 0 14px; color: #fff; text-shadow: 0 2px 40px rgba(0,0,0,.6); }
+.gd-btn {
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: .95rem; letter-spacing: .02em;
+  color: #f0e9d8; background: rgba(255,255,255,.06); border: 1px solid rgba(201,162,75,.35);
+  border-radius: 999px; padding: 13px 24px; cursor: pointer; transition: transform .12s, background .12s, border-color .12s;
+}
+.gd-btn:hover { transform: translateY(-1px); border-color: var(--gold, #c9a24b); background: rgba(255,255,255,.1); }
+.gd-btn:disabled { opacity: .45; cursor: default; transform: none; }
+.gd-btn-primary { color: #15100a; background: linear-gradient(180deg, #f0d28a, var(--gold, #c9a24b)); border: none;
+  box-shadow: 0 10px 26px rgba(201,162,75,.32); font-weight: 600; }
+.gd-cta-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 8px 0 6px; }
+.gd-streak { color: var(--gold-soft, #e3c789); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .9rem; margin: 14px 0 0; }
+.gd-foot { color: rgba(243,234,215,.5); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .8rem; margin: 18px 0 0; }
+
+/* intro */
+.gd-intro { max-width: 640px; margin: 0 auto; padding: 16vh 24px 8vh; text-align: center; }
+.gd-lede { font-size: 1.22rem; line-height: 1.55; color: #ece3cf; margin: 0 0 28px; }
+.gd-lede b { color: #fff; }
+
+/* round + reveal share a centred column */
+.gd-round, .gd-reveal { max-width: 760px; margin: 0 auto; padding: 64px 20px 48px; }
+
+/* hero image band with the clue overlaid */
+.gd-hero {
+  position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 16px; overflow: hidden;
+  background: #1b1330 center/cover no-repeat; box-shadow: 0 18px 50px rgba(0,0,0,.5);
+  display: flex; align-items: flex-end; isolation: isolate;
+}
+.gd-hero::after { content: ""; position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(180deg, rgba(8,6,14,.15) 0%, rgba(8,6,14,.05) 40%, rgba(8,6,14,.85) 100%); }
+.gd-hero.ready { background-color: #100a1e; }
+.gd-hero-load { position: absolute; inset: 0; display: grid; place-items: center; z-index: 2;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: .85rem; letter-spacing: .12em;
+  text-transform: uppercase; color: rgba(243,234,215,.55); }
+.gd-cluewrap { position: relative; z-index: 3; padding: 22px 26px; width: 100%; }
+.gd-roundno { font-family: ui-sans-serif, system-ui, sans-serif; letter-spacing: .2em; text-transform: uppercase;
+  font-size: .7rem; color: var(--gold-soft, #e3c789); margin: 0 0 8px; }
+.gd-clue { font-size: clamp(1.2rem, 2.7vw, 1.7rem); line-height: 1.4; color: #fff; margin: 0;
+  text-shadow: 0 2px 16px rgba(0,0,0,.85); font-style: italic; }
+.gd-answer { font-family: var(--display, "Cinzel", Georgia, serif); font-weight: 700;
+  font-size: clamp(1.7rem, 4vw, 2.6rem); line-height: 1.05; color: #fff; margin: 0; text-shadow: 0 2px 20px rgba(0,0,0,.7); }
+
+/* guess controls */
+.gd-guess { margin-top: 22px; }
+.gd-ask { font-size: 1.18rem; margin: 0 0 10px; color: #f3ead7; }
+.gd-ask b { color: var(--gold-soft, #e3c789); }
+.gd-ask-when { margin-top: 22px; }
+.gd-hint { font-family: ui-sans-serif, system-ui, sans-serif; font-size: .78rem; color: rgba(243,234,215,.5); margin-left: 8px; }
+.gd-year { font-family: var(--display, "Cinzel", Georgia, serif); color: #fff; font-size: 1.25rem; float: right; }
+
+.gd-map {
+  position: relative; width: 100%; aspect-ratio: 2/1; border-radius: 14px; overflow: hidden;
+  background: #0b1830 url("earth.jpg") center/cover no-repeat; cursor: crosshair;
+  box-shadow: inset 0 0 0 1px rgba(201,162,75,.25), 0 12px 36px rgba(0,0,0,.45);
+}
+.gd-pin { position: absolute; width: 16px; height: 16px; border-radius: 50%; transform: translate(-50%, -50%);
+  border: 2.5px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.6); z-index: 3; }
+.gd-pin-guess { background: #6cc0ff; }
+.gd-pin-truth { background: #ff5a5a; animation: gd-pop .4s ease; }
+@keyframes gd-pop { from { transform: translate(-50%,-50%) scale(0); } 60% { transform: translate(-50%,-50%) scale(1.35); } to { transform: translate(-50%,-50%) scale(1); } }
+.gd-line { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+.gd-line line { stroke: #ffd27a; stroke-width: .6; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; opacity: .85; }
+
+/* time slider */
+.gd-when { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 999px; margin: 4px 0 6px;
+  background: linear-gradient(90deg, #5a3b2a 0%, #7d5a8c 50%, #6cc0ff 100%); outline: none; cursor: pointer; }
+.gd-when::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, var(--gold, #c9a24b)); border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.5); cursor: pointer; }
+.gd-when::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--gold, #c9a24b); border: 2px solid #fff; cursor: pointer; }
+.gd-scale { display: flex; justify-content: space-between; font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: .68rem; color: rgba(243,234,215,.45); letter-spacing: .04em; }
+.gd-lock { width: 100%; margin-top: 22px; font-size: 1.05rem; padding: 15px; }
+
+/* reveal scorecard */
+.gd-scorecard { margin-top: 20px; }
+.gd-scoreline { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px 14px;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: .92rem; color: #ece3cf; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+.gd-scoreline > span:first-child { grid-column: 1; }
+.gd-scoreline b { grid-column: 2; grid-row: 1 / span 2; color: #fff; font-size: 1.05rem; min-width: 92px; text-align: right; }
+.gd-bar { grid-column: 1; height: 7px; border-radius: 999px; background: rgba(255,255,255,.1); overflow: hidden; }
+.gd-bar-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--gold,#c9a24b), #ffe6a8); }
+.gd-scoreline-total { border-bottom: none; font-size: 1.05rem; color: #fff; margin-top: 4px; }
+.gd-scoreline-total .gd-bar-fill { background: linear-gradient(90deg, #6cc0ff, #b6e0ff); }
+.gd-scorecard .gd-map { margin-bottom: 14px; cursor: default; }
+.gd-scorecard .gd-btn-primary { width: 100%; margin-top: 22px; padding: 15px; font-size: 1.05rem; }
+
+/* results */
+.gd-results { max-width: 600px; margin: 0 auto; padding: 12vh 24px 8vh; text-align: center; }
+.gd-of { font-size: .42em; color: rgba(243,234,215,.5); font-weight: 400; }
+.gd-rank { font-family: var(--display, "Cinzel", Georgia, serif); font-size: 1.4rem; color: var(--gold-soft, #e3c789); margin: 0 0 14px; }
+.gd-emojis { font-size: 1.9rem; letter-spacing: 6px; margin: 0 0 22px; }
+.gd-result-list { text-align: left; max-width: 440px; margin: 0 auto 24px; }
+.gd-result-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,.08);
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: .95rem; }
+.gd-result-em { font-size: 1.1rem; }
+.gd-result-name { flex: 1; color: #ece3cf; }
+.gd-result-score { color: #fff; font-variant-numeric: tabular-nums; }
+
+/* toast */
+.gd-toast { position: fixed; left: 50%; bottom: 34px; transform: translate(-50%, 20px); z-index: 90;
+  background: rgba(20,16,30,.95); color: #f3ead7; border: 1px solid rgba(201,162,75,.4); border-radius: 999px;
+  padding: 12px 22px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: .9rem;
+  opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
+.gd-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 560px) {
+  .gd-round, .gd-reveal { padding-top: 56px; }
+  .gd-intro { padding-top: 12vh; }
+  .gd-emojis { font-size: 1.5rem; }
+}

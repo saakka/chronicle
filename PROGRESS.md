@@ -58,6 +58,26 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- 🎮 NEW FEATURE — "Chronicle Daily: Where & When" (Ahmad /goal: "make the website more interesting… eureka
+  idea, let me know" → presented the idea → "go ahead" → built it). A daily history GUESSING GAME layered on
+  Chronicle: a striking image + ONE cryptic clue → guess WHERE (drop a pin on a flat world map) and WHEN
+  (timeline slider, 3000 BCE–2025) → TimeGuessr-style scoring (5000 location via haversine·exp-decay + 5000
+  time via a per-round tolerance) → cinematic answer reveal → 5 rounds → results with a Wordle-style shareable
+  emoji card + streaks. WHY (the eureka): it turns a lean-back encyclopedia into a daily, replayable, shareable
+  habit that hooks NON-history people (the genre — TimeGuessr/GeoGuessr — is proven viral); Chronicle's edge is
+  it spans ALL of history (artifacts/landmarks, not just the camera era) on a gorgeous UI, with the epic story
+  as the reward. IMPL — all NEW and SELF-CONTAINED (no dependency on app.js or the 3D globe, so it cannot break
+  the explorer): public/game.js (20 curated wonders antiquity→modern; date-seeded daily pick via mulberry32;
+  haversine + scoring; localStorage daily result + streak; one live Wikimedia image per round) + public/game.css
+  (premium gold/serif theme; the flat guess-map REUSES the self-hosted earth.jpg via equirectangular projection
+  — so it needs no WebGL and is even preview-testable) + index.html ("▶ Play: Where & When" CTA on the landing,
+  a #game section, game.css/game.js at v=1). VERIFIED in a /tmp preview harness (the sandboxed preview can't
+  read the project dir, so the game files were staged in /tmp/gametest): the FULL loop works — intro (Daily
+  #158) → live Rio image + clue → pin (projection correct: landed on Rio) → year slider → lock → scorecard
+  (88 km→4,716; said 1940 vs 1931→2,744; 7,460/10,000; both pins + dashed line) → "Christ the Redeemer" reveal →
+  5-round results (emoji card) → share ("Score copied"). Zero console errors throughout. Committed locally;
+  push to main GATED — awaits Ahmad's deploy approval. NEXT IDEAS: 3D-globe reveal flourish; a per-round "dive
+  into the full story" link into the existing journey; more rounds + difficulty/region modes.
 - LANDMARK SILHOUETTES batch 2, iter 10 (autonomous loop — TOP PRIORITY continued; Ahmad re-ran /loop).
   AUDIT: after iter-8 (Spain/Germany/Peru) the biggest remaining "iconic country on a generic/wrong default"
   gaps were Turkey (Western-Asia mosque), USA (generic skyline — also the Northern-America default, so not
