@@ -42,10 +42,11 @@ Run autonomously following this process:
 ## NEXT PRIORITIES — content + design tailored to HISTORY GEEKS (Civ-V vibe), set ~by Ahmad
 0. **Bespoke per-country landmark portals (TOP PRIORITY, ongoing):** every country should get its
    OWN landmark silhouette. System built: `LANDMARKS` (SVG) + `LANDMARK_BY_COUNTRY` in app.js + `.landmark`
-   CSS. ~24 iconic done (Eiffel, Taj, Big Ben, Colosseum, Fuji, Great Wall, St Basil's, Christ Redeemer,
+   CSS. ~27 iconic done (Eiffel, Taj, Big Ben, Colosseum, Fuji, Great Wall, St Basil's, Christ Redeemer,
    Opera House, Petra, Angkor, Burj, Parthenon, ziggurat, pyramids, skyline, Sagrada Família, Brandenburg
-   Gate, Machu Picchu, + Hagia Sophia, Statue of Liberty, Moai [iter 10]). EXPAND NEXT: add Alhambra, Leaning
-   Tower, Stonehenge, Petronas, Sphinx, Christ the King, etc. and map many more countries. Keep regional
+   Gate, Machu Picchu, Hagia Sophia, Statue of Liberty, Moai, + Petronas Towers, Borobudur, Persepolis
+   [iter 11]). EXPAND NEXT: add Alhambra, Leaning Tower, Stonehenge, Sphinx, Christ the King, Wat Arun, etc.
+   and map many more countries. Keep regional
    motif as fallback only where no landmark exists yet.
 Wikimedia is broad/generic. Make it richer and more curated:
 1. **Curated image sources** (better than generic Wikimedia): query open cultural-heritage APIs —
@@ -58,6 +59,18 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- LANDMARK SILHOUETTES batch 3, iter 11 (autonomous loop; Ahmad re-ran /loop). AUDIT: the top remaining
+  iconic-but-generic gaps were Malaysia, Indonesia and Iran — all falling back to the generic South / South-
+  Eastern-Asia "temple" motif. 5 RECS; implemented top 3: (1) Malaysia → Petronas Towers (twin towers + setback
+  crowns/spires + the skybridge with its V-support), (2) Indonesia → Borobudur (stepped pyramid-mountain +
+  central bell stupa + flanking stupas), (3) Iran → Persepolis (a colonnade of tall columns, some broken,
+  framing the Gate of All Nations). Added 3 SVGs to LANDMARKS + mapped Malaysia/Indonesia/Iran (ADMIN names
+  verified vs ne_110m). VERIFIED VISUALLY (standalone portal render + screenshot): all 3 read clearly and are
+  distinct from the generic temple/castle motifs. app.js JS_PARSE_OK. Cache-bust v=21. Committed locally; push
+  to main GATED — THREE batches now await deploy (live at v=19 = content + Spain/Germany/Peru; PENDING = b2
+  Hagia Sophia/Liberty/Moai, the GAME "Where & When", and b3 Petronas/Borobudur/Persepolis). BACKLOG:
+  Thailand→Wat Arun, Portugal→Belém, Egypt→Sphinx (keep pyramids); + non-landmark priorities (museum image
+  sources, game polish: 3D-globe reveal + per-round "dive into the story").
 - 🎮 NEW FEATURE — "Chronicle Daily: Where & When" (Ahmad /goal: "make the website more interesting… eureka
   idea, let me know" → presented the idea → "go ahead" → built it). A daily history GUESSING GAME layered on
   Chronicle: a striking image + ONE cryptic clue → guess WHERE (drop a pin on a flat world map) and WHEN
