@@ -157,6 +157,9 @@ const LANDMARKS = {
   sagrada:     "<rect x='28' y='33' width='44' height='11'/><path d='M46 33 L50 4 L54 33 Z'/><path d='M37 33 L40 11 L43 33 Z'/><path d='M57 33 L60 11 L63 33 Z'/><path d='M29 33 L31.5 17 L34 33 Z'/><path d='M66 33 L68.5 17 L71 33 Z'/><circle cx='50' cy='5' r='1.3'/><circle cx='40' cy='12' r='1'/><circle cx='60' cy='12' r='1'/>",
   brandenburg: "<rect x='16' y='16' width='68' height='6'/><rect x='21' y='22' width='4' height='22'/><rect x='31' y='22' width='4' height='22'/><rect x='41' y='22' width='4' height='22'/><rect x='55' y='22' width='4' height='22'/><rect x='65' y='22' width='4' height='22'/><rect x='75' y='22' width='4' height='22'/><rect x='14' y='42' width='72' height='2'/><rect x='42' y='12' width='16' height='4'/><path d='M43 12 Q45 8 47 12 Z'/><path d='M47 12 Q49 8 51 12 Z'/><path d='M51 12 Q53 8 55 12 Z'/><rect x='49' y='8' width='2' height='4'/>",
   machupicchu: "<polygon points='50,44 72,5 94,44'/><path d='M6 44 V39 H15 V34 H24 V29 H34 V44 Z'/><rect x='25' y='25' width='4' height='4'/><rect x='30' y='26' width='3.5' height='3.5'/>",
+  hagiasophia: "<rect x='32' y='30' width='36' height='14'/><path d='M35 31 Q35 16 50 15 Q65 16 65 31 Z'/><rect x='49.2' y='10' width='1.6' height='5'/><rect x='16.8' y='18' width='2.4' height='26'/><polygon points='15.8,18 18,10 20.2,18'/><rect x='17.6' y='7' width='0.8' height='3'/><rect x='26.8' y='18' width='2.4' height='26'/><polygon points='25.8,18 28,10 30.2,18'/><rect x='27.6' y='7' width='0.8' height='3'/><rect x='70.8' y='18' width='2.4' height='26'/><polygon points='69.8,18 72,10 74.2,18'/><rect x='71.6' y='7' width='0.8' height='3'/><rect x='80.8' y='18' width='2.4' height='26'/><polygon points='79.8,18 82,10 84.2,18'/><rect x='81.6' y='7' width='0.8' height='3'/>",
+  liberty:     "<polygon points='36,44 40,33 60,33 64,44'/><path d='M43 33 Q43 24 46 18 L54 18 Q57 24 57 33 Z'/><circle cx='50' cy='15' r='2.4'/><polygon points='45.5,14 46.5,10 47.5,13.5 48.5,9.5 50,13 51.5,9.5 52.5,13.5 53.5,10 54.5,14'/><path d='M54 20 L60 7 L62 8 L56 21 Z'/><rect x='59' y='5' width='4' height='3'/><polygon points='59.5,5 61,0 62.5,5'/>",
+  moai:        "<path d='M12 44 V14 H26 L31 21 L25 24 L32 32 L25 33.5 L29 37.5 L27 44 Z'/><path d='M40 44 V9 H56 L62 17 L55 20 L63 30 L55 32 L60 37 L58 44 Z'/><path d='M70 44 V15 H84 L89 22 L83 25 L90 33 L83 34.5 L87 38.5 L85 44 Z'/>",
   // sub-region fallbacks — so every country gets a fitting silhouette
   mosque:    "<rect x='34' y='30' width='32' height='14'/><path d='M50 12 Q38 20 40 30 L60 30 Q62 20 50 12 Z'/><rect x='49' y='6' width='2' height='6'/><rect x='26' y='16' width='3' height='28'/><path d='M27.5 12 Q25 15 26 16 L29 16 Q30 15 27.5 12 Z'/><rect x='71' y='16' width='3' height='28'/><path d='M72.5 12 Q70 15 71 16 L74 16 Q75 15 72.5 12 Z'/>",
   pagoda:    "<rect x='47' y='12' width='6' height='32'/><polygon points='34,18 50,12 66,18 60,20 50,16 40,20'/><polygon points='31,28 50,22 69,28 62,30 50,26 38,30'/><polygon points='28,38 50,32 72,38 64,40 50,36 36,40'/><rect x='49' y='8' width='2' height='4'/>",
@@ -175,9 +178,10 @@ const LANDMARK_BY_COUNTRY = {
   "Iraq": "ziggurat", "Jordan": "petra", "Greece": "parthenon", "Italy": "colosseum",
   "France": "eiffel", "United Kingdom": "bigben", "India": "taj", "Japan": "fuji",
   "China": "greatwall", "Russia": "stbasil", "Brazil": "redeemer", "Australia": "opera",
-  "Cambodia": "angkor", "United Arab Emirates": "burj", "United States of America": "skyline",
+  "Cambodia": "angkor", "United Arab Emirates": "burj", "United States of America": "liberty",
   "Lebanon": "cedars",
   "Spain": "sagrada", "Germany": "brandenburg", "Peru": "machupicchu",
+  "Turkey": "hagiasophia", "Chile": "moai",
 };
 
 // Every UN sub-region gets a fitting landmark, so NO country is left without one.

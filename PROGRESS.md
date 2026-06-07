@@ -42,10 +42,10 @@ Run autonomously following this process:
 ## NEXT PRIORITIES — content + design tailored to HISTORY GEEKS (Civ-V vibe), set ~by Ahmad
 0. **Bespoke per-country landmark portals (TOP PRIORITY, ongoing):** every country should get its
    OWN landmark silhouette. System built: `LANDMARKS` (SVG) + `LANDMARK_BY_COUNTRY` in app.js + `.landmark`
-   CSS. ~21 iconic done (Eiffel, Taj, Big Ben, Colosseum, Fuji, Great Wall, St Basil's, Christ Redeemer,
-   Opera House, Petra, Angkor, Burj, Parthenon, ziggurat, pyramids, skyline, + Sagrada Família, Brandenburg
-   Gate, Machu Picchu [iter 8]). EXPAND NEXT: add Statue of Liberty, Hagia Sophia, Alhambra, Leaning Tower,
-   Stonehenge, Moai, Petronas, Sphinx, Christ the King, etc. and map many more countries. Keep regional
+   CSS. ~24 iconic done (Eiffel, Taj, Big Ben, Colosseum, Fuji, Great Wall, St Basil's, Christ Redeemer,
+   Opera House, Petra, Angkor, Burj, Parthenon, ziggurat, pyramids, skyline, Sagrada Família, Brandenburg
+   Gate, Machu Picchu, + Hagia Sophia, Statue of Liberty, Moai [iter 10]). EXPAND NEXT: add Alhambra, Leaning
+   Tower, Stonehenge, Petronas, Sphinx, Christ the King, etc. and map many more countries. Keep regional
    motif as fallback only where no landmark exists yet.
 Wikimedia is broad/generic. Make it richer and more curated:
 1. **Curated image sources** (better than generic Wikimedia): query open cultural-heritage APIs —
@@ -58,6 +58,20 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- LANDMARK SILHOUETTES batch 2, iter 10 (autonomous loop — TOP PRIORITY continued; Ahmad re-ran /loop).
+  AUDIT: after iter-8 (Spain/Germany/Peru) the biggest remaining "iconic country on a generic/wrong default"
+  gaps were Turkey (Western-Asia mosque), USA (generic skyline — also the Northern-America default, so not
+  distinctive) and Chile (South-America mountains). 5 RECS; implemented top 3: (1) Turkey → Hagia Sophia
+  (broad central dome + 4 slender minarets w/ finials), (2) United States → Statue of Liberty (pedestal +
+  spiked crown + raised torch arm/flame; REPLACES the generic skyline, which stays as the Northern-America
+  sub-region default), (3) Chile → Moai (Easter Island, drawn in PROFILE — flat top, heavy brow, long nose,
+  jutting chin — because a front view reads as a plain column; row of 3 facing the same way = the Ahu
+  Tongariki lineup). Added 3 SVGs to LANDMARKS + mapped Turkey/Chile + changed USA in LANDMARK_BY_COUNTRY
+  (ADMIN names verified vs ne_110m). VERIFIED VISUALLY (standalone portal render + screenshots): all 3 read
+  clearly; the first moai pass (rounded columns) was REJECTED and redrawn as profiles. app.js JS_PARSE_OK.
+  Cache-bust v=20. Committed locally; push to main GATED for autonomous work (Ahmad authorizes deploys
+  per-batch) — NOT yet deployed (this batch awaits the next deploy approval). BACKLOG: Malaysia→Petronas,
+  Alhambra, Stonehenge, Christ the King; + non-landmark priorities (museum image sources, civilopedia HUD).
 - EPIC CONTENT PASS, iter 9 (Ahmad: "audit the content, photos and legends — make it more epic, catchy,
   interesting; someone who ISN'T into history needs to be interested"). AUDIT: the writing was tuned for
   people who ALREADY love history — the story prompt asked for "the flagship tale a history lover would
@@ -78,9 +92,13 @@ Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
   opens on a lowborn man watching a castle burn, betrayal by his own son, seppuku, legacy). Visual check of
   the new dek typography on legend page 0 = excellent. NOTE: Gemini free tier (20/day) is exhausted, so
   stories fall back to Claude Haiku — quality confirmed great, but it now costs Claude tokens; watch spend or
-  raise the Gemini quota. py_compile + JS parse OK. Cache-bust v=19. Committed locally; push to main still
-  GATED pending Ahmad's authorization (NOT yet deployed). BACKLOG (rec 5): legend presentation polish
+  raise the Gemini quota. py_compile + JS parse OK. Cache-bust v=19. Committed 4a8b846 + DEPLOYED LIVE
+  (Ahmad authorized the push; auto-deploy is OFF so triggered Manual Deploy via the Render dashboard).
+  VERIFIED ON PRODUCTION: v=19 serving, new client assets present (beat-dek, sagrada/brandenburg/machupicchu),
+  and a fresh live history call (Egypt) returned 10 catchy hooks. BACKLOG (rec 5): legend presentation polish
   (bigger first beat, per-beat micro-kickers) + a museum-art image source (Met/AIC) for painterly images.
+  NOTE FOR THE LOOP: auto-deploy is OFF — pushes need Ahmad's OK + a Manual Deploy click; keep accumulating
+  reviewable LOCAL commits and surface them rather than assuming anything auto-ships.
 - LANDMARK SILHOUETTES, iter 8 (autonomous loop — TOP PRIORITY: promote sub-region DEFAULTS into UNIQUE
   per-country landmark silhouettes). AUDIT: ~18 countries had bespoke icons; the rest fell back to a
   sub-region motif — fine for minor countries but several MAJOR/high-traffic ones looked generic or plain
