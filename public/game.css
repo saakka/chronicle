@@ -59,7 +59,7 @@ body.game-open { overflow: hidden; }
 .gd-lede b { color: #fff; }
 
 /* round + reveal share a centred column */
-.gd-round, .gd-reveal { max-width: 760px; margin: 0 auto; padding: 64px 20px 48px; }
+.gd-round, .gd-reveal { max-width: 920px; margin: 0 auto; padding: 64px 20px 48px; }
 
 /* hero image band with the clue overlaid */
 .gd-hero {

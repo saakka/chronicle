@@ -165,7 +165,7 @@
                '<button type="button" id="gd-zin" class="gd-zoombtn" aria-label="Zoom in">+</button>' +
                '<button type="button" id="gd-zout" class="gd-zoombtn" aria-label="Zoom out">−</button>' +
              '</div>' +
-             '<p class="gd-maphint">scroll or +/− to zoom · drag to pan · tap to drop your pin</p>' +
+             '<p class="gd-maphint">scroll, pinch or +/− to zoom · drag to pan · tap to drop your pin</p>' +
            '</div>';
   }
 
@@ -209,33 +209,58 @@
   function setupGuessMap() {
     mapS = 1; mapTX = 0; mapTY = 0; guessFrac = null;
     const map = byId("gd-map"); if (!map) return;
+    const inner = byId("gd-mapinner");
     applyMap();
+    // smooth the jump on a zoom; keep panning/pinching 1:1 (no transition)
+    const anim = (on) => {
+      if (inner) inner.style.transition = on ? "transform .14s ease-out" : "transform 0s";
+      const pin = byId("gd-guesspin");
+      if (pin) pin.style.transition = on ? "left .14s ease-out, top .14s ease-out" : "left 0s, top 0s";
+    };
     map.addEventListener("wheel", (e) => {
       e.preventDefault();
-      const vp = mapVP();
-      zoomAt(e.clientX - vp.left, e.clientY - vp.top, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+      const vp = mapVP(); anim(true);
+      zoomAt(e.clientX - vp.left, e.clientY - vp.top, e.deltaY < 0 ? 1.2 : 1 / 1.2);   // anchored on the cursor
     }, { passive: false });
-    byId("gd-zin").addEventListener("click", (e) => { e.stopPropagation(); const vp = mapVP(); zoomAt(vp.w / 2, vp.h / 2, 1.7); });
-    byId("gd-zout").addEventListener("click", (e) => { e.stopPropagation(); const vp = mapVP(); zoomAt(vp.w / 2, vp.h / 2, 1 / 1.7); });
-    let down = null, last = null, moved = false;
+    byId("gd-zin").addEventListener("click", (e) => { e.stopPropagation(); const vp = mapVP(); anim(true); zoomAt(vp.w / 2, vp.h / 2, 1.6); });
+    byId("gd-zout").addEventListener("click", (e) => { e.stopPropagation(); const vp = mapVP(); anim(true); zoomAt(vp.w / 2, vp.h / 2, 1 / 1.6); });
+    // pointers: ONE finger = pan + tap-to-place · TWO fingers = pinch-zoom (touch)
+    const pts = new Map();
+    let downXY = null, moved = false, pinchDist = 0, pinchS = 1, pinchMid = null;
     map.addEventListener("pointerdown", (e) => {
       if (e.target.closest(".gd-zoom")) return;
-      down = { x: e.clientX, y: e.clientY }; last = { x: e.clientX, y: e.clientY }; moved = false;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       try { map.setPointerCapture(e.pointerId); } catch (_) {}
+      if (pts.size === 1) { downXY = { x: e.clientX, y: e.clientY }; moved = false; anim(false); }
+      else if (pts.size === 2) {
+        const a = [...pts.values()]; pinchDist = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1; pinchS = mapS;
+        const vp = mapVP(); pinchMid = { x: (a[0].x + a[1].x) / 2 - vp.left, y: (a[0].y + a[1].y) / 2 - vp.top };
+        moved = true; anim(false);
+      }
     });
     map.addEventListener("pointermove", (e) => {
-      if (!down) return;
-      if (!moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) moved = true;
-      if (moved) { mapTX += e.clientX - last.x; mapTY += e.clientY - last.y; applyMap(); }
-      last = { x: e.clientX, y: e.clientY };
+      if (!pts.has(e.pointerId)) return;
+      const prev = pts.get(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size >= 2) {                       // pinch-zoom toward the gesture midpoint
+        const a = [...pts.values()]; const dist = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1;
+        const target = Math.min(MAP_MAX, Math.max(1, pinchS * (dist / pinchDist)));
+        const ix = (pinchMid.x - mapTX) / mapS, iy = (pinchMid.y - mapTY) / mapS;
+        mapS = target; mapTX = pinchMid.x - ix * mapS; mapTY = pinchMid.y - iy * mapS; applyMap();
+      } else if (downXY) {                        // one-finger pan (once past the move threshold)
+        if (!moved && Math.hypot(e.clientX - downXY.x, e.clientY - downXY.y) > 5) moved = true;
+        if (moved) { mapTX += e.clientX - prev.x; mapTY += e.clientY - prev.y; applyMap(); }
+      }
     });
-    const end = (e) => {
-      if (!down) return;
-      const wasMoved = moved; down = null;
-      if (!wasMoved && !locked) { const vp = mapVP(); placeGuessAt(e.clientX - vp.left, e.clientY - vp.top); }   // a tap (not a pan) drops the pin
+    const up = (e) => {
+      if (!pts.has(e.pointerId)) return;
+      pts.delete(e.pointerId);
+      if (pts.size === 1) { const r = [...pts.values()][0]; downXY = { x: r.x, y: r.y }; moved = true; return; }   // pinch → pan hand-off, not a tap
+      if (pts.size !== 0) return;
+      if (!moved && !locked) { const vp = mapVP(); placeGuessAt(e.clientX - vp.left, e.clientY - vp.top); }         // a clean tap drops the pin
+      downXY = null; moved = false;
     };
-    map.addEventListener("pointerup", end);
-    map.addEventListener("pointercancel", () => { down = null; });
+    map.addEventListener("pointerup", up);
+    map.addEventListener("pointercancel", up);
     if (!setupGuessMap._resizeBound) { window.addEventListener("resize", () => { if (byId("gd-mapinner")) applyMap(); }); setupGuessMap._resizeBound = true; }
   }
 

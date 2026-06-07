@@ -59,6 +59,14 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- GAME MAP — "make the map work better" (Ahmad). Three upgrades to the guess map: (1) BIGGER — guess-phase
+  column 760→920px so the map is ~840px wide (easier precise placement). (2) SMOOTHER — zoom now animates
+  (transform transition .14s) while pan/pinch stay 1:1 (transition off); finer +/− steps (1.7×→1.6×). (3)
+  PINCH-TO-ZOOM on touch — two-pointer gesture anchored on the midpoint, with a pinch→pan hand-off when one
+  finger lifts (so it isn't mistaken for a tap); hint now reads "scroll, pinch or +/−". Tap-to-place still
+  lands EXACTLY where you tap at any zoom (re-verified at 4×). VERIFIED in the harness: pinch 40→160px = exactly
+  4× zoom, tap precise at 4×, map 838px wide, no console errors. Cache-bust game.js v=3 + game.css v=4.
+  Committed locally; deploy pending Ahmad's OK.
 - GAME FIX + ZOOM UPGRADE (Ahmad: the Play button "doesn't work", then "map is not zooming in… place the
   Eiffel Tower in the exact location"). TWO things: (1) BUG — the Play button was visible but UNCLICKABLE:
   the landing .globe-overlay is pointer-events:none and only .globe-search re-enabled it; .play-cta (a sibling)
