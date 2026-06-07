@@ -123,6 +123,13 @@ def daily_budget_ok():
         return True
 
 
+def daily_budget_refund():
+    """Give a reservation back when the AI call failed, so failures don't burn the daily cap."""
+    with _RATE_LOCK:
+        if _DAILY["count"] > 0:
+            _DAILY["count"] -= 1
+
+
 # --- Single-flight: collapse concurrent requests for the SAME uncached key onto ONE AI call, so
 # two people opening the same new country at the same moment don't both pay for a generation. ---
 _INFLIGHT_LOCK = threading.Lock()
@@ -510,8 +517,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
+        ai_paths = ("/api/history", "/api/profile", "/api/story")
+        # HEAD must be side-effect-free: a HEAD probe (uptime monitor, link-preview crawler) must
+        # NEVER trigger a paid AI generation or spend the daily budget. Answer headers-only, no body.
+        if self.command == "HEAD" and parsed.path in ai_paths:
+            self._write_payload(200, "application/json; charset=utf-8", b"", cache_control="no-store")
+            return
         # Cap the AI-backed endpoints so a public link can't run up the bill.
-        if parsed.path in ("/api/history", "/api/profile", "/api/story") and not rate_ok(self.client_ip()):
+        if parsed.path in ai_paths and not rate_ok(self.client_ip()):
             self.send_json(429, {"error": "Lots of explorers right now — please wait a minute and try again."})
             return
         if parsed.path == "/api/history":
@@ -567,12 +580,14 @@ class Handler(BaseHTTPRequestHandler):
 
             data, error = fetch_history_from_ai(country)
             if error:
+                daily_budget_refund()   # AI call failed → return the reserved daily slot
                 self.send_json(502, {"error": error})
                 return
 
             eras = data.get("eras") if isinstance(data, dict) else None
             if not isinstance(eras, list) or not eras:
                 # Don't cache an empty/garbled answer — let the next attempt retry.
+                daily_budget_refund()
                 self.send_json(502, {"error": "The AI's answer was incomplete. Please try again."})
                 return
             result = {"demo": False, "country": data.get("country", country), "eras": eras}
@@ -600,9 +615,11 @@ class Handler(BaseHTTPRequestHandler):
                 return
             data, error = fetch_country_profile(country)
             if error:
+                daily_budget_refund()
                 self.send_json(502, {"error": error})
                 return
             if not isinstance(data, dict) or not data.get("overview"):
+                daily_budget_refund()
                 self.send_json(502, {"error": "The profile came back empty. Please try again."})
                 return
             result = {"country": country, "profile": data}
@@ -633,10 +650,12 @@ class Handler(BaseHTTPRequestHandler):
             subject = "%s — %s%s" % (country, era, (" (" + period + ")") if period else "")
             data, error = fetch_story(subject)
             if error:
+                daily_budget_refund()
                 self.send_json(502, {"error": error})
                 return
             beats = data.get("beats") if isinstance(data, dict) else None
             if not isinstance(beats, list) or not beats:
+                daily_budget_refund()
                 self.send_json(502, {"error": "The story came back empty. Please try again."})
                 return
             result = {"country": country, "era": era, "story": data}

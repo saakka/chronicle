@@ -58,6 +58,18 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- CODE-REVIEW FIXES, iter 7 (Ahmad: max-effort /code-review → "fix"). The review's own sweep caught a real
+  bug created by iter-5's `do_HEAD = do_GET`: a HEAD probe to /api/{history,profile,story} ran the FULL handler
+  — daily_budget_ok() + a real PAID AI generation — then discarded the body (HEAD must be side-effect-free).
+  FIX #1: do_GET now short-circuits HEAD on the AI paths → headers-only 200, no generation, no budget spend,
+  no rate-limit consumption. FIX #2: new daily_budget_refund() called on all 6 AI-failure paths so a flapping
+  backend can't burn the daily cap (reserve+refund nets zero on failure). TESTS: test_server.py rewritten —
+  the parallel key_lock check is now deterministic (Barrier, not sleep-timing); path-traversal asserts the
+  server.py SOURCE never leaks across 5 payloads (not just "not 200"); port bind is try/excepted + allow_reuse
+  + server_close; and NEW monkeypatched tests (no real AI) exercise the handler success/cache path AND directly
+  verify Fix #1 (HEAD makes no AI call) and Fix #2 (failure refunds the slot). 16/16 pass; py_compile clean.
+  Server-only change (no client cache-bust). DEFERRED (need a careful refcount/refactor, not a rushed patch):
+  _INFLIGHT unbounded growth (#3), the 3-handler copy-paste (#12) and eraTitleOf/preloadHeroImage dedup (#13/#14).
 - REVIEW FOLLOW-UPS, iter 6 (Ahmad: "review" → "fix"). Applied the self-review's actionable items:
   (1) CORRECTNESS — preloadHeroImage now receives `era.title || data.title` (was just `era.title`), matching
   loadPageImage's `legendEraTitle = era.title || data.title || ""`, so the pre-decoded hero always matches what
