@@ -42,10 +42,10 @@ Run autonomously following this process:
 ## NEXT PRIORITIES — content + design tailored to HISTORY GEEKS (Civ-V vibe), set ~by Ahmad
 0. **Bespoke per-country landmark portals (TOP PRIORITY, ongoing):** every country should get its
    OWN landmark silhouette. System built: `LANDMARKS` (SVG) + `LANDMARK_BY_COUNTRY` in app.js + `.landmark`
-   CSS. ~18 iconic done (Eiffel, Taj, Big Ben, Colosseum, Fuji, Great Wall, St Basil's, Christ Redeemer,
-   Opera House, Petra, Angkor, Burj, Parthenon, ziggurat, pyramids, skyline). EXPAND: add more landmark
-   SVGs (Statue of Liberty, Sagrada Família/Alhambra, Brandenburg Gate, Machu Picchu, Hagia Sophia,
-   Leaning Tower, Stonehenge, Christ the King, Petronas, etc.) and map many more countries. Keep regional
+   CSS. ~21 iconic done (Eiffel, Taj, Big Ben, Colosseum, Fuji, Great Wall, St Basil's, Christ Redeemer,
+   Opera House, Petra, Angkor, Burj, Parthenon, ziggurat, pyramids, skyline, + Sagrada Família, Brandenburg
+   Gate, Machu Picchu [iter 8]). EXPAND NEXT: add Statue of Liberty, Hagia Sophia, Alhambra, Leaning Tower,
+   Stonehenge, Moai, Petronas, Sphinx, Christ the King, etc. and map many more countries. Keep regional
    motif as fallback only where no landmark exists yet.
 Wikimedia is broad/generic. Make it richer and more curated:
 1. **Curated image sources** (better than generic Wikimedia): query open cultural-heritage APIs —
@@ -58,6 +58,20 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- LANDMARK SILHOUETTES, iter 8 (autonomous loop — TOP PRIORITY: promote sub-region DEFAULTS into UNIQUE
+  per-country landmark silhouettes). AUDIT: ~18 countries had bespoke icons; the rest fell back to a
+  sub-region motif — fine for minor countries but several MAJOR/high-traffic ones looked generic or plain
+  WRONG. Worst offender: Spain rendered a Greek PARTHENON (via the Southern-Europe default); Germany a
+  generic cathedral; Peru a generic mountain range. 5 RECS this cycle (highest WOW-per-effort, zero API
+  cost — pure SVG): (1) Spain→Sagrada Família, (2) Germany→Brandenburg Gate, (3) Peru→Machu Picchu,
+  (4) Turkey→Hagia Sophia, (5) USA→Statue of Liberty. IMPLEMENTED TOP 3 (1–3): added 3 hand-built SVG
+  silhouettes to LANDMARKS (sagrada = cluster of tapering spires w/ finials; brandenburg = colonnade +
+  entablature + quadriga; machupicchu = sharp Huayna-Picchu peak + terraces + stone huts) and mapped
+  Spain/Germany/Peru in LANDMARK_BY_COUNTRY (ADMIN names verified against the live ne_110m geojson so the
+  mapping can't be silently dead). VERIFIED VISUALLY: rendered all 3 in a standalone portal-style scene
+  (dark #140d06 fill on the sunset gradient, exact .landmark wrapper) + screenshotted — all three read
+  clearly and look great. app.js PARSE_OK (JXA new Function; no node here). Cache-bust v=18. BACKLOG for
+  next iters: recs 4–5 + Italy→Leaning Tower, Chile→Moai, Malaysia→Petronas, Egypt→Sphinx.
 - LOAD SPEED ~10x (Ahmad goal: "optimise code to make the site faster x10"). MEASURED the load first: the
   globe was blocked by ~3.0MB of external assets, dominated by TWO textures — earth-blue-marble.jpg (1.46MB)
   + night-sky.png (904KB) = 2.37MB of imagery on every visit (globe.gl 499KB + geojson 144KB the rest).

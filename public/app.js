@@ -153,6 +153,10 @@ const LANDMARKS = {
   angkor:    "<path d='M50 6 Q46 16 48 26 L52 26 Q54 16 50 6 Z'/><rect x='47' y='26' width='6' height='18'/><path d='M34 13 Q31 20 33 28 L37 28 Q39 20 36 13 Z'/><rect x='33' y='28' width='4' height='16'/><path d='M66 13 Q64 20 67 28 L71 28 Q69 20 66 13 Z'/><rect x='64' y='28' width='4' height='16'/><path d='M22 20 Q20 26 22 31 L26 31 Q28 26 26 20 Z'/><rect x='22' y='31' width='4' height='13'/><path d='M78 20 Q76 26 78 31 L82 31 Q84 26 82 20 Z'/><rect x='78' y='31' width='4' height='13'/>",
   burj:      "<path d='M50 3 L47 22 L44 44 L56 44 L53 22 Z'/><rect x='30' y='28' width='8' height='16'/><rect x='40' y='34' width='5' height='10'/><rect x='60' y='32' width='6' height='12'/><rect x='70' y='26' width='7' height='18'/>",
   skyline:   "<rect x='4' y='28' width='9' height='16'/><rect x='15' y='22' width='8' height='22'/><rect x='25' y='32' width='7' height='12'/><rect x='34' y='18' width='9' height='26'/><rect x='45' y='26' width='8' height='18'/><rect x='55' y='14' width='9' height='30'/><rect x='66' y='24' width='7' height='20'/><rect x='75' y='30' width='8' height='14'/><rect x='85' y='20' width='9' height='24'/>",
+  // — newly promoted per-country landmarks (loop: sub-region default → unique icon) —
+  sagrada:     "<rect x='28' y='33' width='44' height='11'/><path d='M46 33 L50 4 L54 33 Z'/><path d='M37 33 L40 11 L43 33 Z'/><path d='M57 33 L60 11 L63 33 Z'/><path d='M29 33 L31.5 17 L34 33 Z'/><path d='M66 33 L68.5 17 L71 33 Z'/><circle cx='50' cy='5' r='1.3'/><circle cx='40' cy='12' r='1'/><circle cx='60' cy='12' r='1'/>",
+  brandenburg: "<rect x='16' y='16' width='68' height='6'/><rect x='21' y='22' width='4' height='22'/><rect x='31' y='22' width='4' height='22'/><rect x='41' y='22' width='4' height='22'/><rect x='55' y='22' width='4' height='22'/><rect x='65' y='22' width='4' height='22'/><rect x='75' y='22' width='4' height='22'/><rect x='14' y='42' width='72' height='2'/><rect x='42' y='12' width='16' height='4'/><path d='M43 12 Q45 8 47 12 Z'/><path d='M47 12 Q49 8 51 12 Z'/><path d='M51 12 Q53 8 55 12 Z'/><rect x='49' y='8' width='2' height='4'/>",
+  machupicchu: "<polygon points='50,44 72,5 94,44'/><path d='M6 44 V39 H15 V34 H24 V29 H34 V44 Z'/><rect x='25' y='25' width='4' height='4'/><rect x='30' y='26' width='3.5' height='3.5'/>",
   // sub-region fallbacks — so every country gets a fitting silhouette
   mosque:    "<rect x='34' y='30' width='32' height='14'/><path d='M50 12 Q38 20 40 30 L60 30 Q62 20 50 12 Z'/><rect x='49' y='6' width='2' height='6'/><rect x='26' y='16' width='3' height='28'/><path d='M27.5 12 Q25 15 26 16 L29 16 Q30 15 27.5 12 Z'/><rect x='71' y='16' width='3' height='28'/><path d='M72.5 12 Q70 15 71 16 L74 16 Q75 15 72.5 12 Z'/>",
   pagoda:    "<rect x='47' y='12' width='6' height='32'/><polygon points='34,18 50,12 66,18 60,20 50,16 40,20'/><polygon points='31,28 50,22 69,28 62,30 50,26 38,30'/><polygon points='28,38 50,32 72,38 64,40 50,36 36,40'/><rect x='49' y='8' width='2' height='4'/>",
@@ -173,6 +177,7 @@ const LANDMARK_BY_COUNTRY = {
   "China": "greatwall", "Russia": "stbasil", "Brazil": "redeemer", "Australia": "opera",
   "Cambodia": "angkor", "United Arab Emirates": "burj", "United States of America": "skyline",
   "Lebanon": "cedars",
+  "Spain": "sagrada", "Germany": "brandenburg", "Peru": "machupicchu",
 };
 
 // Every UN sub-region gets a fitting landmark, so NO country is left without one.
