@@ -42,11 +42,11 @@ Run autonomously following this process:
 ## NEXT PRIORITIES — content + design tailored to HISTORY GEEKS (Civ-V vibe), set ~by Ahmad
 0. **Bespoke per-country landmark portals (TOP PRIORITY, ongoing):** every country should get its
    OWN landmark silhouette. System built: `LANDMARKS` (SVG) + `LANDMARK_BY_COUNTRY` in app.js + `.landmark`
-   CSS. ~27 iconic done (Eiffel, Taj, Big Ben, Colosseum, Fuji, Great Wall, St Basil's, Christ Redeemer,
+   CSS. ~30 iconic done (Eiffel, Taj, Big Ben, Colosseum, Fuji, Great Wall, St Basil's, Christ Redeemer,
    Opera House, Petra, Angkor, Burj, Parthenon, ziggurat, pyramids, skyline, Sagrada Família, Brandenburg
-   Gate, Machu Picchu, Hagia Sophia, Statue of Liberty, Moai, + Petronas Towers, Borobudur, Persepolis
-   [iter 11]). EXPAND NEXT: add Alhambra, Leaning Tower, Stonehenge, Sphinx, Christ the King, Wat Arun, etc.
-   and map many more countries. Keep regional
+   Gate, Machu Picchu, Hagia Sophia, Statue of Liberty, Moai, Petronas Towers, Borobudur, Persepolis,
+   + Windmill (NL), Wat Arun (TH), Matterhorn (CH) [iter 12]). EXPAND NEXT: add Alhambra, Leaning Tower,
+   Stonehenge, Sphinx, Christ the King, Belém Tower, Obelisco, etc. and map many more countries. Keep regional
    motif as fallback only where no landmark exists yet.
 Wikimedia is broad/generic. Make it richer and more curated:
 1. **Curated image sources** (better than generic Wikimedia): query open cultural-heritage APIs —
@@ -59,6 +59,19 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- LANDMARK SILHOUETTES batch 4, iter 12 (autonomous loop; Ahmad re-ran /loop after the v=21 deploy went live).
+  AUDIT: remaining iconic-but-generic gaps — Netherlands & Switzerland on the Western-Europe "cathedral"
+  default, Thailand on the SE-Asia "temple" default. 5 RECS; implemented top 3: (1) Netherlands → Windmill
+  (tapered body + cap + the 4-sail X — unique, no other country has it), (2) Thailand → Wat Arun (tall tiered
+  central prang + flanking satellite prangs — distinct from the generic single-gable temple), (3) Switzerland
+  → Matterhorn (steep asymmetric peak with a hooked summit — distinct from the multi-peak "mountains" motif).
+  Added 3 SVGs to LANDMARKS + mapped Netherlands/Thailand/Switzerland (ADMIN names verified vs ne_110m).
+  VERIFIED VISUALLY (standalone portal render + screenshots): all 3 read clearly. app.js JS_PARSE_OK. Cache-bust
+  v=22. Committed locally; push to main GATED — this batch (v=22) awaits the next deploy approval. (Everything
+  through v=21 — the epic content pass, the "Where & When" GAME, and landmark batches 1–3 — is already LIVE,
+  deployed via the Render dashboard + verified: the gold Play button is on the live landing page.) BACKLOG:
+  Portugal→Belém (must avoid reading as a generic castle), Egypt→Sphinx (keep pyramids), Argentina→Obelisco;
+  + non-landmark priorities (museum image sources; game polish: 3D-globe reveal + per-round "dive into story").
 - LANDMARK SILHOUETTES batch 3, iter 11 (autonomous loop; Ahmad re-ran /loop). AUDIT: the top remaining
   iconic-but-generic gaps were Malaysia, Indonesia and Iran — all falling back to the generic South / South-
   Eastern-Asia "temple" motif. 5 RECS; implemented top 3: (1) Malaysia → Petronas Towers (twin towers + setback

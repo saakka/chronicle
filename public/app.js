@@ -163,6 +163,9 @@ const LANDMARKS = {
   petronas:    "<rect x='32' y='16' width='10' height='28'/><rect x='34' y='11' width='6' height='5'/><rect x='36.4' y='4' width='1.2' height='7'/><circle cx='37' cy='3.6' r='1'/><rect x='58' y='16' width='10' height='28'/><rect x='60' y='11' width='6' height='5'/><rect x='62.4' y='4' width='1.2' height='7'/><circle cx='63' cy='3.6' r='1'/><rect x='42' y='25' width='16' height='2.4'/><polygon points='43,27.4 49.4,35 50.6,35 44.2,27.4'/><polygon points='57,27.4 50.6,35 49.4,35 55.8,27.4'/>",
   borobudur:   "<rect x='10' y='38' width='80' height='6'/><rect x='18' y='32' width='64' height='6'/><rect x='27' y='26' width='46' height='6'/><rect x='35' y='21' width='30' height='5'/><path d='M43 21 Q43 9 50 8 Q57 9 57 21 Z'/><rect x='49.2' y='5' width='1.6' height='3'/><path d='M37 21 Q37 17 39.5 16.5 Q42 17 42 21 Z'/><path d='M58 21 Q58 17 60.5 16.5 Q63 17 63 21 Z'/>",
   persepolis:  "<rect x='16.5' y='9' width='3' height='35'/><rect x='15.5' y='9' width='5' height='2'/><rect x='26.5' y='9' width='3' height='35'/><rect x='25.5' y='9' width='5' height='2'/><rect x='36' y='13' width='3' height='31'/><rect x='35' y='13' width='5' height='2'/><rect x='44' y='14' width='5' height='30'/><rect x='55' y='14' width='5' height='30'/><rect x='44' y='11' width='16' height='4'/><rect x='67.5' y='9' width='3' height='35'/><rect x='66.5' y='9' width='5' height='2'/><rect x='77' y='20' width='3' height='24'/>",
+  windmill:    "<path d='M41 44 L44 19 L56 19 L59 44 Z'/><path d='M43 19 Q50 12 57 19 Z'/><polygon points='39.3,6.7 40.7,5.3 60.7,25.3 59.3,26.7'/><polygon points='60.7,6.7 59.3,5.3 39.3,25.3 40.7,26.7'/><circle cx='50' cy='16' r='1.8'/>",
+  watarun:     "<polygon points='50,3 46,16 54,16'/><polygon points='45,16 55,16 56,26 44,26'/><polygon points='43,26 57,26 59,38 41,38'/><rect x='41' y='38' width='18' height='6'/><polygon points='26,22 23,30 29,30'/><rect x='24' y='30' width='4' height='14'/><polygon points='74,22 71,30 77,30'/><rect x='72' y='30' width='4' height='14'/>",
+  matterhorn:  "<path d='M16 44 L48 12 L52 6 L51 13 L64 44 Z'/>",
   // sub-region fallbacks — so every country gets a fitting silhouette
   mosque:    "<rect x='34' y='30' width='32' height='14'/><path d='M50 12 Q38 20 40 30 L60 30 Q62 20 50 12 Z'/><rect x='49' y='6' width='2' height='6'/><rect x='26' y='16' width='3' height='28'/><path d='M27.5 12 Q25 15 26 16 L29 16 Q30 15 27.5 12 Z'/><rect x='71' y='16' width='3' height='28'/><path d='M72.5 12 Q70 15 71 16 L74 16 Q75 15 72.5 12 Z'/>",
   pagoda:    "<rect x='47' y='12' width='6' height='32'/><polygon points='34,18 50,12 66,18 60,20 50,16 40,20'/><polygon points='31,28 50,22 69,28 62,30 50,26 38,30'/><polygon points='28,38 50,32 72,38 64,40 50,36 36,40'/><rect x='49' y='8' width='2' height='4'/>",
@@ -186,6 +189,7 @@ const LANDMARK_BY_COUNTRY = {
   "Spain": "sagrada", "Germany": "brandenburg", "Peru": "machupicchu",
   "Turkey": "hagiasophia", "Chile": "moai",
   "Malaysia": "petronas", "Indonesia": "borobudur", "Iran": "persepolis",
+  "Netherlands": "windmill", "Thailand": "watarun", "Switzerland": "matterhorn",
 };
 
 // Every UN sub-region gets a fitting landmark, so NO country is left without one.
