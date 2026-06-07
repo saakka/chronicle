@@ -1014,7 +1014,9 @@ function renderLegend(era, data, index) {
         '<div class="beat-bg"></div><div class="beat-scrim"></div>' +
         '<div class="beat-inner">' +
           (i === 0
-            ? '<p class="beat-kicker">Era ' + toRoman(index + 1) + ' · the legend</p><h2 class="beat-storytitle">' + esc(data.title || era.title || "") + "</h2>"
+            ? '<p class="beat-kicker">Era ' + toRoman(index + 1) + ' · the legend</p>' +
+              '<h2 class="beat-storytitle">' + esc(data.title || era.title || "") + "</h2>" +
+              (era && era.hook ? '<p class="beat-dek">' + esc(era.hook) + "</p>" : "")
             : "") +
           '<p class="beat-num">Page ' + (i + 1) + " of " + n + "</p>" +
           '<p class="beat-text">' + esc(b.text || "") + "</p>" +
@@ -1203,6 +1205,7 @@ async function goToEra(index) {
   eraLegend.innerHTML =
     '<section class="legend-page active"><div class="beat-scrim"></div><div class="beat-inner">' +
     '<p class="beat-kicker">Era ' + toRoman(index + 1) + (era.title ? " · " + esc(era.title) : "") + "</p>" +
+    (era.hook ? '<p class="beat-dek">' + esc(era.hook) + "</p>" : "") +
     '<p class="beat-text" style="opacity:1;transform:none">Summoning the legend of ' + esc(era.title || "this era") + "…</p></div></section>";
 
   const data = await ensureEraStory(index);
@@ -1378,7 +1381,7 @@ async function _fetchImagesRaw(query, max) {
     // PNG. Strongly prefer JPEG so a perfectly-named "…chronology.png" diagram can't out-score an
     // actual photo on relevance alone.
     const photoish = mime === "image/jpeg" ? 4 : 0;
-    const score = relevance * 6 + photoish + Math.log(area) * 0.4 + ratio * 1.0 - i * 0.25;
+    const score = relevance * 6 + photoish + Math.log(area) * 0.55 + ratio * 1.0 - i * 0.25;
     let caption = title.split(":").slice(1).join(":").replace(/\.[^.]+$/, "").replace(/_/g, " ").trim();
     caption = caption
       .split(/\s[-–—]\s/)[0]                              // drop "- Archivio..." tails

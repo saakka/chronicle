@@ -58,6 +58,29 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- EPIC CONTENT PASS, iter 9 (Ahmad: "audit the content, photos and legends — make it more epic, catchy,
+  interesting; someone who ISN'T into history needs to be interested"). AUDIT: the writing was tuned for
+  people who ALREADY love history — the story prompt asked for "the flagship tale a history lover would
+  instantly recognise", the profile was "for curious history geeks", and the 10-era timeline showed only
+  NAME + DATES (meaningless to a newcomer). Photos asked for "concrete/photogenic" but never "striking".
+  5 RECS; implemented top 4: (1) LEGENDS — rewrote STORY_PROMPT: pick the most DRAMATIC/surprising/emotional
+  true tale (betrayal, daring, mystery, downfall), give it a film-like TITLE, BEAT 1 must HOOK (banned "In the
+  year…"), BEAT 6 lands a payoff, plain cinematic language, every beat has stakes. (2) CONTENT — added a
+  per-era "hook": one electrifying movie-poster teaser (8-16 words) in the history schema/prompt (max_tokens
+  1200→2200); rendered as a gold italic DEK under the story title on legend page 0 AND on the era-intro screen
+  (new .beat-dek CSS). (3) PHOTOS — STORY/PROFILE imageQuery now demands visually STRIKING subjects (treasure,
+  monuments, dramatic art, faces); photo scoring area-weight 0.4→0.55 (relevance still dominant, so the
+  out-of-context fix holds). (4) DOSSIER — rewrote PROFILE_PROMPT to lead with WONDER + "wait, WHAT?" funFacts,
+  for ANYONE not just geeks. VERIFIED with REAL generation (edited server run locally, 2 calls): Japan's 10
+  hooks are superb ("Rival warlords shatter Japan into chaos — until three men reunite it by sword and
+  cunning"; "A teenager becomes emperor and transforms a feudal nation into an industrial powerhouse in
+  decades"); the Sengoku story came back cinematic & hook-first ("The Night the Peasant Became a Warlord" →
+  opens on a lowborn man watching a castle burn, betrayal by his own son, seppuku, legacy). Visual check of
+  the new dek typography on legend page 0 = excellent. NOTE: Gemini free tier (20/day) is exhausted, so
+  stories fall back to Claude Haiku — quality confirmed great, but it now costs Claude tokens; watch spend or
+  raise the Gemini quota. py_compile + JS parse OK. Cache-bust v=19. Committed locally; push to main still
+  GATED pending Ahmad's authorization (NOT yet deployed). BACKLOG (rec 5): legend presentation polish
+  (bigger first beat, per-beat micro-kickers) + a museum-art image source (Met/AIC) for painterly images.
 - LANDMARK SILHOUETTES, iter 8 (autonomous loop — TOP PRIORITY: promote sub-region DEFAULTS into UNIQUE
   per-country landmark silhouettes). AUDIT: ~18 countries had bespoke icons; the rest fell back to a
   sub-region motif — fine for minor countries but several MAJOR/high-traffic ones looked generic or plain

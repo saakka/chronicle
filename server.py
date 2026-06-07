@@ -172,13 +172,17 @@ GEMINI_URL = (
 
 # Original, in-depth country profile (own words — not copied from any source).
 PROFILE_PROMPT = (
-    "Write an ORIGINAL, accurate, richly detailed country profile for a history & geography web app, "
-    "in a lively, witty, energetic tone for curious history geeks. Use ENTIRELY your own wording — do "
-    "not copy any TV show, YouTube channel, or article. Be specific and substantive: 2-4 sentences per "
-    "text field. For 'flagMeaning', explain what the flag's colours and symbols stand for. For "
-    "'imageQueries', give 6 short search phrases naming concrete, photogenic subjects (famous landmarks, "
-    "landscapes, cities, cultural scenes) that would find striking real photos — prefer proper nouns. "
-    "Country: "
+    "Write an ORIGINAL, accurate, vivid country profile for a web app that aims to fascinate ANYONE — even "
+    "people who think they find geography or history boring. Use ENTIRELY your own wording (never copy any TV "
+    "show, YouTube channel, or article). Lead with WONDER: the 'overview' must OPEN with the single most "
+    "surprising, jaw-dropping or epic thing about this country, then 2-3 punchy sentences that make a stranger "
+    "want to book a flight or fall down a Wikipedia hole. Keep every text field specific, vivid and energetic "
+    "(2-4 sentences) — never dry or encyclopedic. For 'flagMeaning', explain what the flag's colours and "
+    "symbols stand for. For 'funFacts', give genuinely astonishing 'wait, WHAT?' facts a stranger would "
+    "instantly retell to a friend — surprising, true and specific (no clichés, nothing like 'has a rich "
+    "history'). For 'imageQueries', give 6 short search phrases naming concrete, photogenic, visually STRIKING "
+    "subjects (famous landmarks, dramatic landscapes, iconic cities or cultural scenes) that find spectacular "
+    "real photos — prefer proper nouns. Country: "
 )
 PROFILE_SCHEMA = {
     "type": "OBJECT",
@@ -310,17 +314,27 @@ def fetch_country_profile(country):
 # --- Story mode: the flagship anecdote of an era, as scroll-through beats ---
 STORY_CACHE = {}
 STORY_PROMPT = (
-    "Recount the single most famous true story or legend from this country's given historical era — "
-    "the flagship tale a history lover would instantly recognise. Use ENTIRELY your own original wording "
-    "(do not copy any book, show, or article). Be TIGHT, vivid and cinematic with NO filler or throat-clearing. "
-    "Break it into 6 sequential BEATS. Each beat is ONE punchy sentence (about 18-28 words; never more than two "
-    "very short sentences) that moves the story forward, plus an 'imageQuery': 2-4 words naming ONE "
-    "concrete, photographable thing a museum or encyclopedia would have a real PHOTO of — a named artifact, "
-    "artwork, monument, building, ruin, or famous person. Strongly favour a PROPER NOUN (e.g. 'Jomon flame "
-    "pottery', 'Charlemagne statue Aachen', 'Tutankhamun mask'); add a country or era word only if it sharpens "
-    "the match. Do NOT use abstract or descriptive phrases ('hunter-gatherer settlement reconstruction', 'daily "
-    "life', 'trade routes') — they find no photo; name the THING instead. "
-    "NEVER a map, diagram, document, chart, stamp, banknote, or book cover. "
+    "You are a master storyteller whose job is to make history IRRESISTIBLE to people who think they hate it. "
+    "For the given country and era, choose the single most DRAMATIC, surprising or emotionally gripping true "
+    "story or famous legend — betrayal, daring, mystery, love, revenge, an against-all-odds triumph or a "
+    "stunning downfall. Pick the tale that makes a stranger lean in, not the one a professor would dutifully cite. "
+    "Use ENTIRELY your own original wording (never copy any book, show, or article). "
+    "Give it a short, evocative TITLE that sounds like a film or a myth (e.g. 'The Last Night of Pompeii', "
+    "'The Empress Who Forged a Dynasty') — never a dry textbook label. "
+    "Tell it in 6 sequential BEATS that read like a film. "
+    "BEAT 1 must HOOK instantly — drop us into a vivid moment, a shocking image, or a tantalising question; "
+    "NEVER open with throat-clearing like 'In the year...' or 'The kingdom of...'. "
+    "Each later beat raises the stakes; BEAT 6 lands a real payoff — a twist, a reveal, or a closing line that "
+    "gives chills. Each beat is ONE punchy sentence (about 16-26 words; at most two very short ones), plain and "
+    "cinematic — NO date-dumps, NO jargon (if a term is essential, make it instantly clear), NO dry summary, and "
+    "make every beat feel like something is AT STAKE. Stay historically truthful; if it is legend rather than "
+    "fact, tell it as the legend. "
+    "Also give each beat an 'imageQuery': 2-4 words naming ONE concrete, visually STRIKING thing a museum or "
+    "encyclopedia has a real PHOTO of — a glittering treasure, a famous face or statue, a monument, a ruin, or a "
+    "dramatic artwork. Strongly favour a PROPER NOUN (e.g. 'Tutankhamun gold mask', 'Terracotta Army', 'Bayeux "
+    "Tapestry'); add a country or era word only if it sharpens the match. "
+    "Do NOT use abstract phrases ('hunter-gatherer settlement', 'daily life', 'trade routes') — they find no "
+    "photo; name the THING instead. NEVER a map, diagram, document, chart, stamp, banknote, flag, or book cover. "
     "Country and era: "
 )
 STORY_SCHEMA = {
@@ -355,23 +369,27 @@ def fetch_story(subject):
 # The instructions and output shape we send to the AI
 # ---------------------------------------------------------------------------
 
-SYSTEM_PROMPT = """You are a meticulous historian.
+SYSTEM_PROMPT = """You are a brilliant historian AND a master of the irresistible one-line hook.
 
 Given a country, produce exactly 10 of the most historically significant ERAS in \
 that country's history, ordered chronologically from earliest to most recent. \
 Together they should tell the country's whole story at a glance — they become the \
 chapters of an illustrated timeline.
 
-For each era provide ONLY:
+For each era provide:
 - "title": the SHORT, widely-recognised name of that era, dynasty, kingdom, or period — the \
 label a history lover instantly knows it by (e.g. "Abbasid Caliphate", "Meiji Era", "Viking \
 Age", "Mughal Empire", "Old Kingdom", "Edo Period", "Ottoman Empire"). Make it iconic and \
 concise: at most ~4 words; NO descriptions and NO "and"-joined compounds.
 - "period": its approximate date range, e.g. "c. 3100-2686 BCE", "1789-1815", or \
 "1947-present".
+- "hook": ONE short, electrifying teaser line (about 8-16 words) that makes someone who knows \
+NOTHING about history desperate to dive into this era. Think movie-poster tagline: vivid, human \
+and surprising — a clash, a rise, a fall, a wonder. Plain words, no jargon, no dates. \
+(e.g. for Japan's Sengoku: "Rival warlords set Japan ablaze — until three men reunite it by the sword.")
 
-Be historically accurate; never invent. Keep it terse — titles and dates only, no \
-descriptions. Return exactly 10 eras."""
+Be historically accurate; never invent titles or dates, and the hook must be true to the era, \
+not empty hype. Return exactly 10 eras."""
 
 SCHEMA = {
     "type": "object",
@@ -384,8 +402,9 @@ SCHEMA = {
                 "properties": {
                     "title": {"type": "string"},
                     "period": {"type": "string"},
+                    "hook": {"type": "string"},
                 },
-                "required": ["title", "period"],
+                "required": ["title", "period", "hook"],
                 "additionalProperties": False,
             },
         },
@@ -403,7 +422,7 @@ def fetch_history_from_ai(country):
     """Ask Claude for the country's 10 eras. Returns (data, error_message)."""
     body = {
         "model": HISTORY_MODEL,
-        "max_tokens": 1200,    # 10 eras of title+period only — small + fast
+        "max_tokens": 2200,    # 10 eras of title+period+hook — keep room so JSON isn't truncated
         "system": SYSTEM_PROMPT,
         "output_config": {
             "format": {"type": "json_schema", "schema": SCHEMA},
