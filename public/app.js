@@ -234,8 +234,8 @@ function initGlobe() {
 
   try {
     world = Globe()(el)
-      .backgroundImageUrl("https://unpkg.com/three-globe/example/img/night-sky.png")   // epic starfield
-      .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
+      .backgroundColor("rgba(0,0,0,0)")   // transparent canvas → reveal the CSS starfield/nebula backdrop (drops the 904KB night-sky PNG)
+      .globeImageUrl("earth.jpg")          // self-hosted 1536px texture (~234KB vs the 1.46MB unpkg blue-marble)
       .showAtmosphere(true)
       .atmosphereColor("#7fb2ff")
       .atmosphereAltitude(0.22)
@@ -418,7 +418,7 @@ function initGlobe2D() {
       try { tex = { data: octx.getImageData(0, 0, tw, th).data, w: tw, h: th }; s.bufKey = null; }
       catch (e) { tex = null; }                     // tainted → plain-shaded fallback
     };
-    img.src = "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg";
+    img.src = "earth.jpg";   // self-hosted + same-origin → no canvas taint, and ~6x smaller
   })();
 
   function makeBuffer(D) {

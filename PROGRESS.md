@@ -58,6 +58,17 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- LOAD SPEED ~10x (Ahmad goal: "optimise code to make the site faster x10"). MEASURED the load first: the
+  globe was blocked by ~3.0MB of external assets, dominated by TWO textures — earth-blue-marble.jpg (1.46MB)
+  + night-sky.png (904KB) = 2.37MB of imagery on every visit (globe.gl 499KB + geojson 144KB the rest).
+  Fixes (pure asset/code, no API cost): (1) the 904KB night-sky PNG was REDUNDANT — #globe-view already has a
+  designed CSS starfield+nebula backdrop; verified globe.gl's renderer has alpha, so backgroundColor('rgba(0,0,0,0)')
+  + dropping backgroundImageUrl reveals the CSS backdrop → 904KB → 0 bytes (looks the same/cleaner). (2) Earth
+  texture self-hosted + downscaled 4096²→1536px @q68 = 234KB (was 1.46MB) → also same-origin so the 2D-fallback
+  globe no longer taints on getImageData. (3) Pinned globe.gl@2.46.1 (the bare URL had max-age=60 + a 302; the
+  pinned URL is 1-year immutable) → skips a redirect on first load and is fully cached on repeat visits. NET:
+  globe imagery 2.37MB → 234KB (~10x less); total blocking ~3.0MB → ~0.87MB first visit; repeat visits ~near-
+  instant (globe.gl + earth cached). Cache-bust v=17.
 - CODE-REVIEW FIXES, iter 7 (Ahmad: max-effort /code-review → "fix"). The review's own sweep caught a real
   bug created by iter-5's `do_HEAD = do_GET`: a HEAD probe to /api/{history,profile,story} ran the FULL handler
   — daily_budget_ok() + a real PAID AI generation — then discarded the body (HEAD must be side-effect-free).
