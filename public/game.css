@@ -91,11 +91,29 @@ body.game-open { overflow: hidden; }
 
 .gd-map {
   position: relative; width: 100%; aspect-ratio: 2/1; border-radius: 14px; overflow: hidden;
-  background: #0b1830 url("earth.jpg") center/cover no-repeat; cursor: crosshair;
+  background: #0b1830;
   box-shadow: inset 0 0 0 1px rgba(201,162,75,.25), 0 12px 36px rgba(0,0,0,.45);
 }
+.gd-map-live { cursor: crosshair; touch-action: none; }   /* we handle pan + zoom ourselves */
+.gd-mapinner {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+  background: #0b1830 url("earth.jpg") center/cover no-repeat;
+  transform-origin: 0 0; will-change: transform;
+}
+.gd-zoom { position: absolute; right: 10px; bottom: 30px; z-index: 6; display: flex; flex-direction: column; gap: 6px; }
+.gd-zoombtn {
+  width: 36px; height: 36px; border-radius: 9px; border: 1px solid rgba(201,162,75,.5);
+  background: rgba(12,10,20,.82); color: #f3ead7; font-size: 1.35rem; line-height: 1; cursor: pointer;
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); display: grid; place-items: center;
+}
+.gd-zoombtn:hover { border-color: var(--gold, #c9a24b); background: rgba(12,10,20,.96); }
+.gd-maphint {
+  position: absolute; left: 0; right: 0; bottom: 0; margin: 0; z-index: 4; padding: 6px 10px;
+  text-align: center; font-family: ui-sans-serif, system-ui, sans-serif; font-size: .68rem; letter-spacing: .02em;
+  color: rgba(243,234,215,.85); background: linear-gradient(rgba(6,5,10,0), rgba(6,5,10,.72)); pointer-events: none;
+}
 .gd-pin { position: absolute; width: 16px; height: 16px; border-radius: 50%; transform: translate(-50%, -50%);
-  border: 2.5px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.6); z-index: 3; }
+  border: 2.5px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.6); z-index: 5; }
 .gd-pin-guess { background: #6cc0ff; }
 .gd-pin-truth { background: #ff5a5a; animation: gd-pop .4s ease; }
 @keyframes gd-pop { from { transform: translate(-50%,-50%) scale(0); } 60% { transform: translate(-50%,-50%) scale(1.35); } to { transform: translate(-50%,-50%) scale(1); } }

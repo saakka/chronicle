@@ -143,16 +143,100 @@
   const lngToX = (lng) => (lng + 180) / 360 * 100;   // %
   const latToY = (lat) => (90 - lat) / 180 * 100;    // %
 
-  function mapMarkup(pins, withLine) {
+  // Reveal map: static (scale 1) — pins + connecting line drawn by % inside the inner layer.
+  function revealMapMarkup(pins) {
     let inner = "";
     (pins || []).forEach((p) => {
       inner += '<span class="gd-pin gd-pin-' + p.cls + '" style="left:' + lngToX(p.lng) + '%;top:' + latToY(p.lat) + '%" title="' + esc(p.label || "") + '"></span>';
     });
-    if (withLine && pins.length === 2) {
+    if (pins && pins.length === 2) {
       inner += '<svg class="gd-line" viewBox="0 0 100 100" preserveAspectRatio="none">' +
         '<line x1="' + lngToX(pins[0].lng) + '" y1="' + latToY(pins[0].lat) + '" x2="' + lngToX(pins[1].lng) + '" y2="' + latToY(pins[1].lat) + '"/></svg>';
     }
-    return '<div id="gd-map" class="gd-map">' + inner + '</div>';
+    return '<div class="gd-map gd-map-static"><div class="gd-mapinner">' + inner + '</div></div>';
+  }
+
+  // Guess map: zoomable + pannable so the pin can be placed precisely (e.g. zoom into a city).
+  function guessMapMarkup() {
+    return '<div id="gd-map" class="gd-map gd-map-live">' +
+             '<div id="gd-mapinner" class="gd-mapinner"></div>' +
+             '<span id="gd-guesspin" class="gd-pin gd-pin-guess" hidden></span>' +
+             '<div class="gd-zoom">' +
+               '<button type="button" id="gd-zin" class="gd-zoombtn" aria-label="Zoom in">+</button>' +
+               '<button type="button" id="gd-zout" class="gd-zoombtn" aria-label="Zoom out">−</button>' +
+             '</div>' +
+             '<p class="gd-maphint">scroll or +/− to zoom · drag to pan · tap to drop your pin</p>' +
+           '</div>';
+  }
+
+  // ---- zoomable-map state + helpers (guess phase) ----
+  let mapS = 1, mapTX = 0, mapTY = 0;   // transform applied to #gd-mapinner
+  let guessFrac = null;                  // {fx,fy} guess position in inner-content fractions (0..1)
+  const MAP_MAX = 8;
+  function mapVP() { const m = byId("gd-map"); const r = m.getBoundingClientRect(); return { w: r.width, h: r.height, left: r.left, top: r.top }; }
+  function clampMap(vp) {
+    mapS = Math.min(MAP_MAX, Math.max(1, mapS));
+    mapTX = Math.min(0, Math.max(vp.w * (1 - mapS), mapTX));   // keep the world covering the viewport
+    mapTY = Math.min(0, Math.max(vp.h * (1 - mapS), mapTY));
+  }
+  function applyMap() {
+    const inner = byId("gd-mapinner"); if (!inner) return;
+    const vp = mapVP(); clampMap(vp);
+    inner.style.transform = "translate(" + mapTX + "px," + mapTY + "px) scale(" + mapS + ")";
+    positionGuessPin(vp);
+  }
+  function positionGuessPin(vp) {
+    const pin = byId("gd-guesspin"); if (!pin || !guessFrac) return;
+    pin.hidden = false;
+    pin.style.left = (mapTX + guessFrac.fx * vp.w * mapS) + "px";   // pin lives in viewport space → constant size
+    pin.style.top = (mapTY + guessFrac.fy * vp.h * mapS) + "px";
+  }
+  function zoomAt(px, py, factor) {
+    const ix = (px - mapTX) / mapS, iy = (py - mapTY) / mapS;       // inner px under the focal point
+    mapS = Math.min(MAP_MAX, Math.max(1, mapS * factor));
+    mapTX = px - ix * mapS; mapTY = py - iy * mapS;                 // keep that point under the cursor
+    applyMap();
+  }
+  function placeGuessAt(px, py) {
+    const vp = mapVP();
+    let fx = (px - mapTX) / (vp.w * mapS), fy = (py - mapTY) / (vp.h * mapS);
+    fx = Math.min(1, Math.max(0, fx)); fy = Math.min(1, Math.max(0, fy));
+    guessFrac = { fx: fx, fy: fy };
+    guess = { lng: fx * 360 - 180, lat: 90 - fy * 180 };
+    positionGuessPin(vp);
+    const lock = byId("gd-lock"); if (lock) { lock.disabled = false; lock.textContent = "Lock in guess"; }
+  }
+  function setupGuessMap() {
+    mapS = 1; mapTX = 0; mapTY = 0; guessFrac = null;
+    const map = byId("gd-map"); if (!map) return;
+    applyMap();
+    map.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const vp = mapVP();
+      zoomAt(e.clientX - vp.left, e.clientY - vp.top, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+    }, { passive: false });
+    byId("gd-zin").addEventListener("click", (e) => { e.stopPropagation(); const vp = mapVP(); zoomAt(vp.w / 2, vp.h / 2, 1.7); });
+    byId("gd-zout").addEventListener("click", (e) => { e.stopPropagation(); const vp = mapVP(); zoomAt(vp.w / 2, vp.h / 2, 1 / 1.7); });
+    let down = null, last = null, moved = false;
+    map.addEventListener("pointerdown", (e) => {
+      if (e.target.closest(".gd-zoom")) return;
+      down = { x: e.clientX, y: e.clientY }; last = { x: e.clientX, y: e.clientY }; moved = false;
+      try { map.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    map.addEventListener("pointermove", (e) => {
+      if (!down) return;
+      if (!moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) moved = true;
+      if (moved) { mapTX += e.clientX - last.x; mapTY += e.clientY - last.y; applyMap(); }
+      last = { x: e.clientX, y: e.clientY };
+    });
+    const end = (e) => {
+      if (!down) return;
+      const wasMoved = moved; down = null;
+      if (!wasMoved && !locked) { const vp = mapVP(); placeGuessAt(e.clientX - vp.left, e.clientY - vp.top); }   // a tap (not a pan) drops the pin
+    };
+    map.addEventListener("pointerup", end);
+    map.addEventListener("pointercancel", () => { down = null; });
+    if (!setupGuessMap._resizeBound) { window.addEventListener("resize", () => { if (byId("gd-mapinner")) applyMap(); }); setupGuessMap._resizeBound = true; }
   }
 
   /* ---------- intro ---------- */
@@ -209,8 +293,8 @@
           '<p class="gd-clue">“' + esc(r.clue) + '”</p></div>' +
         '</div>' +
         '<div class="gd-guess">' +
-          '<p class="gd-ask"><b>Where</b> on Earth did this happen? <span class="gd-hint">tap the map</span></p>' +
-          mapMarkup([], false) +
+          '<p class="gd-ask"><b>Where</b> on Earth did this happen? <span class="gd-hint">zoom in &amp; tap to place your pin</span></p>' +
+          guessMapMarkup() +
           '<p class="gd-ask gd-ask-when"><b>When</b>? <span id="gd-year" class="gd-year">1000 CE</span></p>' +
           '<input type="range" id="gd-when" class="gd-when" min="' + YEAR_MIN + '" max="' + YEAR_MAX + '" step="1" value="1000">' +
           '<div class="gd-scale"><span>3000 BCE</span><span>1 CE</span><span>1000</span><span>2025</span></div>' +
@@ -233,26 +317,9 @@
     // when slider
     const when = byId("gd-when"), yr = byId("gd-year");
     when.addEventListener("input", () => { yr.textContent = fmtYear(+when.value); });
-    // where map
-    const map = byId("gd-map");
-    map.addEventListener("click", (e) => {
-      if (locked) return;
-      const rect = map.getBoundingClientRect();
-      const fx = (e.clientX - rect.left) / rect.width;
-      const fy = (e.clientY - rect.top) / rect.height;
-      guess = { lng: fx * 360 - 180, lat: 90 - fy * 180 };
-      placeGuessPin();
-      const lock = byId("gd-lock"); lock.disabled = false; lock.textContent = "Lock in guess";
-    });
+    // where map — zoomable & pannable so the pin can be placed precisely
+    setupGuessMap();
     byId("gd-lock").onclick = lockGuess;
-  }
-
-  function placeGuessPin() {
-    const map = byId("gd-map"); if (!map) return;
-    let pin = map.querySelector(".gd-pin-guess");
-    if (!pin) { pin = document.createElement("span"); pin.className = "gd-pin gd-pin-guess"; map.appendChild(pin); }
-    pin.style.left = lngToX(guess.lng) + "%";
-    pin.style.top = latToY(guess.lat) + "%";
   }
 
   function lockGuess() {
@@ -287,7 +354,7 @@
           '<h2 class="gd-answer">' + esc(p.name) + '</h2></div>' +
         '</div>' +
         '<div class="gd-scorecard">' +
-          mapMarkup(pins, true) +
+          revealMapMarkup(pins) +
           '<div class="gd-scoreline"><span>📍 ' + fmtKm(p.km) + ' away</span>' + bar(p.ls, 5000) + '<b>' + p.ls.toLocaleString() + '</b></div>' +
           '<div class="gd-scoreline"><span>🗓️ you said ' + esc(fmtYear(p.gy)) + ' · it was ' + esc(fmtYear(p.year)) + '</span>' + bar(p.ts, 5000) + '<b>' + p.ts.toLocaleString() + '</b></div>' +
           '<div class="gd-scoreline gd-scoreline-total"><span>Round score</span>' + bar(p.rs, ROUND_MAX) + '<b>' + p.rs.toLocaleString() + ' / ' + ROUND_MAX.toLocaleString() + '</b></div>' +

@@ -59,6 +59,20 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- GAME FIX + ZOOM UPGRADE (Ahmad: the Play button "doesn't work", then "map is not zooming in… place the
+  Eiffel Tower in the exact location"). TWO things: (1) BUG — the Play button was visible but UNCLICKABLE:
+  the landing .globe-overlay is pointer-events:none and only .globe-search re-enabled it; .play-cta (a sibling)
+  inherited none. Fix: .play-cta { pointer-events:auto }. (Shipped as f268233 + DEPLOYED; verified the live
+  Play button opens the game.) (2) ZOOM/PAN — rebuilt the guess map so a precise spot can be pinned: a
+  #gd-mapinner layer scales/translates; scroll-wheel + on-map +/− buttons zoom toward the focal point (≤8×);
+  drag pans (clamped to stay covered); a TAP (<5px move, distinct from a pan) drops the pin. The guess pin
+  lives in VIEWPORT space, repositioned from its stored inner-content fraction on every transform → constant
+  size at any zoom and it lands EXACTLY where you tap; tap→fraction→lat/lng uses the same equirectangular map
+  (zoom-correct). Reveal map stays static (both pins + line). game.css: .gd-mapinner + .gd-zoom/.gd-zoombtn +
+  .gd-maphint; touch-action:none on the live map. VERIFIED in the preview harness: zoomed 2.89×, a tap landed
+  the pin at the exact tapped pixel (pinMatchesTap=true), drag panned, no console errors. Cache-bust game.js
+  v=2 + game.css v=3. The zoom upgrade is committed locally; deploy pending Ahmad's OK. NEXT game polish:
+  pinch-to-zoom on touch, a 3D-globe reveal flourish, per-round "dive into the full story" link.
 - LANDMARK SILHOUETTES batch 4, iter 12 (autonomous loop; Ahmad re-ran /loop after the v=21 deploy went live).
   AUDIT: remaining iconic-but-generic gaps — Netherlands & Switzerland on the Western-Europe "cathedral"
   default, Thailand on the SE-Asia "temple" default. 5 RECS; implemented top 3: (1) Netherlands → Windmill
