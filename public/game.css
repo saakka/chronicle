@@ -81,6 +81,21 @@ body.game-open { overflow: hidden; }
 .gd-answer { font-family: var(--display, "Cinzel", Georgia, serif); font-weight: 700;
   font-size: clamp(1.7rem, 4vw, 2.6rem); line-height: 1.05; color: #fff; margin: 0; text-shadow: 0 2px 20px rgba(0,0,0,.7); }
 
+/* per-round countdown timer */
+.gd-timer { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; }
+.gd-timertrack { flex: 1; height: 9px; border-radius: 999px; background: rgba(255,255,255,.1);
+  overflow: hidden; box-shadow: inset 0 0 0 1px rgba(201,162,75,.18); }
+.gd-timerbar { height: 100%; width: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold, #c9a24b), #ffe6a8);
+  transition: width 1s linear, background .3s ease; }
+.gd-timerbar.gd-timer-warn { background: linear-gradient(90deg, #e0a23c, #ffd27a); }
+.gd-timerbar.gd-timer-danger { background: linear-gradient(90deg, #ff4d4d, #ff9a6a); }
+.gd-timernum { font-family: var(--display, "Cinzel", Georgia, serif); font-size: 1.1rem; color: #f3ead7;
+  min-width: 46px; text-align: right; font-variant-numeric: tabular-nums; }
+.gd-timernum.gd-timer-warn { color: #ffd27a; }
+@keyframes gd-timerpulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+.gd-timernum.gd-timer-danger { color: #ff7a7a; animation: gd-timerpulse 1s ease-in-out infinite; }
+
 /* guess controls */
 .gd-guess { margin-top: 22px; }
 .gd-ask { font-size: 1.18rem; margin: 0 0 10px; color: #f3ead7; }

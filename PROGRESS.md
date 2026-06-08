@@ -59,6 +59,20 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- GAME IMAGES + TIMER (Ahmad: "the pictures are misleading and without a timer the game is not fun"). Audited all 20
+  rounds: the live "biggest JPEG from a name search" picker surfaced 4 outright-WRONG heroes (Great Pyramid = a 19th-c.
+  Lepsius engraving; Moai = a museum specimen on a black background; Christ the Redeemer = a Rio harbour pano with no
+  statue; Statue of Liberty = a 3249×8048 image cropped to green drapery) + 4 weak/cropped (Eiffel mid-tower, Parthenon
+  distant, Forbidden City a side wall, Berlin Wall generic). FIX 1 — CURATED IMAGES: new HERO_FILE map pins one
+  hand-picked, LANDSCAPE, recognizable Commons file per round (resolved via titles= imageinfo @1600px); fetchHeroImage
+  now prefers the pinned file and falls back to the old name-search. Re-picked the 8 bad ones (Berlin Wall → the Vrubel
+  "Fraternal Kiss" mural; Eiffel → from Trocadéro; Liberty → full daylight statue; etc.) + locked the 12 good ones.
+  Verified all 20 resolve + eyeballed every crop in a 16:9 contact sheet. FIX 2 — 60s ROUND TIMER: per-round countdown
+  bar (gold → amber@20s → pulsing red@10s) that auto-submits at zero — with a pin it scores normally, with no pin it
+  shows "No pin dropped"/0 and the reveal frames just the answer (null guess handled in lockGuess/renderReveal/
+  buildRevealMap). Timer stops on every screen change (setHTML/hide). VERIFIED in harness: timer ticks + depletes,
+  curated Liberty/Petra load in-game, no-pin AND with-pin auto-submit both correct, manual lock intact, zero console
+  errors. Cache-bust game.js v=5 + game.css v=6. Deploying live (Ahmad's OK).
 - GAME MAP — REBUILT ON LEAFLET ("make the map zoom better, better graphic, more fluid" — Ahmad). Replaced the
   hand-rolled pan/zoom over a single fixed earth.jpg (which blurred the instant you zoomed in) with a real slippy
   map: Leaflet 1.9.4 + CARTO dark_all retina tiles (@2x). Now CRISP AT EVERY ZOOM LEVEL (native tiles per level —

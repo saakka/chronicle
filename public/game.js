@@ -57,6 +57,7 @@
 
   const ROUND_MAX = 10000;   // 5000 location + 5000 time
   const N = 5;               // mysteries per daily game
+  const ROUND_SECONDS = 60;  // per-round countdown — auto-submits at zero
   const YEAR_MIN = -3000, YEAR_MAX = 2025;
 
   /* ---------- math + scoring ---------- */
@@ -97,26 +98,72 @@
   const fmtKm   = (km) => km < 1 ? "less than 1 km" : (km < 20 ? km.toFixed(0) + " km" : Math.round(km).toLocaleString() + " km");
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 
-  /* ---------- image fetch (Wikimedia Commons; promise-cached) ---------- */
+  /* ---------- hero images (curated Commons files, with a search fallback) ----------
+     Each round pins one hand-picked, recognizable, LANDSCAPE photo (by exact Commons
+     file title), resolved to a thumbnail at runtime. If a pinned file ever fails we
+     fall back to the old name-search. Curation kills the misleading auto-picks the
+     "biggest JPEG from a name search" used to surface — 19th-c. engravings, museum
+     artifacts on black, city panoramas, and extreme-aspect images that cropped to a
+     confusing slice (e.g. the Statue of Liberty showing only drapery). */
+  const HERO_FILE = {
+    "Great Pyramid of Giza": "File:The Great Pyramid of Giza from southeast corner.JPG",
+    "Stonehenge": "File:Stonehenge, Condado de Wiltshire, Inglaterra, 2014-08-12, DD 18.JPG",
+    "Parthenon Athens": "File:Parthenon, Acropolis, Athens, Greece.jpg",
+    "Terracotta Army": "File:Terracotta Army, View of Pit 1.jpg",
+    "Al-Khazneh Petra": "File:Petra , Al-Khazneh 2.jpg",
+    "Pompeii ruins": "File:Pompeii Ruins (48440776966).jpg",
+    "Colosseum": "File:Colosseum of Rome, Italy.jpg",
+    "Hagia Sophia": "File:Hagia Sophia Mars 2013.jpg",
+    "Borobudur": "File:Borobudur-Temple-Park Indonesia Stupas-of-Borobudur-11.jpg",
+    "Chichen Itza": "File:Chichen Itza, El Castillo (14180679857).jpg",
+    "Angkor Wat": "File:Angkor Wat with its reflection (cropped).jpg",
+    "Forbidden City": "File:Beijing, Forbidden City, Hall of Supreme Harmony (6170352582).jpg",
+    "Machu Picchu": "File:80 - Machu Picchu - Juin 2009 - edit.jpg",
+    "Moai": "File:Easter Island, Ahu Tongariki (6696298947).jpg",
+    "Taj Mahal": "File:Taj Mahal Sunset.jpg",
+    "Statue of Liberty": "File:New York City (New York, USA), Statue of Liberty -- 2012 -- 6660.jpg",
+    "Eiffel Tower": "File:Eiffel tower from trocadero.jpg",
+    "Christ the Redeemer": "File:Christ the Redeemer-(Corcovado) side frontal view.jpg",
+    "Berlin Wall": "File:East Side Gallery - Dmitri Vrubel - Le baiser (Berlin).jpg",
+    "Sydney Opera House": "File:Sydney Harbour with view of Opera House on a cloudy day (50746511306).jpg",
+  };
   const IMGC = new Map();
-  function fetchHeroImage(query) {
+  async function resolveFile(file) {   // pinned Commons title → thumbnail URL
+    const params = new URLSearchParams({
+      action: "query", format: "json", origin: "*",
+      titles: file, prop: "imageinfo", iiprop: "url", iiurlwidth: "1600",
+    });
+    try {
+      const r = await fetch("https://commons.wikimedia.org/w/api.php?" + params.toString());
+      const d = await r.json();
+      const pg = Object.values((d.query && d.query.pages) || {})[0] || {};
+      const ii = pg.imageinfo && pg.imageinfo[0];
+      return ii ? (ii.thumburl || ii.url) : null;
+    } catch (e) { return null; }
+  }
+  async function searchImage(query) {   // fallback: biggest on-topic JPEG by name
+    const params = new URLSearchParams({
+      action: "query", format: "json", origin: "*", generator: "search",
+      gsrsearch: query, gsrnamespace: "6", gsrlimit: "8",
+      prop: "imageinfo", iiprop: "url|mime|size", iiurlwidth: "1280",
+    });
+    try {
+      const r = await fetch("https://commons.wikimedia.org/w/api.php?" + params.toString());
+      const d = await r.json();
+      const pages = Object.values((d.query && d.query.pages) || {});
+      const cand = pages
+        .map((pg) => (pg.imageinfo && pg.imageinfo[0]) || {})
+        .filter((i) => i.mime === "image/jpeg" && (i.thumburl || i.url) && (i.width || 0) >= 700);
+      cand.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+      return cand[0] ? (cand[0].thumburl || cand[0].url) : null;
+    } catch (e) { return null; }
+  }
+  function fetchHeroImage(query) {   // promise-cached by query string
     if (IMGC.has(query)) return IMGC.get(query);
     const p = (async () => {
-      const params = new URLSearchParams({
-        action: "query", format: "json", origin: "*", generator: "search",
-        gsrsearch: query, gsrnamespace: "6", gsrlimit: "8",
-        prop: "imageinfo", iiprop: "url|mime|size", iiurlwidth: "1280",
-      });
-      try {
-        const r = await fetch("https://commons.wikimedia.org/w/api.php?" + params.toString());
-        const d = await r.json();
-        const pages = Object.values((d.query && d.query.pages) || {});
-        const cand = pages
-          .map((pg) => (pg.imageinfo && pg.imageinfo[0]) || {})
-          .filter((i) => i.mime === "image/jpeg" && (i.thumburl || i.url) && (i.width || 0) >= 700);
-        cand.sort((a, b) => (b.width * b.height) - (a.width * a.height));
-        return cand[0] ? (cand[0].thumburl || cand[0].url) : null;
-      } catch (e) { return null; }
+      const file = HERO_FILE[query];
+      if (file) { const u = await resolveFile(file); if (u) return u; }   // curated pick
+      return await searchImage(query);                                    // fallback
     })();
     IMGC.set(query, p);
     return p;
@@ -124,19 +171,45 @@
 
   /* ---------- state ---------- */
   let queue = [], idx = 0, total = 0, plays = [], mode = "daily", guess = null, locked = false;
+  let timerId = null, timeLeft = 0;
 
   /* ---------- tiny DOM helpers ---------- */
   let game;
   const byId = (id) => document.getElementById(id);
-  function setHTML(html) { destroyMap(); game.innerHTML = html; }
+  function setHTML(html) { destroyMap(); stopTimer(); game.innerHTML = html; }
   function show() { game.hidden = false; document.body.classList.add("game-open"); window.scrollTo(0, 0); }
-  function hide() { game.hidden = true; document.body.classList.remove("game-open"); }
+  function hide() { stopTimer(); game.hidden = true; document.body.classList.remove("game-open"); }
 
   function toast(msg) {
     let t = byId("gd-toast");
     if (!t) { t = document.createElement("div"); t.id = "gd-toast"; t.className = "gd-toast"; document.body.appendChild(t); }
     t.textContent = msg; t.classList.add("show");
     clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2600);
+  }
+
+  /* ---------- per-round countdown (auto-submits at zero) ---------- */
+  function stopTimer() { if (timerId) { clearInterval(timerId); timerId = null; } }
+  function startTimer() {
+    stopTimer();
+    timeLeft = ROUND_SECONDS;
+    updateTimerUI();
+    timerId = setInterval(() => {
+      timeLeft--;
+      updateTimerUI();
+      if (timeLeft <= 0) { stopTimer(); onTimeUp(); }
+    }, 1000);
+  }
+  function updateTimerUI() {
+    const bar = byId("gd-timerbar"), num = byId("gd-timernum");
+    if (!bar) return;
+    bar.style.width = Math.max(0, timeLeft / ROUND_SECONDS * 100) + "%";
+    bar.className = "gd-timerbar" + (timeLeft <= 10 ? " gd-timer-danger" : timeLeft <= 20 ? " gd-timer-warn" : "");
+    if (num) { num.textContent = timeLeft + "s"; num.className = "gd-timernum" + (timeLeft <= 10 ? " gd-timer-danger" : timeLeft <= 20 ? " gd-timer-warn" : ""); }
+  }
+  function onTimeUp() {
+    if (locked) return;
+    toast("⏱ Time's up — locking in your guess.");
+    lockGuess(true);   // force-submit whatever's set (no pin ⇒ 0 for location)
   }
 
   /* ---------- Leaflet maps (guess + reveal) ----------
@@ -185,16 +258,19 @@
   function revealMapMarkup() { return '<div id="gd-revealmap" class="gd-map gd-map-static"></div>'; }
   function buildRevealMap(p) {
     if (typeof L === "undefined" || !byId("gd-revealmap")) return;
-    const g = [p.glat, p.glng], t = [p.lat, p.lng];
+    const hasGuess = p.glat != null && p.glng != null;
+    const g = hasGuess ? [p.glat, p.glng] : null, t = [p.lat, p.lng];
     const map = L.map("gd-revealmap", Object.assign({
       zoomControl: false, attributionControl: true, scrollWheelZoom: false, zoomSnap: 0.25,
     }, COMMON));
     L.tileLayer(TILE_URL, TILE_OPTS).addTo(map);
-    L.polyline([g, t], { color: "#ffd27a", weight: 2, opacity: .85, dashArray: "5 7", interactive: false }).addTo(map);
+    if (hasGuess) {
+      L.polyline([g, t], { color: "#ffd27a", weight: 2, opacity: .85, dashArray: "5 7", interactive: false }).addTo(map);
+      L.marker(g, { icon: pinIcon("guess"), interactive: false }).addTo(map);
+    }
     L.marker(t, { icon: pinIcon("truth"), interactive: false }).addTo(map);
-    L.marker(g, { icon: pinIcon("guess"), interactive: false }).addTo(map);
     lmap = map;
-    const fit = () => map.fitBounds([g, t], { padding: [55, 55], maxZoom: 7, animate: false });
+    const fit = () => hasGuess ? map.fitBounds([g, t], { padding: [55, 55], maxZoom: 7, animate: false }) : map.setView(t, 4, { animate: false });
     fit();
     setTimeout(() => { if (lmap === map) { map.invalidateSize(); fit(); } }, 60);
   }
@@ -248,6 +324,7 @@
     setHTML(
       '<button class="gd-exit" id="gd-exit">← Quit</button>' +
       '<div class="gd-round">' +
+        '<div class="gd-timer"><div class="gd-timertrack"><div class="gd-timerbar" id="gd-timerbar"></div></div><span class="gd-timernum" id="gd-timernum">' + ROUND_SECONDS + 's</span></div>' +
         '<div class="gd-hero" id="gd-hero"><div class="gd-hero-load">summoning a mystery…</div>' +
           '<div class="gd-cluewrap"><p class="gd-roundno">' + (mode === "daily" ? "Daily" : "Endless") + ' · Mystery ' + (idx + 1) + ' of ' + N + '</p>' +
           '<p class="gd-clue">“' + esc(r.clue) + '”</p></div>' +
@@ -279,18 +356,21 @@
     when.addEventListener("input", () => { yr.textContent = fmtYear(+when.value); });
     // where map — zoomable & pannable so the pin can be placed precisely
     setupGuessMap();
-    byId("gd-lock").onclick = lockGuess;
+    byId("gd-lock").onclick = () => lockGuess();
+    startTimer();
   }
 
-  function lockGuess() {
-    if (!guess || locked) return;
+  function lockGuess(force) {
+    if (locked || (!guess && !force)) return;
     locked = true;
+    stopTimer();
     const r = queue[idx];
     const gy = +byId("gd-when").value;
-    const km = haversineKm(guess, r);
-    const ls = scoreLoc(km), ts = scoreTime(gy - r.year, r.tol), rs = ls + ts;
+    const km = guess ? haversineKm(guess, r) : null;   // no pin (timed out) ⇒ 0 for location
+    const ls = guess ? scoreLoc(km) : 0;
+    const ts = scoreTime(gy - r.year, r.tol), rs = ls + ts;
     total += rs;
-    plays.push({ name: r.name, country: r.country, year: r.year, gy: gy, km: km, ls: ls, ts: ts, rs: rs, lat: r.lat, lng: r.lng, glat: guess.lat, glng: guess.lng, clue: r.clue, img: r.img });
+    plays.push({ name: r.name, country: r.country, year: r.year, gy: gy, km: km, ls: ls, ts: ts, rs: rs, lat: r.lat, lng: r.lng, glat: guess ? guess.lat : null, glng: guess ? guess.lng : null, clue: r.clue, img: r.img });
     renderReveal();
   }
 
@@ -311,7 +391,7 @@
         '</div>' +
         '<div class="gd-scorecard">' +
           revealMapMarkup() +
-          '<div class="gd-scoreline"><span>📍 ' + fmtKm(p.km) + ' away</span>' + bar(p.ls, 5000) + '<b>' + p.ls.toLocaleString() + '</b></div>' +
+          '<div class="gd-scoreline"><span>📍 ' + (p.km == null ? "No pin dropped" : fmtKm(p.km) + " away") + '</span>' + bar(p.ls, 5000) + '<b>' + p.ls.toLocaleString() + '</b></div>' +
           '<div class="gd-scoreline"><span>🗓️ you said ' + esc(fmtYear(p.gy)) + ' · it was ' + esc(fmtYear(p.year)) + '</span>' + bar(p.ts, 5000) + '<b>' + p.ts.toLocaleString() + '</b></div>' +
           '<div class="gd-scoreline gd-scoreline-total"><span>Round score</span>' + bar(p.rs, ROUND_MAX) + '<b>' + p.rs.toLocaleString() + ' / ' + ROUND_MAX.toLocaleString() + '</b></div>' +
           '<button class="gd-btn gd-btn-primary" id="gd-next">' + (last ? "See your results →" : "Next mystery →") + '</button>' +
