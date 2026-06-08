@@ -244,8 +244,16 @@
     L.tileLayer(TILE_URL, TILE_OPTS).addTo(map);
     map.zoomControl.setPosition("topright");
     map.on("click", (e) => { if (!locked) placeGuess(e.latlng); });
+    // make the world cover the whole (possibly tall) container — no empty bands above/below
+    const applyFill = () => {
+      const s = map.getSize();
+      const fill = Math.max(1, Math.log2(Math.max(s.x, s.y) / 256));
+      map.setMinZoom(fill);
+      if (map.getZoom() < fill) map.setView(map.getCenter(), fill, { animate: false });
+    };
+    map.on("resize", applyFill);
     lmap = map;
-    setTimeout(() => { if (lmap === map) map.invalidateSize(); }, 60);
+    setTimeout(() => { if (lmap === map) { map.invalidateSize(); applyFill(); } }, 60);
   }
   function placeGuess(latlng) {
     guess = { lat: latlng.lat, lng: normLng(latlng.lng) };
@@ -325,16 +333,20 @@
       '<button class="gd-exit" id="gd-exit">← Quit</button>' +
       '<div class="gd-round">' +
         '<div class="gd-timer"><div class="gd-timertrack"><div class="gd-timerbar" id="gd-timerbar"></div></div><span class="gd-timernum" id="gd-timernum">' + ROUND_SECONDS + 's</span></div>' +
-        '<div class="gd-hero" id="gd-hero"><div class="gd-hero-load">summoning a mystery…</div>' +
-          '<div class="gd-cluewrap"><p class="gd-roundno">' + (mode === "daily" ? "Daily" : "Endless") + ' · Mystery ' + (idx + 1) + ' of ' + N + '</p>' +
-          '<p class="gd-clue">“' + esc(r.clue) + '”</p></div>' +
-        '</div>' +
-        '<div class="gd-guess">' +
-          '<p class="gd-ask"><b>Where</b> on Earth did this happen? <span class="gd-hint">zoom in &amp; tap to place your pin</span></p>' +
-          guessMapMarkup() +
-          '<p class="gd-ask gd-ask-when"><b>When</b>? <span id="gd-year" class="gd-year">1000 CE</span></p>' +
-          '<input type="range" id="gd-when" class="gd-when" min="' + YEAR_MIN + '" max="' + YEAR_MAX + '" step="1" value="1000">' +
-          '<div class="gd-scale"><span>3000 BCE</span><span>1 CE</span><span>1000</span><span>2025</span></div>' +
+        '<div class="gd-playarea">' +
+          '<div class="gd-hero" id="gd-hero"><div class="gd-hero-load">summoning a mystery…</div>' +
+            '<div class="gd-cluewrap"><p class="gd-roundno">' + (mode === "daily" ? "Daily" : "Endless") + ' · Mystery ' + (idx + 1) + ' of ' + N + '</p>' +
+            '<p class="gd-clue">“' + esc(r.clue) + '”</p></div>' +
+          '</div>' +
+          '<div class="gd-mapwrap">' +
+            '<p class="gd-ask gd-ask-where"><b>Where?</b> <span class="gd-hint">zoom &amp; tap the map to drop your pin</span></p>' +
+            guessMapMarkup() +
+          '</div>' +
+          '<div class="gd-when-block">' +
+            '<p class="gd-ask gd-ask-when"><b>When?</b> <span id="gd-year" class="gd-year">1000 CE</span></p>' +
+            '<input type="range" id="gd-when" class="gd-when" min="' + YEAR_MIN + '" max="' + YEAR_MAX + '" step="1" value="1000">' +
+            '<div class="gd-scale"><span>3000 BCE</span><span>1 CE</span><span>1000</span><span>2025</span></div>' +
+          '</div>' +
           '<button class="gd-btn gd-btn-primary gd-lock" id="gd-lock" disabled>Drop a pin to lock in</button>' +
         '</div>' +
       '</div>'

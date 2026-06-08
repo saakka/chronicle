@@ -58,8 +58,41 @@ body.game-open { overflow: hidden; }
 .gd-lede { font-size: 1.22rem; line-height: 1.55; color: #ece3cf; margin: 0 0 28px; }
 .gd-lede b { color: #fff; }
 
-/* round + reveal share a centred column */
-.gd-round, .gd-reveal { max-width: 920px; margin: 0 auto; padding: 64px 20px 48px; }
+/* reveal = scrollable centred column */
+.gd-reveal { max-width: 920px; margin: 0 auto; padding: 64px 20px 48px; }
+
+/* round = ONE-PAGE play screen — fits in a single viewport (no scrolling while the clock
+   runs): the image + clue and the WHEN slider on the left, a big WHERE map on the right. */
+.gd-round {
+  max-width: 1200px; margin: 0 auto; height: 100%; box-sizing: border-box;
+  padding: 52px 20px 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.gd-round .gd-timer { margin: 0; flex: 0 0 auto; }
+.gd-playarea {
+  flex: 1 1 auto; min-height: 0; display: grid; gap: 12px 22px;
+  grid-template-columns: minmax(0, 46%) minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas: "hero map" "when map" "lock map";
+}
+.gd-playarea .gd-hero { grid-area: hero; align-self: start; }
+.gd-mapwrap { grid-area: map; min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.gd-when-block { grid-area: when; min-height: 0; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; }
+.gd-round .gd-lock { grid-area: lock; margin: 0; }
+.gd-round .gd-map { flex: 1 1 auto; aspect-ratio: auto; height: auto; min-height: 0; }
+.gd-round .gd-ask { font-size: 1.04rem; margin: 0; }
+.gd-round .gd-ask-where { flex: 0 0 auto; }
+
+@media (max-width: 859px) {
+  /* narrow: stack image → map → when → lock, still aiming for one screen */
+  .gd-round { padding: 50px 14px 12px; gap: 10px; }
+  .gd-playarea {
+    gap: 10px; grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(190px, 1fr) auto auto;
+    grid-template-areas: "hero" "map" "when" "lock";
+  }
+  .gd-playarea .gd-hero { max-height: 30vh; }
+  .gd-when-block { justify-content: flex-start; }
+}
 
 /* hero image band with the clue overlaid */
 .gd-hero {

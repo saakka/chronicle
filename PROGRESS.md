@@ -59,6 +59,14 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- GAME ROUND — ONE-PAGE PLAY SCREEN (Ahmad: "make it fit in 1 page"). The round stacked a 16:9 hero above a 2:1
+  map + controls → far taller than the viewport, forcing scrolling while the 60s clock ran. Restructured loadRound
+  into a CSS-grid two-column layout (.gd-playarea): desktop = image+clue and the WHEN slider/lock on the LEFT, a big
+  WHERE map filling the RIGHT; mobile (≤859px) = stacked image→map→when→lock. All scoped to .gd-round so the
+  reveal/scorecard is untouched. Map now FILLS its (tall) container — setupGuessMap computes a min-zoom so the square
+  Mercator world covers the container (no dark bands above/below), re-applied on Leaflet 'resize'. VERIFIED in harness:
+  desktop scrollHeight==clientHeight (lock in view, map ~660px tall), mobile fits 375×812, click→pin + lock→reveal +
+  3 scorelines intact, curated images load, zero console errors. Cache-bust game.js v=6 + game.css v=7. Deploying live.
 - GAME IMAGES + TIMER (Ahmad: "the pictures are misleading and without a timer the game is not fun"). Audited all 20
   rounds: the live "biggest JPEG from a name search" picker surfaced 4 outright-WRONG heroes (Great Pyramid = a 19th-c.
   Lepsius engraving; Moai = a museum specimen on a black background; Christ the Redeemer = a Rio harbour pano with no
