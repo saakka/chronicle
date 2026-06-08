@@ -59,6 +59,21 @@ Wikimedia is broad/generic. Make it richer and more curated:
 Implement via the Phase-2 audit cycles; keep accuracy + the WOW feel.
 
 ## CHANGELOG (newest first — append every iteration)
+- PUSH TO 90% — REVEAL JUICE + SOUND + 2× CONTENT + DRAGGABLE PIN (Ahmad: "get it to 90%" of GeoGuessr slickness).
+  Closed the EXPERIENTIAL gap (multiplayer/accounts/infinite-Street-View are a different category, out of scope).
+  (1) ANIMATED REVEAL: the result map flies in to frame guess+answer, the guess→truth line draws in, the answer pin
+  drops, then location/time/round scores COUNT UP with bars sweeping (countUp + animatePolyline + runScoreReveal).
+  Results screen: total counts up, rows stagger in, title pops. (2) SOUND: self-contained WebAudio synth module (Snd,
+  no asset files) — pin place, lock, timer ticks (urgent <5s), timeout, count beeps, a score-scaled reveal chord, and a
+  results fanfare; persistent mute toggle (🔊, localStorage), audio unlocks on the Play gesture. (3) CONTENT 20→44:
+  added 24 globally-spread, era-spanning landmarks (Great Wall, Mont-Saint-Michel, Neuschwanstein, Pisa, Sagrada,
+  Alhambra, Big Ben, Notre-Dame, Teotihuacan, Petronas, Burj Khalifa, Golden Gate, Rushmore, Itsukushima, Himeji,
+  St Basil's, Golden Temple, Djenné, Lalibela, Great Zimbabwe, Potala, Bagan, Sigiriya, Kamakura), each with a
+  hand-CURATED landscape Commons image (verified: 44 ROUNDS = 44 HERO_FILE keys, no orphans, all titles resolve +
+  ASCII-safe). (4) MAP: guess pin is now DRAGGABLE to fine-tune + a drop-bounce animation. (5) screen fade-in
+  transitions. VERIFIED in harness: reveal counted up to 4931/5000/9931 with bars + map fly + line draw, full 5-round
+  loop → results, a new round (Lalibela) loaded its curated image, draggable pin + drop anim, ZERO console errors.
+  Cache-bust game.js v=7 + game.css v=8.
 - GAME ROUND — ONE-PAGE PLAY SCREEN (Ahmad: "make it fit in 1 page"). The round stacked a 16:9 hero above a 2:1
   map + controls → far taller than the viewport, forcing scrolling while the 60s clock ran. Restructured loadRound
   into a CSS-grid two-column layout (.gd-playarea): desktop = image+clue and the WHEN slider/lock on the LEFT, a big

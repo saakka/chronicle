@@ -129,6 +129,29 @@ body.game-open { overflow: hidden; }
 @keyframes gd-timerpulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
 .gd-timernum.gd-timer-danger { color: #ff7a7a; animation: gd-timerpulse 1s ease-in-out infinite; }
 
+/* ---------- juice: sound toggle, transitions, animated scores ---------- */
+.gd-mute { position: fixed; top: 16px; right: 16px; z-index: 80; width: 38px; height: 38px;
+  border-radius: 999px; display: grid; place-items: center; font-size: 1rem; cursor: pointer;
+  color: #e9e2d0; background: rgba(20,16,30,.6); border: 1px solid rgba(201,162,75,.3);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: border-color .15s, transform .15s; }
+.gd-mute:hover { border-color: var(--gold, #c9a24b); color: #fff; transform: translateY(-1px); }
+body:not(.game-open) .gd-mute { display: none; }
+
+/* each screen fades in (opacity only — safe over the Leaflet map) */
+@keyframes gd-screen-in { from { opacity: 0; } to { opacity: 1; } }
+.gd-intro, .gd-round, .gd-reveal, .gd-results { animation: gd-screen-in .3s ease both; }
+
+/* reveal: score bars sweep + numbers count up */
+.gd-bar-fill { transition: width .8s cubic-bezier(.2, .85, .25, 1); }
+.gd-num { font-variant-numeric: tabular-nums; }
+
+/* results: pop the total, stagger the rows in */
+@keyframes gd-pop-in { 0% { opacity: 0; transform: scale(.82); } 60% { transform: scale(1.04); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes gd-row-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.gd-results .gd-title { animation: gd-pop-in .55s ease both; }
+.gd-results .gd-emojis { animation: gd-row-in .5s ease .12s both; }
+.gd-results .gd-result-row { animation: gd-row-in .5s ease both; }
+
 /* guess controls */
 .gd-guess { margin-top: 22px; }
 .gd-ask { font-size: 1.18rem; margin: 0 0 10px; color: #f3ead7; }
@@ -164,8 +187,10 @@ body.game-open { overflow: hidden; }
 .gd-mk { position: relative; }
 .gd-mk-dot { position: absolute; top: 50%; left: 50%; width: 15px; height: 15px; margin: -7.5px 0 0 -7.5px;
   border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.7); }
-.gd-mk-guess .gd-mk-dot { background: #6cc0ff; }
+.gd-mk-guess .gd-mk-dot { background: #6cc0ff; animation: gd-drop .42s cubic-bezier(.3, 1.4, .5, 1); }
 .gd-mk-truth .gd-mk-dot { background: #ff5a5a; animation: gd-pop .45s ease; }
+.gd-mk-guess.leaflet-marker-draggable { cursor: grab; }
+@keyframes gd-drop { 0% { transform: translateY(-16px) scale(.5); opacity: 0; } 60% { transform: translateY(0) scale(1.18); } 100% { transform: translateY(0) scale(1); opacity: 1; } }
 .gd-mk-guess::after { content: ""; position: absolute; top: 50%; left: 50%; width: 15px; height: 15px;
   margin: -7.5px 0 0 -7.5px; border-radius: 50%; border: 2px solid rgba(108,192,255,.7); animation: gd-pulse 1.8s ease-out infinite; }
 @keyframes gd-pop { from { transform: scale(0); } 60% { transform: scale(1.35); } to { transform: scale(1); } }
