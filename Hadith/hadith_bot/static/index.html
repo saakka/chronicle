@@ -31,6 +31,16 @@ button:disabled{opacity:.55;cursor:wait}
 .synth .lbl p{margin:4px 0 0;color:var(--muted);font-size:14px}
 .synth details{font-size:12.5px;color:var(--muted);margin-top:6px}.synth details ul{margin:6px 0 0 16px;padding:0}
 .s5{background:var(--s5)}.s4{background:var(--s4)}.s3{background:var(--s3)}.s2{background:var(--s2)}.s1{background:var(--s1)}.s0,.sn{background:var(--s0)}
+/* réponses trouvées */
+.answers{display:none;margin:0 0 16px}.answers.on{display:block}
+.answers h3{margin:0 0 8px;font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.ans{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 16px;margin-bottom:8px;flex-wrap:wrap}
+.ans .sc{width:52px;height:52px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:20px;line-height:1;flex:0 0 auto}
+.ans .sc small{font-family:Amiri,serif;font-size:12px;font-weight:400;margin-top:2px}
+.ans .txt{flex:1;min-width:220px}.ans .txt b{font-size:16px;display:block}.ans .txt .ar{font-size:19px;color:var(--accent);display:block}
+.ans .src{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:46%}
+.ans .src span{font-size:11.5px;border:1px solid var(--line);border-radius:999px;padding:2px 8px;color:var(--muted);cursor:pointer}
+.ans .src span:hover{color:var(--accent);border-color:var(--accent)}
 /* deck */
 .deck{display:none}.deck.on{display:block}
 .nav{display:flex;align-items:center;justify-content:center;gap:16px;margin:6px 0 12px;color:var(--muted);font-size:14px;user-select:none}
@@ -83,8 +93,8 @@ button:disabled{opacity:.55;cursor:wait}
   <input id="q" type="text" placeholder="Posez une question : la prière du voyageur — fasting on Ashura — صيام يوم عاشوراء" autofocus>
   <button id="go" type="submit">Rechercher</button>
   <div class="opts">
-    <label><input type="checkbox" id="llm" checked> Rédaction par Claude</label>
-    <label>Cartes <select id="k"><option>5</option><option selected>8</option><option>12</option></select></label>
+    <label><input type="checkbox" id="llm" checked> Analyse par le modèle local</label>
+    <label>Candidats <select id="k"><option>8</option><option selected>15</option><option>20</option></select></label>
   </div>
 </form>
 
@@ -93,6 +103,7 @@ button:disabled{opacity:.55;cursor:wait}
   <div class="lbl"><h2 id="slbl"></h2><p id="stxt"></p><details><summary>Pourquoi cette note</summary><ul id="sreasons"></ul><div id="slegend"></div></details></div>
 </section>
 
+<section id="answers" class="answers"></section>
 <section id="deck" class="deck">
   <div class="nav"><button id="prev" aria-label="précédent">‹</button><span id="counter">1 / 1</span><div id="dots" class="dots"></div><button id="next" aria-label="suivant">›</button></div>
   <div class="stage"><div id="card" class="card"></div></div>
@@ -108,7 +119,7 @@ const esc=s=>(s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>
 const VERDICT={sahih_rijal:['Narrateurs fiables','#1f8a4c'],hasan_rijal:['Chaîne bonne','#5c9d2f'],hasan_in_tubia:['À corroborer','#c98f0a'],daif:['Chaîne faible','#d9532b'],daif_jiddan:['Chaîne très faible','#a8232a'],incomplete:['Chaîne partielle','#8a8781']};
 let data=null, idx=0, busy=false;
 
-fetch('/health').then(r=>r.json()).then(h=>{$('#status').textContent=`${h.hadiths.toLocaleString('fr')} hadiths · ${h.narrators.toLocaleString('fr')} narrateurs · Claude ${h.llm?'actif':'inactif'}`; if(!h.llm){$('#llm').checked=false;$('#llm').disabled=true;}}).catch(()=>{});
+fetch('/health').then(r=>r.json()).then(h=>{ const m=h.llm_backend==='local'?'modèle local':(h.llm_backend==='anthropic'?'Claude':'sans modèle'); $('#status').textContent=`${h.hadiths.toLocaleString('fr')} hadiths · ${h.narrators.toLocaleString('fr')} narrateurs · ${m} ${h.llm?'actif':'inactif'}`; if(!h.llm){$('#llm').checked=false;$('#llm').disabled=true;}}).catch(()=>{});
 
 function badge(n){ if(!n) return '<span class="badge">؟</span>'; const r=n.grade_rank; return `<span class="badge ${r==null?'':'b'+r}" title="${esc(n.grade_ibn_hajar||n.grade_text||'')}">${esc(n.grade_label_ar)}</span>`; }
 function linkHtml(l){ const n=l.narrator; const alts=(l.alternatives||[]).map(a=>`<div class="n" style="font-size:15px">/ ${esc(a.name)} ${badge(a.narrator)}</div>`).join('');
@@ -120,9 +131,9 @@ function cardHtml(r){ const rel=r.reliability||{}; const sc=rel.score==null?'?':
  return `<div class="top">
    <div class="score ${rel.score==null?'s0':'s'+rel.score}" title="${esc((rel.reasons||[]).join(' · '))}">${sc}<small>${esc(rel.label_ar||'')}</small></div>
    <div class="ref"><b>${esc(r.reference)}</b><span class="ar">${esc(r.collection_name_ar)}</span></div>
-   <div class="chips">${r.grade_source_ar?`<span class="chip gold">${esc(r.grade_source_ar)}</span>`:''}${r.chapter_en?`<span class="chip" title="${esc(r.chapter_ar||'')}">${esc(r.chapter_en)}</span>`:''}${r.relevant_auto===false&&!data.llm_used?'<span class="chip">hors note globale</span>':''}</div>
+   <div class="chips">${r.grade_source_ar?`<span class="chip gold">${esc(r.grade_source_ar)}</span>`:''}${r.chapter_en?`<span class="chip" title="${esc(r.chapter_ar||'')}">${esc(r.chapter_en)}</span>`:''}${r.relevant_auto===false?'<span class="chip">jugé hors sujet</span>':''}</div>
  </div>
- <div class="story"><p class="ar">${esc(s.ar||'')}</p><p class="en">${esc(s.en||'')}</p></div>
+ <div class="story">${r.claim?`<p style="margin:0 0 8px;font-weight:600">↳ ${esc(r.claim)}${r.claim_verified===false?' <span class="chip" title="les nombres de cette réponse ne figurent pas tous dans le texte du hadith">⚠ non vérifié</span>':''}</p>`:''}<p class="ar">${esc(s.ar||'')}</p><p class="en">${esc(s.en||'')}</p></div>
  ${(r.chains||[]).slice(0,2).map(chainHtml).join('')}
  <div class="actions"><button onclick="window.open('/report/${r.id}','_blank')">Générer un rapport</button><button class="ghost" onclick="this.closest('.card').querySelector('.full').classList.toggle('on')">Texte complet</button><span class="muted">${(r.matched_by||[]).includes('phrase')?'expression exacte':''}</span></div>
  <div class="full"><div class="ar">${esc(r.matn_ar||r.text_ar)}</div><div class="en">${esc(r.matn_en||r.text_en||'')}</div><div class="muted" style="margin-top:8px">Isnad :</div><div class="ar" style="font-size:17px">${esc(r.isnad_ar||'')}</div></div>`; }
@@ -139,15 +150,22 @@ function renderSynth(d){ const s=d.synthesis; $('#synth').classList.add('on'); c
  $('#sreasons').innerHTML=(s.reasons||[]).map(x=>`<li>${esc(x)}</li>`).join('');
  $('#slegend').innerHTML='<div style="margin-top:8px">'+Object.keys(s.scale||{}).sort((a,b)=>b-a).map(k=>`<b>${k}/5 ${esc(s.scale[k].label_fr)} (${esc(s.scale[k].label_ar)})</b> : ${esc(s.scale[k].definition)}`).join('<br>')+'</div><div style="margin-top:6px">Note calculée par le système à partir du jugement des recueils croisé avec l\'analyse des narrateurs ; le LLM ne note jamais.</div>'; }
 
-function render(d){ data=d; $('#empty').textContent=''; if(!d.results.length){ $('#synth').classList.remove('on'); $('#deck').classList.remove('on'); $('#empty').textContent='Aucun hadith trouvé dans les six recueils.'; return; }
- renderSynth(d); $('#deck').classList.add('on'); $('#dots').innerHTML=d.results.map((_,j)=>`<i data-j="${j}"></i>`).join(''); $('#answer').textContent=d.answer||''; show(0,null); }
+function renderAnswers(d){ const A=d.answers||[]; const el=$('#answers'); if(!A.length){ el.classList.remove('on'); el.innerHTML=''; return; }
+ const byId={}; d.results.forEach(r=>byId[r.id]=r);
+ el.innerHTML='<h3>Réponses trouvées dans les sources</h3>'+A.map(a=>`<div class="ans"><div class="sc ${a.score==null?'s0':'s'+a.score}" title="${esc((a.reasons||[]).join(' · '))}">${a.score==null?'?':a.score}<small>${esc(a.label_ar||'')}</small></div>
+   <div class="txt"><b>${esc(a.answer)}</b>${a.answer_ar&&a.answer_ar!==a.answer?`<span class="ar">${esc(a.answer_ar)}</span>`:''}${a.answer_en&&a.answer_en!==a.answer?`<span class="muted">${esc(a.answer_en)}</span>`:''}</div>
+   <div class="src">${a.ids.map(i=>byId[i]?`<span data-goto="${d.results.indexOf(byId[i])}">${esc(byId[i].reference)}${(a.unverified_ids||[]).includes(i)?' ⚠':''}</span>`:'').join('')}</div></div>`).join('');
+ el.classList.add('on'); }
+function render(d){ data=d; $('#empty').textContent=''; if(!d.results.length){ $('#synth').classList.remove('on'); $('#deck').classList.remove('on'); $('#answers').classList.remove('on'); $('#empty').textContent='Aucun hadith trouvé dans les six recueils.'; return; }
+ renderSynth(d); renderAnswers(d); $('#deck').classList.add('on'); $('#dots').innerHTML=d.results.map((_,j)=>`<i data-j="${j}"></i>`).join(''); $('#answer').textContent=d.answer||''; show(0,null); }
 
-$('#f').addEventListener('submit',async e=>{ e.preventDefault(); const q=$('#q').value.trim(); if(!q) return; $('#go').disabled=true; $('#empty').textContent='Recherche en cours…'; $('#synth').classList.remove('on'); $('#deck').classList.remove('on');
+$('#f').addEventListener('submit',async e=>{ e.preventDefault(); const q=$('#q').value.trim(); if(!q) return; $('#go').disabled=true; $('#empty').textContent=$('#llm').checked&&!$('#llm').disabled?'Analyse en cours : compréhension de la question, recherche, lecture des hadiths par le modèle local (30 à 60 s)…':'Recherche en cours…'; $('#synth').classList.remove('on'); $('#deck').classList.remove('on');
  try{ const r=await fetch('/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:q,k:+$('#k').value,use_llm:$('#llm').checked})}); if(!r.ok) throw new Error(await r.text()); render(await r.json()); }
  catch(err){ $('#empty').textContent='Erreur : '+err.message; } finally{ $('#go').disabled=false; } });
 $('#q').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('#f').requestSubmit(); } });
 $('#prev').onclick=()=>show(idx-1,-1); $('#next').onclick=()=>show(idx+1,1);
 $('#dots').addEventListener('click',e=>{ const j=e.target.dataset.j; if(j!=null) show(+j, +j>idx?1:-1); });
+$('#answers').addEventListener('click',e=>{ const j=e.target.dataset.goto; if(j!=null){ show(+j, +j>idx?1:-1); $('#deck').scrollIntoView({behavior:'smooth'}); } });
 document.addEventListener('keydown',e=>{ if(!data||e.target.tagName==='INPUT') return; if(e.key==='ArrowRight') show(idx+1,1); if(e.key==='ArrowLeft') show(idx-1,-1); });
 let tx=null; $('#card').addEventListener('touchstart',e=>tx=e.touches[0].clientX,{passive:true}); $('#card').addEventListener('touchend',e=>{ if(tx==null) return; const dx=e.changedTouches[0].clientX-tx; tx=null; if(Math.abs(dx)>50) show(idx+(dx<0?1:-1), dx<0?1:-1); });
 

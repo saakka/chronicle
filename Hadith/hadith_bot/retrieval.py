@@ -152,7 +152,7 @@ def search_hadiths(session: Session, question: str, *, k: int | None = None, use
     k = k or settings.top_k
     queries = [question]
     expansion = None
-    if use_llm and settings.llm_enabled:
+    if use_llm and settings.llm_backend == "anthropic" and settings.llm_enabled:
         from . import llm
 
         expansion = llm.expand_query(question)
@@ -195,34 +195,150 @@ def _first_sentence(t: str | None, n: int = 140) -> str:
     return (t[:n].rsplit(" ", 1)[0] + "…") if len(t) > n else t
 
 
+def fallback_summary(r: dict) -> dict:
+    from .arabic import strip_tashkil
+
+    head_ar = r.get("section_ar") or r.get("chapter_ar") or ""
+    head_en = r.get("section_en") or r.get("chapter_en") or ""
+    return {
+        "ar": _first_sentence(strip_tashkil(head_ar), 90) or _first_sentence(strip_tashkil(r.get("matn_ar") or r.get("text_ar")), 120),
+        "en": (head_en.strip() + " — " if head_en else "") + _first_sentence(r.get("matn_en") or r.get("text_en"), 160),
+        "by_llm": False,
+    }
+
+
 def attach_summaries(results: list[dict], *, use_llm: bool) -> None:
-    """Résumé court ar/en par hadith : LLM si disponible, sinon titre de section + début du texte."""
+    """Résumé court ar/en par hadith (repli : titre de section + début du texte)."""
     gen = None
-    if use_llm and settings.llm_enabled and results:
+    if use_llm and settings.llm_backend == "anthropic" and settings.llm_enabled and results:
         from . import llm
 
         gen = llm.summarize(results)
     for r in results:
         g = (gen or {}).get(r["id"])
-        if g and g.get("ar") and g.get("en"):
-            r["summary"] = {"ar": g["ar"], "en": g["en"], "by_llm": True}
-        else:
-            from .arabic import strip_tashkil
+        r["summary"] = {"ar": g["ar"], "en": g["en"], "by_llm": True} if g and g.get("ar") and g.get("en") else fallback_summary(r)
 
-            head_ar = r.get("section_ar") or r.get("chapter_ar") or ""
-            head_en = r.get("section_en") or r.get("chapter_en") or ""
-            r["summary"] = {
-                "ar": _first_sentence(strip_tashkil(head_ar), 90) or _first_sentence(strip_tashkil(r.get("matn_ar") or r.get("text_ar")), 120),
-                "en": (head_en.strip() + " — " if head_en else "") + _first_sentence(r.get("matn_en") or r.get("text_en"), 160),
-                "by_llm": False,
-            }
+
+def _local_available() -> bool:
+    if settings.llm_backend != "local" or not settings.llm_enabled:
+        return False
+    from . import local_llm
+
+    return local_llm.available()
+
+
+def _scale_dict() -> dict:
+    return {str(k_): {"label_fr": v[0], "label_ar": v[1], "definition": v[2]} for k_, v in SCALE.items()}
+
+
+def _score_answer_group(results: list[dict], g: dict) -> dict:
+    by_id = {r["id"]: r for r in results}
+    syn = score_topic(results, relevant_ids=g["ids"])
+    return {
+        "answer": g["answer"], "answer_ar": g.get("answer_ar") or "", "answer_en": g.get("answer_en") or "", "ids": g["ids"],
+        "unverified_ids": g.get("unverified_ids") or [],
+        "score": syn["score"], "label_fr": syn["label_fr"], "label_ar": syn["label_ar"], "reasons": syn["reasons"],
+        "sources": [by_id[i]["reference"] for i in g["ids"] if i in by_id],
+    }
+
+
+def ask_local(session: Session, question: str, *, k: int, collections: list[str] | None = None) -> dict[str, Any]:
+    """Pipeline autonome : le modèle local comprend la question, la recherche hybride trouve les hadiths,
+    le modèle juge la pertinence et extrait les réponses, le système note chaque réponse."""
+    import time
+
+    from . import local_llm
+
+    t0 = time.time()
+    steps: list[dict] = []
+
+    def step(name: str) -> None:
+        steps.append({"step": name, "t": round(time.time() - t0, 1)})
+
+    u = local_llm.understand(question) or {}
+    step("compréhension")
+    queries = [question] + u.get("queries_ar", []) + u.get("queries_en", [])
+    for extra in (u.get("question_ar"), u.get("question_en")):
+        if extra and extra not in queries:
+            queries.append(extra)
+    hits = hybrid_search(session, queries, k=k, collections=collections)
+    hmap = load_hadiths(session, [h["hadith_id"] for h in hits])
+    results = []
+    for hit in hits:
+        h = hmap.get(hit["hadith_id"])
+        if h is None:
+            continue
+        d = hadith_dict(h)
+        d["score"] = round(hit["score"], 4)
+        d["distance"] = round(hit.get("distance") or 0.0, 4)
+        d["matched_by"] = hit["matched_by"]
+        results.append(d)
+    step(f"recherche ({len(results)} candidats)")
+    looking_for = u.get("looking_for")
+    relevant_ids = local_llm.triage(question, looking_for, results) if results else []
+    step(f"tri ({len(relevant_ids)} pertinents)")
+    rel_set = set(relevant_ids)
+    analysis = local_llm.extract(question, looking_for, [r for r in results if r["id"] in rel_set]) if relevant_ids else {}
+    step("extraction des réponses")
+    claims = []
+    for r in results:
+        a = analysis.get(r["id"]) or {}
+        r["relevant_auto"] = r["id"] in rel_set
+        r["claim"] = (a.get("answer") or "").strip()
+        r["summary"] = {"ar": a.get("summary_ar") or "", "en": a.get("summary_en") or "", "by_llm": True} if (a.get("summary_ar") or a.get("summary_en")) else fallback_summary(r)
+        if r["id"] in rel_set and a.get("answer"):
+            c = local_llm.verify_claim({"id": r["id"], "answer": a["answer"], "answer_key": a.get("answer_key") or ""}, r.get("matn_ar") or r.get("text_ar"))
+            r["claim_verified"] = c["verified"]
+            claims.append(c)
+    groups = local_llm.group(question, claims) if claims else []
+    step(f"regroupement ({len(groups)} réponse(s))")
+    answers = [_score_answer_group(results, g) for g in groups]
+    rel = set(relevant_ids)
+    results.sort(key=lambda r: (0 if r["id"] in rel else 1, -r["score"]))
+    synthesis = score_topic(results, relevant_ids=relevant_ids) if relevant_ids else score_topic([], relevant_ids=None)
+    scored = [a["score"] for a in answers if a["score"] is not None]
+    if scored:
+        synthesis["score"] = max(scored)
+        synthesis["label_fr"], synthesis["label_ar"], synthesis["definition"] = SCALE[synthesis["score"]]
+    synthesis["text"] = answers_text(answers, u.get("language") or "fr") if answers else synthesis_plain({"question": question, "results": results}, synthesis)
+    synthesis["by_llm"] = False
+    synthesis["scale"] = _scale_dict()
+    step("synthèse")
+    payload = {"question": question, "queries": queries, "understanding": u, "results": results, "answers": answers, "synthesis": synthesis, "steps": steps}
+    payload["answer"] = format_plain(payload)
+    payload["llm_used"] = True
+    payload["llm_backend"] = "local"
+    return payload
+
+
+_T = {
+    "fr": ("{a} réponse(s) distincte(s) trouvée(s) dans {n} hadith(s) ; la mieux attestée : {best} ({s}/5).", "aucune réponse explicite trouvée dans les six recueils"),
+    "en": ("{a} distinct answer(s) found in {n} hadith(s); best attested: {best} ({s}/5).", "no explicit answer found in the six collections"),
+    "ar": ("عُثر على {a} جواب مختلف في {n} حديثا؛ أقواها إسنادا: {best} ({s}/5).", "لم يُعثر على جواب صريح في الكتب الستة"),
+}
+
+
+def answers_text(answers: list[dict], lang: str) -> str:
+    """Synthèse déterministe (aucun texte libre du modèle) dans la langue de la question."""
+    fmt, none = _T.get(lang, _T["fr"])
+    if not answers:
+        return none
+    best = max(answers, key=lambda a: ((a["score"] or 0), len(a["ids"])))
+    n = sum(len(a["ids"]) for a in answers)
+    return fmt.format(a=len(answers), n=n, best=best["answer"].rstrip("."), s="?" if best["score"] is None else best["score"])
 
 
 def ask(session: Session, question: str, *, k: int | None = None, use_llm: bool = True, collections: list[str] | None = None) -> dict[str, Any]:
-    payload = search_hadiths(session, question, k=k, use_llm=use_llm, collections=collections)
+    k = k or settings.top_k
+    if use_llm and _local_available():
+        payload = ask_local(session, question, k=k, collections=collections)
+        _log_query(session, question, payload)
+        return payload
+    use_anthropic = use_llm and settings.llm_backend == "anthropic" and settings.llm_enabled
+    payload = search_hadiths(session, question, k=k, use_llm=use_anthropic, collections=collections)
     answer, llm_used, relevant, synthesis_text = None, False, None, None
-    attach_summaries(payload["results"], use_llm=use_llm)
-    if use_llm and settings.llm_enabled and payload["results"]:
+    attach_summaries(payload["results"], use_llm=use_anthropic)
+    if use_anthropic and payload["results"]:
         from . import llm
 
         out = llm.synthesize(question, payload)
@@ -235,25 +351,29 @@ def ask(session: Session, question: str, *, k: int | None = None, use_llm: bool 
         synthesis = score_topic(payload["results"], relevant_ids=auto) if auto else score_topic([], relevant_ids=None)
         if not auto and payload["results"]:
             synthesis.update(score=None, label_fr="Pertinence non établie", label_ar="لم تثبت الصلة",
-                             definition="Des hadiths proches ont été trouvés mais aucun ne contient les termes de la question ; sans LLM le système ne note pas.",
-                             reasons=["aucun résultat ne contient explicitement les termes de la question (reformulez en arabe ou en anglais, ou activez le LLM qui juge la pertinence)"],
+                             definition="Des hadiths proches ont été trouvés mais aucun ne contient les termes de la question ; sans modèle de langage le système ne note pas.",
+                             reasons=["aucun résultat ne contient explicitement les termes de la question (reformulez en arabe ou en anglais, ou activez l'analyse par le modèle)"],
                              hadith_ids=[], considered_ids=[])
     else:
         synthesis = score_topic(payload["results"], relevant_ids=relevant) if relevant else score_topic([], relevant_ids=None)
     synthesis["text"] = synthesis_text or synthesis_plain(payload, synthesis)
     synthesis["by_llm"] = synthesis_text is not None
-    synthesis["scale"] = {str(k): {"label_fr": v[0], "label_ar": v[1], "definition": v[2]} for k, v in SCALE.items()}
+    synthesis["scale"] = _scale_dict()
     payload["synthesis"] = synthesis
-    if answer is None:
-        answer = format_plain(payload)
-    payload["answer"] = answer
+    payload["answers"] = []
+    payload["answer"] = answer or format_plain(payload)
     payload["llm_used"] = llm_used
+    payload["llm_backend"] = "anthropic" if llm_used else "none"
+    _log_query(session, question, payload)
+    return payload
+
+
+def _log_query(session: Session, question: str, payload: dict) -> None:
     try:
-        session.add(QueryLog(question=question, hadith_ids=[r["id"] for r in payload["results"]], llm_used=llm_used))
+        session.add(QueryLog(question=question, hadith_ids=[r["id"] for r in payload["results"]], llm_used=bool(payload.get("llm_used"))))
         session.commit()
     except Exception:  # journal non bloquant
         session.rollback()
-    return payload
 
 
 def synthesis_plain(payload: dict, syn: dict) -> str:
@@ -280,6 +400,12 @@ def format_plain(payload: dict, *, with_synthesis: bool = False) -> str:
     syn = payload.get("synthesis")
     if syn and with_synthesis:
         lines += [format_synthesis(syn), ""]
+    if payload.get("answers"):
+        lines.append("RÉPONSES TROUVÉES")
+        for a in payload["answers"]:
+            sc = "?" if a["score"] is None else a["score"]
+            lines.append(f"  [{sc}/5 {a['label_ar']}] {a['answer']} — sources : {', '.join(a['sources'][:5])}")
+        lines.append("")
     if not payload["results"]:
         return "\n".join(lines + ["Aucun hadith pertinent trouvé dans les six recueils indexés."])
     for i, r in enumerate(payload["results"], 1):
@@ -319,7 +445,7 @@ def hadith_report(session: Session, hadith_id: int, *, use_llm: bool = True) -> 
             nd["hadith_count"] = session.scalar(select(func.count(func.distinct(IsnadLink.hadith_id))).where(IsnadLink.narrator_id == n.id))
             narrators[n.id] = nd
     report = {"hadith": d, "narrators": {str(k): v for k, v in narrators.items()}, "narrative": None, "scale": {str(k): {"label_fr": v[0], "label_ar": v[1], "definition": v[2]} for k, v in SCALE.items()}}
-    if use_llm and settings.llm_enabled:
+    if use_llm and settings.llm_backend == "anthropic" and settings.llm_enabled:
         if hadith_id not in _REPORT_CACHE:
             from . import llm
 

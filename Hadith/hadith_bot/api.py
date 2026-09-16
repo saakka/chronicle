@@ -30,6 +30,11 @@ async def lifespan(app: FastAPI):
         vector.embedder()
     except Exception as e:  # pragma: no cover
         log.warning("embedder non chargé : %s", e)
+    if settings.llm_backend == "local":
+        from . import local_llm
+
+        if local_llm.available():
+            local_llm.warm_up()
     yield
 
 
@@ -51,9 +56,19 @@ def index():
 
 @app.get("/health")
 def health(s: Session = Depends(get_session)):
-    from .llm import available
+    from .retrieval import _local_available
+
+    if settings.llm_backend == "local":
+        available = _local_available
+    elif settings.llm_backend == "anthropic":
+        from .llm import available
+    else:
+        def available() -> bool:
+            return False
 
     return {
+        "llm_backend": settings.llm_backend,
+        "local_model": settings.local_model if settings.llm_backend == "local" else None,
         "status": "ok",
         "hadiths": s.scalar(select(func.count(Hadith.id))),
         "narrators": s.scalar(select(func.count(Narrator.id))),

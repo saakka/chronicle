@@ -31,7 +31,8 @@ question ──► [LLM: reformulations ar/en] ──► ChromaDB (e5 multilingu
 | Parseur d'isnad | termes de transmission, تحويل (ح), co-rapporteurs, « عن أبيه » | `hadith_bot/isnad.py` |
 | Appariement | nom d'isnad → notice (exact, flou, désambiguïsation maître/élève) | `hadith_bot/matching.py` |
 | Jarh wa Taʿdīl | classification des formules + verdict de chaîne | `hadith_bot/grading.py` |
-| Claude | expansion de requête (JSON structuré) et synthèse | `hadith_bot/llm.py` |
+| Modèle local (MLX, Qwen 2.5 7B 4 bits) | comprend la question, génère des formulations « verbatim », trie la pertinence, extrait les réponses et les résumés ; ne note jamais | `hadith_bot/local_llm.py` |
+| Claude (optionnel, `HADITH_LLM_BACKEND=anthropic`) | même rôle via l'API Anthropic | `hadith_bot/llm.py` |
 
 ### Données
 
@@ -105,6 +106,19 @@ JOIN narrators n ON n.id = l.narrator_id WHERE n.grade_rank <= 1;
 ```
 
 Catégories (`narrators.grade_category` / `grade_rank`) : `companion` 6 · `thiqa` 5 · `saduq` 4 · `maqbul` 3 (à corroborer) · `daif` 2 · `matruk` 1 · `kadhdhab` 0 · `unknown` NULL. Les formules sont classées par `grading.classify_grade_text` (marātib d'Ibn Ḥajar) ; la seule mention dans *al-Thiqāt* d'Ibn Ḥibbān est ramenée à `saduq` (تساهل).
+
+## Fonctionnement autonome (sans API)
+
+Par défaut (`HADITH_LLM_BACKEND=local`), un modèle ouvert tourne sur la machine via MLX (Apple Silicon) : `mlx-community/Qwen2.5-7B-Instruct-4bit`, téléchargé une fois (~4,5 Go) dans le cache Hugging Face au premier lancement. Pipeline d'une question (≈ 30 à 60 s sur un M5) :
+
+1. **Compréhension** : langue, intention (fait, règle, récit…), ce qu'il faut extraire, formulations arabes imitant le texte des hadiths (« تزوجني رسول الله وانا بنت ») et anglaises ;
+2. **Recherche hybride** sur toutes les formulations (15 candidats) ;
+3. **Tri** : le modèle ne garde que les hadiths qui contiennent l'information ;
+4. **Extraction** : pour chaque hadith retenu, la réponse telle que le texte la donne, une étiquette de regroupement et un résumé ar/en ;
+5. **Regroupement** des réponses identiques, puis **note /5 par réponse** calculée par `grading.score_topic` (jamais par le modèle) ;
+6. Synthèse déterministe (gabarit dans la langue de la question) : le modèle n'écrit aucun texte libre, pour éviter les inventions.
+
+Exemple : « عمر عائشة عندما تزوجت بالنبي » → « تزوجها وهي بنت ست وبنى بها وهي بنت تسع » 5/5 (Bukhari 5133, 5134, Muslim 3414…) et « بنت سبع… » 4/5 (Ibn Majah 1877, Abu Dawud…).
 
 ## Synthèse notée sur 5
 

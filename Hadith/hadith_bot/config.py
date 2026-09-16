@@ -24,14 +24,16 @@ class Settings(BaseSettings):
     # Dossier des données brutes téléchargées (corpus LK, base Itqan).
     raw_dir: Path = DATA_DIR / "raw"
 
-    # LLM (Claude) : uniquement pour la mise en forme / synthèse. Clé lue par le SDK
-    # (ANTHROPIC_API_KEY ou profil `ant auth login`). Désactivable.
+    # Modèle de langage : "local" (MLX, Qwen 2.5 7B sur Apple Silicon, aucune API), "anthropic" (Claude, clé requise)
+    # ou "none". Le modèle comprend la question, juge la pertinence, extrait les réponses et rédige ; il ne note jamais.
+    llm_backend: str = "local"
+    local_model: str = "mlx-community/Qwen2.5-7B-Instruct-4bit"
     llm_enabled: bool = True
     llm_model: str = "claude-opus-5"
     llm_max_tokens: int = 4000
 
     # Recherche
-    top_k: int = 8
+    top_k: int = 15
     fuzzy_threshold: int = 88  # score rapidfuzz minimal pour lier un nom d'isnad à un narrateur
 
 
