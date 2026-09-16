@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from .config import settings
@@ -184,9 +184,44 @@ def search_hadiths(session: Session, question: str, *, k: int | None = None, use
     return {"question": question, "queries": queries, "expansion": expansion, "results": results}
 
 
+def _first_sentence(t: str | None, n: int = 140) -> str:
+    t = (t or "").strip().replace("\n", " ")
+    if not t:
+        return ""
+    for sep in (". ", "؟", "? ", "! ", "۔"):
+        i = t.find(sep, 40)
+        if 0 < i < n:
+            return t[: i + 1].strip()
+    return (t[:n].rsplit(" ", 1)[0] + "…") if len(t) > n else t
+
+
+def attach_summaries(results: list[dict], *, use_llm: bool) -> None:
+    """Résumé court ar/en par hadith : LLM si disponible, sinon titre de section + début du texte."""
+    gen = None
+    if use_llm and settings.llm_enabled and results:
+        from . import llm
+
+        gen = llm.summarize(results)
+    for r in results:
+        g = (gen or {}).get(r["id"])
+        if g and g.get("ar") and g.get("en"):
+            r["summary"] = {"ar": g["ar"], "en": g["en"], "by_llm": True}
+        else:
+            from .arabic import strip_tashkil
+
+            head_ar = r.get("section_ar") or r.get("chapter_ar") or ""
+            head_en = r.get("section_en") or r.get("chapter_en") or ""
+            r["summary"] = {
+                "ar": _first_sentence(strip_tashkil(head_ar), 90) or _first_sentence(strip_tashkil(r.get("matn_ar") or r.get("text_ar")), 120),
+                "en": (head_en.strip() + " — " if head_en else "") + _first_sentence(r.get("matn_en") or r.get("text_en"), 160),
+                "by_llm": False,
+            }
+
+
 def ask(session: Session, question: str, *, k: int | None = None, use_llm: bool = True, collections: list[str] | None = None) -> dict[str, Any]:
     payload = search_hadiths(session, question, k=k, use_llm=use_llm, collections=collections)
     answer, llm_used, relevant, synthesis_text = None, False, None, None
+    attach_summaries(payload["results"], use_llm=use_llm)
     if use_llm and settings.llm_enabled and payload["results"]:
         from . import llm
 
@@ -229,15 +264,9 @@ def synthesis_plain(payload: dict, syn: dict) -> str:
     if syn["score"] == 0 or not payload["results"]:
         return "Aucun hadith pertinent trouvé dans les six recueils indexés pour cette question."
     by_id = {r["id"]: r for r in payload["results"]}
-    best = by_id[syn["hadith_ids"][0]]
-    refs = ", ".join(by_id[i]["reference"] for i in syn["hadith_ids"][:4])
+    refs = ", ".join(by_id[i]["reference"] for i in syn["hadith_ids"][:3])
     n = len(syn["considered_ids"])
-    txt = (f"Degré de fiabilité {syn['score']}/5 — {syn['label_fr']} ({syn['label_ar']}). "
-           f"{n} hadith(s) retenu(s) parmi les résultats ; attestation la plus solide : {refs}. ")
-    if best.get("matn_en"):
-        txt += f"Texte principal : « {best['matn_en'][:300].strip()} ». "
-    txt += "Note calculée à partir du jugement des recueils et de l'analyse des narrateurs, sans intervention du modèle de langage."
-    return txt
+    return f"{n} hadith(s) retenu(s) ; attestation la plus solide : {refs}."
 
 
 def format_synthesis(syn: dict) -> str:
@@ -269,3 +298,31 @@ def format_plain(payload: dict, *, with_synthesis: bool = False) -> str:
             lines.append(f"   Verdict indicatif : {c['verdict']['label_fr']}")
         lines.append("")
     return "\n".join(lines)
+
+
+_REPORT_CACHE: dict[int, str | None] = {}
+
+
+def hadith_report(session: Session, hadith_id: int, *, use_llm: bool = True) -> dict | None:
+    """Données complètes pour le rapport d'un hadith : fiche, notices et avis des narrateurs, narration LLM (optionnelle)."""
+    h = load_hadiths(session, [hadith_id]).get(hadith_id)
+    if h is None:
+        return None
+    d = hadith_dict(h)
+    attach_summaries([d], use_llm=use_llm)
+    ids = {l["narrator"]["id"] for c in d["chains"] for l in c["links"] for a in [l, *l["alternatives"]] if a.get("narrator") for l in [a]}
+    narrators: dict[int, dict] = {}
+    if ids:
+        rows = session.scalars(select(Narrator).where(Narrator.id.in_(ids)).options(selectinload(Narrator.opinions))).all()
+        for n in rows:
+            nd = narrator_dict(n, with_opinions=True)
+            nd["hadith_count"] = session.scalar(select(func.count(func.distinct(IsnadLink.hadith_id))).where(IsnadLink.narrator_id == n.id))
+            narrators[n.id] = nd
+    report = {"hadith": d, "narrators": {str(k): v for k, v in narrators.items()}, "narrative": None, "scale": {str(k): {"label_fr": v[0], "label_ar": v[1], "definition": v[2]} for k, v in SCALE.items()}}
+    if use_llm and settings.llm_enabled:
+        if hadith_id not in _REPORT_CACHE:
+            from . import llm
+
+            _REPORT_CACHE[hadith_id] = llm.report_narrative(report)
+        report["narrative"] = _REPORT_CACHE[hadith_id]
+    return report

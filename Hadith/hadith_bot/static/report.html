@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapport de hadith</title>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1c1b18;--muted:#6f6b63;--line:#d9d3c6;--accent:#0f6b5b;--gold:#b8923a;--g6:#7b4fb0;--g5:#1f8a4c;--g4:#5c9d2f;--g3:#c98f0a;--g2:#d9532b;--g1:#a8232a;--g0:#6c0e13;--gu:#8a8781}
+*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink);font:14px/1.55 Inter,system-ui,sans-serif}
+.page{max-width:860px;margin:0 auto;padding:32px 28px 60px}
+.ar{font-family:Amiri,serif;direction:rtl;text-align:right}
+.head{display:flex;align-items:center;gap:18px;border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:18px}
+.score{width:84px;height:84px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:30px;line-height:1}
+.score small{font-family:Amiri,serif;font-size:15px;font-weight:400;margin-top:4px}
+.s5{background:#1f8a4c}.s4{background:#2f8f5b}.s3{background:#c98f0a}.s2{background:#d9532b}.s1{background:#a8232a}.s0{background:#8a8781}
+h1{margin:0;font-size:22px}h1 .ar{display:inline;font-size:24px;color:var(--accent);margin-left:8px}
+h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:26px 0 10px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.meta{color:var(--muted);font-size:13px}
+.matn{font-size:24px;line-height:1.9;margin:8px 0}.en{color:#333;font-size:14.5px}
+.story{background:#f6f3ec;border-radius:12px;padding:12px 16px;margin:10px 0}
+.links{display:flex;flex-wrap:wrap;gap:8px;direction:rtl}
+.link{border:1px solid var(--line);border-radius:12px;padding:6px 10px;min-width:120px}
+.link .t{font-size:11px;color:var(--muted)}.link .n{font-family:Amiri,serif;font-size:18px}
+.badge{display:inline-block;margin-top:4px;padding:1px 8px;border-radius:6px;font-size:11px;color:#fff;background:var(--gu);font-family:Amiri,serif}
+.b6{background:var(--g6)}.b5{background:var(--g5)}.b4{background:var(--g4)}.b3{background:var(--g3)}.b2{background:var(--g2)}.b1{background:var(--g1)}.b0{background:var(--g0)}
+.arrow{align-self:center;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}th{color:var(--muted);font-weight:600}
+.nar{page-break-inside:avoid;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0}
+.nar h3{margin:0 0 4px;font-family:Amiri,serif;font-size:21px;direction:rtl;text-align:right}
+.nar .row{font-size:13px;margin:2px 0}.op{font-size:12.5px;direction:rtl;text-align:right;border-top:1px dashed var(--line);padding:4px 0;color:#333}
+.narr{white-space:pre-wrap;background:#f6f3ec;border-radius:12px;padding:14px 16px}
+.toolbar{display:flex;gap:10px;justify-content:flex-end;margin-bottom:10px}
+button{padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font-weight:600;color:var(--accent)}
+.foot{margin-top:30px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);padding-top:10px}
+@media print{.toolbar{display:none}.page{padding:0}body{font-size:12.5px}.matn{font-size:20px}}
+</style>
+</head>
+<body>
+<div class="page" id="page">Chargement…</div>
+<script>
+const esc=s=>(s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const id=location.pathname.split('/').pop();
+const VERDICT={sahih_rijal:'Narrateurs fiables (رجاله ثقات)',hasan_rijal:'Chaîne bonne (رجاله صدوقون)',hasan_in_tubia:'À corroborer (حسن إن توبع)',daif:'Chaîne faible',daif_jiddan:'Chaîne très faible',incomplete:'Chaîne partiellement identifiée'};
+function badge(n){ if(!n) return '<span class="badge">؟</span>'; const r=n.grade_rank; return `<span class="badge ${r==null?'':'b'+r}">${esc(n.grade_label_ar)}</span>`; }
+(async()=>{
+ const r=await fetch(`/hadith/${id}/report`); if(!r.ok){ document.getElementById('page').textContent='Rapport indisponible.'; return; }
+ const d=await r.json(); const h=d.hadith; const rel=h.reliability||{}; const s=h.summary||{}; const N=d.narrators;
+ document.title=`Rapport — ${h.reference}`;
+ const chains=(h.chains||[]).map((c,i)=>`<h2>Chaîne ${i+1}</h2><div class="links">${c.links.map(l=>`<div class="link"><div class="t">${esc(l.term||'')}</div><div class="n">${esc(l.name)}</div>${badge(l.narrator)}</div>`).join('<span class="arrow">←</span>')}</div>
+   <p><b>Verdict indicatif :</b> ${esc(VERDICT[c.verdict.code]||c.verdict.code)} · <span class="ar" style="display:inline">${esc(c.verdict.label_ar)}</span>${c.verdict.weakest?` · maillon le plus faible : ${esc(c.verdict.weakest)}`:''}</p>
+   ${c.verdict.unresolved.length?`<p class="meta">Non identifiés : ${c.verdict.unresolved.map(esc).join(' ، ')}</p>`:''}<p class="meta">${c.verdict.notes.map(esc).join(' ')}</p>
+   <table><tr><th>#</th><th>Nom dans l'isnad</th><th>Terme</th><th>Narrateur identifié</th><th>Méthode</th><th>Jugement</th></tr>
+   ${c.links.map(l=>`<tr><td>${l.position+1}</td><td class="ar">${esc(l.name)}</td><td class="ar">${esc(l.term||'')}</td><td class="ar">${esc(l.narrator?l.narrator.name:'—')}</td><td>${esc(l.match_method||'')}${l.match_score?` (${Math.round(l.match_score)})`:''}</td><td>${l.narrator?esc(l.narrator.grade_label_fr):'non identifié'}</td></tr>`).join('')}</table>`).join('');
+ const seen=new Set(); const narrs=[];
+ (h.chains||[]).forEach(c=>c.links.forEach(l=>[l,...(l.alternatives||[])].forEach(a=>{ if(a.narrator&&!seen.has(a.narrator.id)){ seen.add(a.narrator.id); narrs.push(N[a.narrator.id]||a.narrator); } })));
+ const narHtml=narrs.map(n=>`<div class="nar"><h3>${esc(n.name)} ${badge(n)}</h3>
+   <div class="row"><b>Jugement retenu :</b> ${esc(n.grade_label_fr)}${n.grade_inferred?' (inféré des isnads, non textuel)':''}${n.grade_auto?' (source automatique)':''}</div>
+   ${n.grade_ibn_hajar?`<div class="row"><b>Ibn Ḥajar, Taqrīb :</b> <span class="ar" style="display:inline">${esc(n.grade_ibn_hajar)}</span></div>`:''}
+   ${n.grade_dhahabi?`<div class="row"><b>al-Dhahabī :</b> <span class="ar" style="display:inline">${esc(n.grade_dhahabi)}</span></div>`:''}
+   ${!n.grade_ibn_hajar&&n.grade_text?`<div class="row"><b>Formule source :</b> <span class="ar" style="display:inline">${esc(n.grade_text)}</span></div>`:''}
+   <div class="row"><b>Kunya :</b> ${esc(n.kunya||'—')} · <b>Nisba :</b> ${esc(n.nasab||'—')} · <b>Ṭabaqa :</b> ${esc(n.tabaqa||'—')} · <b>Décès :</b> ${n.death_year_h?n.death_year_h+' H':'—'}${n.hadith_count!=null?` · <b>Hadiths dans la base :</b> ${n.hadith_count}`:''}</div>
+   <div class="row"><b>Ouvrages :</b> ${esc(Object.keys(n.sources||{}).join(', ')||'—')}</div>
+   ${(n.opinions||[]).slice(0,8).map(o=>`<div class="op"><b>${esc(o.critic)}</b> : ${esc(o.opinion)} <span style="color:var(--muted)">[${esc(o.source||'')}]</span></div>`).join('')}</div>`).join('');
+ document.getElementById('page').innerHTML=`
+  <div class="toolbar"><button onclick="window.print()">Imprimer / PDF</button></div>
+  <div class="head"><div class="score ${rel.score==null?'s0':'s'+rel.score}">${rel.score==null?'?':rel.score}<small>${esc(rel.label_ar||'')}</small></div>
+   <div><h1>${esc(h.reference)} <span class="ar">${esc(h.collection_name_ar)}</span></h1>
+   <div class="meta">${esc(h.chapter_en||'')} ${h.chapter_ar?'· <span class="ar" style="display:inline">'+esc(h.chapter_ar)+'</span>':''}${h.section_ar?' · <span class="ar" style="display:inline">'+esc(h.section_ar)+'</span>':''}</div>
+   <div class="meta">Jugement du recueil : <b>${esc(h.grade_source_ar||'—')}</b> · Fiabilité : <b>${rel.score==null?'non évaluée':rel.score+'/5 '+esc(rel.label_fr)}</b> · ${esc((rel.reasons||[]).join(' · '))}</div></div></div>
+  <div class="story"><div class="ar" style="font-size:20px">${esc(s.ar||'')}</div><div class="en">${esc(s.en||'')}</div></div>
+  <h2>Texte</h2><div class="ar matn">${esc(h.text_ar)}</div><div class="en">${esc(h.text_en||'')}</div>
+  ${d.narrative?`<h2>Analyse rédigée</h2><div class="narr">${esc(d.narrative)}</div>`:''}
+  ${chains}
+  <h2>Narrateurs</h2>${narHtml||'<p class="meta">Aucun narrateur identifié.</p>'}
+  <div class="foot">Rapport généré le ${new Date().toLocaleDateString('fr-FR')} · Sources : corpus LK (texte, isnad, jugement), base Itqan (notices, 22 ouvrages classiques), avis de jarh wa taʿdīl sourcés. Verdicts indicatifs : fondés sur les narrateurs identifiés automatiquement ; le jugement final exige la continuité, l'absence de شذوذ et de علة. Aucune fatwa.</div>`;
+})();
+</script>
+</body>
+</html>

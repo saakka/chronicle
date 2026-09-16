@@ -48,6 +48,30 @@ class SynthesisOutput(BaseModel):
     answer: str = Field(description="réponse détaillée : sources, chaînes, jugements, limites")
 
 
+class HadithSummary(BaseModel):
+    id: int
+    ar: str = Field(description="une phrase en arabe (≤ 25 mots) : ce que dit / raconte ce hadith")
+    en: str = Field(description="one English sentence (≤ 25 words): what this hadith says / its story")
+
+
+class SummaryBatch(BaseModel):
+    items: list[HadithSummary]
+
+
+SYSTEM_SUMMARY = (
+    "Pour chaque hadith fourni (id, texte arabe, traduction), écris une phrase en arabe et une phrase en anglais, "
+    "≤ 25 mots chacune, qui disent de quoi parle le hadith (son propos ou son histoire), sans jugement d'authenticité, "
+    "sans commentaire, sans ajouter d'information absente du texte. Rends exactement un item par id."
+)
+
+SYSTEM_REPORT = """Tu rédiges, en français, un rapport d'analyse d'un hadith à partir d'un JSON fermé (texte, chaîne extraite,
+notices et avis de critiques sur chaque narrateur, verdict indicatif, jugement du recueil). Règles : n'ajoute aucune donnée
+absente du JSON ; si un narrateur n'est pas identifié, dis-le ; pas de fatwa. Structure en 4 courts paragraphes :
+1) Le propos du hadith (2-3 phrases, avec les mots arabes clés) ; 2) La chaîne : qui rapporte de qui, avec le jugement de chaque
+maillon et les points d'attention (عنعنة, narrateur مقبول, ambiguïtés d'identification) ; 3) L'évaluation : jugement du recueil /
+d'al-Albânî, verdict indicatif par les narrateurs, note /5 fournie et ce qu'elle signifie ; 4) Limites de l'analyse automatique."""
+
+
 class QueryExpansion(BaseModel):
     language: str = Field(description="Langue de la question : fr, en ou ar")
     queries: list[str] = Field(description="4 à 6 requêtes de recherche (au moins 2 en arabe, 2 en anglais)")
@@ -178,4 +202,71 @@ def synthesize(question: str, payload: dict) -> dict | None:
         return None
     except (anthropic.APIStatusError, anthropic.APIConnectionError) as e:
         log.warning("synthèse LLM indisponible : %s", e)
+        return None
+
+
+def summarize(results: list[dict]) -> dict[int, dict] | None:
+    """Résumé bilingue d'une phrase par hadith (un seul appel). None si LLM indisponible."""
+    c = _client()
+    if c is None or not settings.llm_enabled or not results:
+        return None
+    items = [
+        {"id": r["id"], "ar": (r.get("matn_ar") or r.get("text_ar") or "")[:600], "en": (r.get("matn_en") or r.get("text_en") or "")[:600]}
+        for r in results
+    ]
+    try:
+        resp = c.messages.parse(
+            model=settings.llm_model,
+            max_tokens=4000,
+            system=SYSTEM_SUMMARY,
+            output_config={"effort": "low"},
+            messages=[{"role": "user", "content": json.dumps(items, ensure_ascii=False)}],
+            output_format=SummaryBatch,
+        )
+        if resp.stop_reason == "refusal" or resp.parsed_output is None:
+            return None
+        return {it.id: {"ar": it.ar.strip(), "en": it.en.strip()} for it in resp.parsed_output.items}
+    except (anthropic.AuthenticationError, TypeError) as e:
+        log.warning("résumés LLM désactivés : %s", e)
+        return None
+    except (anthropic.APIStatusError, anthropic.APIConnectionError) as e:
+        log.warning("résumés LLM indisponibles : %s", e)
+        return None
+
+
+def report_narrative(report: dict) -> str | None:
+    """Rapport rédigé (français) pour un hadith. None si LLM indisponible."""
+    c = _client()
+    if c is None or not settings.llm_enabled:
+        return None
+    h = report["hadith"]
+    compact = {
+        "reference": h["reference"], "grade_source_ar": h["grade_source_ar"], "reliability": h.get("reliability"),
+        "matn_ar": (h.get("matn_ar") or "")[:1200], "matn_en": (h.get("matn_en") or "")[:1200], "isnad_ar": (h.get("isnad_ar") or "")[:800],
+        "chains": [
+            {"verdict": c_["verdict"], "links": [
+                {"name": l["name"], "term": l["term"], "match": l["match_method"],
+                 "narrator": None if not l["narrator"] else {k: l["narrator"].get(k) for k in ("name", "grade_label_fr", "grade_ibn_hajar", "grade_dhahabi", "tabaqa", "death_year_h")}}
+                for l in c_["links"]]}
+            for c_ in h.get("chains", [])
+        ],
+        "opinions": {str(nid): [f"{o['critic']}: {o['opinion']}" for o in n.get("opinions", [])[:6]] for nid, n in report["narrators"].items()},
+    }
+    try:
+        with c.messages.stream(
+            model=settings.llm_model,
+            max_tokens=3000,
+            system=SYSTEM_REPORT,
+            output_config={"effort": "medium"},
+            messages=[{"role": "user", "content": json.dumps(compact, ensure_ascii=False)}],
+        ) as stream:
+            msg = stream.get_final_message()
+        if msg.stop_reason == "refusal":
+            return None
+        return "".join(b.text for b in msg.content if b.type == "text").strip() or None
+    except (anthropic.AuthenticationError, TypeError) as e:
+        log.warning("rapport LLM désactivé : %s", e)
+        return None
+    except (anthropic.APIStatusError, anthropic.APIConnectionError) as e:
+        log.warning("rapport LLM indisponible : %s", e)
         return None

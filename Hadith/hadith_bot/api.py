@@ -16,7 +16,7 @@ from .arabic import normalize_name
 from .config import settings
 from .db import get_session, init_db
 from .models import Hadith, IsnadLink, Narrator, NarratorName
-from .retrieval import ask, hadith_dict, load_hadiths, narrator_dict
+from .retrieval import ask, hadith_dict, hadith_report, load_hadiths, narrator_dict
 from . import vector
 
 log = logging.getLogger("hadith_bot")
@@ -69,6 +69,19 @@ def health(s: Session = Depends(get_session)):
 @app.post("/ask")
 def ask_endpoint(req: AskRequest, s: Session = Depends(get_session)):
     return ask(s, req.question, k=req.k, use_llm=req.use_llm, collections=req.collections)
+
+
+@app.get("/report/{hadith_id}", include_in_schema=False)
+def report_page(hadith_id: int):
+    return FileResponse(STATIC / "report.html")
+
+
+@app.get("/hadith/{hadith_id}/report")
+def get_hadith_report(hadith_id: int, use_llm: bool = True, s: Session = Depends(get_session)):
+    r = hadith_report(s, hadith_id, use_llm=use_llm)
+    if r is None:
+        raise HTTPException(404, "hadith introuvable")
+    return r
 
 
 @app.get("/hadith/{hadith_id}")
