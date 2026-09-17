@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>al-Kāfī · Rijāl imamite</title>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Scheherazade+New:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f1f7;--card:#fffdfa;--ink:#1e1b2e;--muted:#6c6880;--line:#e2ddec;--accent:#4b3f9e;--accent-2:#2f8f7a;--gold:#b8923a;--imam:#7b4fb0;
+ --g6:#7b4fb0;--g5:#1f8a4c;--g4:#5c9d2f;--g3:#c98f0a;--g2:#d9532b;--g1:#a8232a;--g0:#6c0e13;--gu:#8a8781;
+ --s5:#1f8a4c;--s4:#2f8f5b;--s3:#c98f0a;--s2:#d9532b;--s1:#a8232a;--s0:#8a8781}
+@media (prefers-color-scheme: dark){:root{--bg:#141320;--card:#1d1b2c;--ink:#ece9f4;--muted:#a49fb8;--line:#2d2a40;--accent:#9d8df0;--accent-2:#4fc2a8;--gold:#e0bb5e;--imam:#b08be0}}
+*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif;min-height:100vh}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(1200px 500px at 80% -10%, rgba(75,63,158,.14), transparent 60%),radial-gradient(900px 400px at -10% 110%, rgba(47,143,122,.12), transparent 60%)}
+.wrap{position:relative;max-width:1040px;margin:0 auto;padding:22px 16px 60px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+h1{margin:0;font-size:20px;font-weight:600}h1 span{font-family:'Scheherazade New',Amiri,serif;font-size:30px;color:var(--accent);margin-right:8px}
+.status{color:var(--muted);font-size:12.5px}a.back{color:var(--accent);text-decoration:none;font-weight:600;font-size:13px}
+.ribbon{font-size:12.5px;color:var(--muted);margin:0 0 14px;padding:8px 12px;border-left:3px solid var(--accent);background:color-mix(in srgb,var(--card),transparent 30%);border-radius:0 10px 10px 0}
+form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=text]{flex:1;min-width:240px;padding:13px 16px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);font-size:16px}
+button{padding:12px 18px;border:0;border-radius:12px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;font-size:14px}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}button:disabled{opacity:.55;cursor:wait}
+.opts{display:flex;gap:14px;align-items:center;color:var(--muted);font-size:12.5px;width:100%;margin-top:2px;flex-wrap:wrap}
+.ar{font-family:'Scheherazade New',Amiri,serif;direction:rtl;text-align:right}
+/* synthèse */
+.synth{display:none;margin:22px 0 14px;align-items:center;gap:18px;flex-wrap:wrap}.synth.on{display:flex}
+.big{width:110px;height:110px;border-radius:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:40px;line-height:1;box-shadow:0 12px 34px rgba(0,0,0,.2);flex:0 0 auto;transform:rotate(-3deg)}
+.big small{font-size:12px;font-weight:500;opacity:.9;margin-top:5px}
+.synth .lbl{flex:1;min-width:220px}.synth .lbl p.short{margin:0 0 6px;font-size:28px;line-height:1.35;font-weight:600;color:var(--ink)}.synth .lbl p.short.ar{font-size:38px;text-align:left;direction:rtl;display:inline-block}
+.synth .lbl .sub{color:var(--muted);font-size:14px}.synth .lbl .sub span{font-family:'Scheherazade New',Amiri,serif;font-size:19px;color:var(--accent)}
+.synth details{font-size:12.5px;color:var(--muted);margin-top:6px}.synth details ul{margin:6px 0 0 16px;padding:0}
+.s5{background:var(--s5)}.s4{background:var(--s4)}.s3{background:var(--s3)}.s2{background:var(--s2)}.s1{background:var(--s1)}.s0,.sn{background:var(--s0)}
+/* réponses */
+.answers{display:none;margin:0 0 16px}.answers.on{display:block}.answers h3{margin:0 0 8px;font-size:12.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.ans{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:16px;padding:12px 16px;margin-bottom:8px;flex-wrap:wrap}
+.ans .sc{width:52px;height:52px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:20px;line-height:1;flex:0 0 auto}
+.ans .sc small{font-family:Amiri,serif;font-size:11px;font-weight:400;margin-top:2px}
+.ans .txt{flex:1;min-width:220px}.ans .txt b{font-size:16px;display:block}.ans .txt .ar{font-size:20px;color:var(--accent);display:block}
+.ans .src{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:46%}.ans .src span{font-size:11.5px;border:1px solid var(--line);border-radius:999px;padding:2px 8px;color:var(--muted);cursor:pointer}
+/* deck */
+.deck{display:none}.deck.on{display:block}
+.nav{display:flex;align-items:center;justify-content:center;gap:16px;margin:6px 0 12px;color:var(--muted);font-size:14px;user-select:none}
+.nav button{width:42px;height:42px;border-radius:50%;padding:0;font-size:20px;line-height:1;background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.nav .dots{display:flex;gap:6px}.nav .dots i{width:8px;height:8px;border-radius:50%;background:var(--line);display:block;cursor:pointer}.nav .dots i.on{background:var(--accent)}
+.stage{perspective:1800px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:22px 24px;box-shadow:0 18px 50px rgba(30,20,60,.16);transform-style:preserve-3d;transition:transform .32s cubic-bezier(.4,.1,.3,1),opacity .32s;transform-origin:center;border-top:4px solid var(--accent)}
+.card.out-l{transform:rotateY(-88deg) translateX(-30px);opacity:.15}.card.out-r{transform:rotateY(88deg) translateX(30px);opacity:.15}
+.card.in-l{transform:rotateY(88deg);opacity:.15;transition:none}.card.in-r{transform:rotateY(-88deg);opacity:.15;transition:none}
+.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.score{width:74px;height:74px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:26px;line-height:1;flex:0 0 auto}
+.score small{font-family:Amiri,serif;font-size:12px;font-weight:400;margin-top:3px;text-align:center;line-height:1.1}
+.ref{flex:1;min-width:200px}.ref b{font-size:19px;display:block}.ref .ar{font-size:22px;color:var(--accent);text-align:left;direction:rtl;display:inline-block}
+.ref .where{color:var(--muted);font-size:12.5px;display:block}
+.chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;border:1px solid var(--line);color:var(--muted)}
+.chip.maj{border-color:var(--gold);color:var(--gold)}.chip.bah{border-color:var(--accent-2);color:var(--accent-2)}
+.story{margin:18px 0 6px;padding:14px 18px;border-radius:16px;background:color-mix(in srgb,var(--card),var(--bg) 55%)}
+.story .ar{font-size:25px;line-height:1.8;margin:0}.story .en{margin:8px 0 0;color:var(--muted);font-size:15px}
+.chain{margin-top:16px}
+.links{display:flex;flex-wrap:wrap;gap:8px;direction:rtl;justify-content:flex-start;align-items:stretch}
+.link{border:1px solid var(--line);border-radius:14px;padding:8px 12px;min-width:128px;background:color-mix(in srgb,var(--card),var(--bg) 40%);cursor:pointer;transition:transform .15s}
+.link:hover{transform:translateY(-2px)}.link .t{font-size:11px;color:var(--muted)}.link .n{font-family:'Scheherazade New',Amiri,serif;font-size:21px;line-height:1.3}
+.link.imam{border-color:var(--imam);background:color-mix(in srgb,var(--imam),var(--card) 86%)}.link.group{border-style:dashed}.link.unnamed{opacity:.7;border-style:dotted}
+.badge{display:inline-block;margin-top:5px;padding:1px 9px;border-radius:7px;font-size:11.5px;color:#fff;background:var(--gu);font-family:Amiri,serif}
+.b6{background:var(--g6)}.b5{background:var(--g5)}.b4{background:var(--g4)}.b3{background:var(--g3)}.b2{background:var(--g2)}.b1{background:var(--g1)}.b0{background:var(--g0)}
+.arrow{align-self:center;color:var(--muted);font-size:18px}
+.vline{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:14px;flex-wrap:wrap}.dot{width:12px;height:12px;border-radius:50%;display:inline-block}.vline .ar{font-size:19px}
+.actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;align-items:center}
+.full{display:none;margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}.full.on{display:block}.full .ar{font-size:21px;line-height:1.9}.full .en{color:var(--muted);font-size:14px;margin-top:8px}
+.muted{color:var(--muted);font-size:12.5px}
+.more{margin-top:18px}.more summary{cursor:pointer;color:var(--accent);font-size:13px}.more pre{white-space:pre-wrap;font:13px/1.5 Inter,system-ui,sans-serif;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.empty{color:var(--muted);text-align:center;padding:30px}
+/* comparaison avec la Sunna (optionnelle) */
+.cmp{display:none;margin:14px 0;padding:14px 16px;border-radius:16px;border:1px solid var(--line);background:var(--card)}.cmp.on{display:block}
+.cmp h3{margin:0 0 8px;font-size:12.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.cmp b.st{padding:2px 10px;border-radius:999px;color:#fff;margin-right:8px}.cmp .concordant{background:var(--g5)}.cmp .divergent{background:var(--g3)}.cmp .indetermine{background:var(--gu)}
+.cmp .sunni{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px}.cmp .sunni .sc{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:20px}
+.cmp .sunni .ar{font-size:22px}
+/* narrateur */
+.pop{position:fixed;inset:auto 16px 16px auto;max-width:460px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.3);display:none;max-height:72vh;overflow:auto;z-index:9}
+.pop.on{display:block}.pop h3{margin:0 0 6px;font-family:'Scheherazade New',Amiri,serif;font-size:24px;direction:rtl;text-align:right}
+.pop .row{font-size:13px;margin:3px 0}.pop .op{border-top:1px dashed var(--line);padding:6px 0;font-size:13px;direction:rtl;text-align:right}
+.pop .close{float:right;background:none;color:var(--muted);padding:0 6px;font-size:16px}
+@media (max-width:640px){.card{padding:16px}.big{width:84px;height:84px;font-size:30px}.story .ar{font-size:21px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1><span>الكافي</span>Ḥadīth imamite · ʿIlm al-Rijāl</h1>
+  <span id="status" class="status"></span>
+  <a class="back" href="/">← Section sunnite</a>
+</header>
+<p class="ribbon">Corpus : al-Kāfī (al-Kulaynī), 8 volumes. Chaînes lues jusqu'à l'Imam ; narrateurs jugés d'après al-Jawāhirī (résumé de Khūʾī), Najāshī, Ṭūsī, Ḥillī ; note fondée sur Mirʾāt al-ʿuqūl de Majlisī. L'outil décrit, il ne tranche pas.</p>
+<form id="f">
+  <input id="q" type="text" placeholder="Posez une question : عمر عائشة عندما تزوجت بالنبي — سن البلوغ — la prière de nuit" autofocus>
+  <button id="go" type="submit">Rechercher</button>
+  <div class="opts">
+    <label><input type="checkbox" id="llm" checked> Analyse par le modèle local</label>
+    <label>Candidats <select id="k"><option>8</option><option selected>15</option><option>20</option></select></label>
+    <label><input type="checkbox" id="cmpbox"> Comparer avec la Sunna (≈ 2 min)</label>
+  </div>
+</form>
+
+<section id="synth" class="synth">
+  <div id="sbig" class="big s0">?<small>/ 5</small></div>
+  <div class="lbl"><p id="sshort" class="short"></p><div id="skey" class="sub" style="font-size:16px;font-weight:600;margin-bottom:4px"></div><div id="slbl" class="sub"></div><p id="stxt"></p><details><summary>Pourquoi cette note</summary><ul id="sreasons"></ul><div id="slegend"></div></details></div>
+</section>
+<div id="cmp" class="cmp"></div>
+<section id="answers" class="answers"></section>
+<section id="deck" class="deck">
+  <div class="nav"><button id="prev" aria-label="précédent">‹</button><span id="counter">1 / 1</span><div id="dots" class="dots"></div><button id="next" aria-label="suivant">›</button></div>
+  <div class="stage"><div id="card" class="card"></div></div>
+  <details class="more" id="more"><summary>Réponse détaillée (texte)</summary><pre id="answer"></pre></details>
+</section>
+<div id="empty" class="empty"></div>
+</div>
+<div id="pop" class="pop"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>(s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const VERDICT={sahih:['Ṣaḥīḥ : imamites dignes de confiance','#1f8a4c'],muwaththaq:['Muwaththaq : fiables, dont un non-imamite','#2f8f5b'],hasan:['Ḥasan : imamites loués','#5c9d2f'],daif_majhul:['Ḍaʿīf : narrateur inconnu','#d9532b'],daif_mursal:['Ḍaʿīf : maillon omis (mursal)','#d9532b'],daif:['Ḍaʿīf : narrateur faible','#d9532b'],daif_jiddan:['Très faible : narrateur rejeté','#a8232a'],incomplete:['Non évaluable','#8a8781']};
+let data=null, idx=0, busy=false;
+fetch('/health').then(r=>r.json()).then(h=>{ const t=(h.traditions||{}).shia||{}; const m=h.llm_backend==='local'?'modèle local':(h.llm_backend==='anthropic'?'Claude':'sans modèle'); $('#status').textContent=`${(t.hadiths||0).toLocaleString('fr')} hadiths · ${(t.narrators||0).toLocaleString('fr')} narrateurs · ${m} ${h.llm?'actif':'inactif'}`; if(!h.llm){$('#llm').checked=false;$('#llm').disabled=true;}}).catch(()=>{});
+function badge(n){ if(!n) return '<span class="badge">؟</span>'; const r=n.grade_rank; return `<span class="badge ${r==null?'':'b'+r}" title="${esc(n.grade_text||'')}">${esc(n.grade_label_ar)}</span>`; }
+function linkHtml(l){ const n=l.narrator; const alts=(l.alternatives||[]).map(a=>`<div class="n" style="font-size:15px">/ ${esc(a.name)} ${badge(a.narrator)}</div>`).join('');
+ const k=l.kind||'normal'; const kt=k==='imam'?'معصوم':k==='group'?'عدة':k==='marfu'?'مرفوع':k==='unnamed'?'مبهم':'';
+ return `<div class="link ${k}" ${n?`data-nid="${n.id}"`:''}><div class="t">${esc(l.term||'')}${kt?' · '+kt:''}${l.match_method&&l.match_method.startsWith('ambig')?' · ?':''}</div><div class="n">${esc(l.name)}</div>${k==='imam'?'<span class="badge b6">معصوم</span>':badge(n)}${alts}</div>`; }
+function chainHtml(c){ const v=VERDICT[c.verdict.code]||['',''];
+ return `<div class="chain"><div class="links">${c.links.map(linkHtml).join('<span class="arrow">←</span>')}</div>
+  <div class="vline"><span class="dot" style="background:${v[1]}"></span><b>${esc(v[0])}</b><span class="ar">${esc(c.verdict.label_ar)}</span>${c.verdict.unresolved.length?`<span class="muted">· ${c.verdict.unresolved.length} non identifié(s)</span>`:''}<span class="muted" title="${esc(c.verdict.notes.join(' '))}">ⓘ</span></div></div>`; }
+function cardHtml(r){ const rel=r.reliability||{}; const sc=rel.score==null?'?':rel.score; const s=r.summary||{}; const m=r.meta||{};
+ return `<div class="top">
+   <div class="score ${rel.score==null?'s0':'s'+rel.score}" title="${esc((rel.reasons||[]).join(' · '))}">${sc}<small>${esc(rel.label_ar||'')}</small></div>
+   <div class="ref"><b>${esc(r.reference)}</b><span class="ar">${esc(r.collection_name_ar)}</span><span class="where">${esc(r.chapter_en||'')}${r.section_en?' · '+esc(r.section_en):''}</span></div>
+   <div class="chips">${r.grade_source_ar?`<span class="chip maj" title="Mirʾāt al-ʿuqūl ${esc(m.majlisi_ref||'')}">Majlisī : ${esc(r.grade_source_ar)}</span>`:'<span class="chip">Majlisī : —</span>'}${m.behbudi&&!/لم يخرجه/.test(m.behbudi)?`<span class="chip bah">Bahbūdī : ${esc(m.behbudi)}</span>`:''}${r.relevant_auto===false?'<span class="chip">jugé hors sujet</span>':''}</div>
+ </div>
+ <div class="story">${r.claim?`<p style="margin:0 0 8px;font-weight:600">↳ ${esc(r.claim)}${r.claim_verified===false?' <span class="chip">⚠ non vérifié</span>':''}</p>`:''}<p class="ar">${esc(s.ar||'')}</p><p class="en">${esc(s.en||'')}</p></div>
+ ${(r.chains||[]).slice(0,2).map(chainHtml).join('')}
+ <div class="actions"><button onclick="window.open('/report/${r.id}','_blank')">Générer un rapport</button><button class="ghost" onclick="this.closest('.card').querySelector('.full').classList.toggle('on')">Texte complet</button>${m.url?`<a class="muted" href="${esc(m.url)}" target="_blank" rel="noopener">source thaqalayn.net</a>`:''}</div>
+ <div class="full"><div class="ar">${esc(r.text_ar)}</div><div class="en">${esc(r.text_en||'')}</div></div>`; }
+function show(i,dir){ if(!data||!data.results.length) return; const n=data.results.length; i=(i+n)%n; const card=$('#card');
+ const render=()=>{ card.innerHTML=cardHtml(data.results[i]); idx=i; $('#counter').textContent=`${i+1} / ${n}`; [...$('#dots').children].forEach((d,j)=>d.classList.toggle('on',j===i)); };
+ if(dir==null||busy){ render(); return; }
+ busy=true; card.classList.add(dir>0?'out-l':'out-r');
+ setTimeout(()=>{ card.classList.remove('out-l','out-r'); card.classList.add(dir>0?'in-l':'in-r'); render(); void card.offsetWidth; card.classList.remove('in-l','in-r'); setTimeout(()=>busy=false,330); },320); }
+function renderSynth(d){ const s=d.synthesis; $('#synth').classList.add('on'); const sc=s.score==null?'?':s.score; const isAr=/[؀-ۿ]/.test(s.short||'');
+ $('#sbig').className='big '+(s.score==null?'sn':'s'+s.score); $('#sbig').innerHTML=`${sc}<small>/ 5</small>`;
+ $('#sshort').textContent=s.short||''; $('#sshort').className='short'+(isAr?' ar':''); $('#sshort').style.display=s.short?'block':'none';
+ $('#skey').textContent=s.key?('Valeurs : '+s.key):''; $('#skey').style.display=s.key?'block':'none';
+ $('#slbl').innerHTML=`${esc(s.label_fr)} <span>${esc(s.label_ar)}</span>`; $('#stxt').textContent=s.text||'';
+ $('#sreasons').innerHTML=(s.reasons||[]).map(x=>`<li>${esc(x)}</li>`).join('');
+ $('#slegend').innerHTML='<div style="margin-top:8px">'+Object.keys(s.scale||{}).sort((a,b)=>b-a).map(k=>`<b>${k}/5 ${esc(s.scale[k].label_fr)} (${esc(s.scale[k].label_ar)})</b> : ${esc(s.scale[k].definition)}`).join('<br>')+'</div><div style="margin-top:6px">Note calculée par le système : gradation de Majlisī croisée avec l\'analyse usūlī des narrateurs ; le modèle ne note jamais.</div>'; }
+function renderAnswers(d){ const A=d.answers||[]; const el=$('#answers'); if(!A.length){ el.classList.remove('on'); el.innerHTML=''; return; } const byId={}; d.results.forEach(r=>byId[r.id]=r);
+ el.innerHTML='<h3>Réponses trouvées dans al-Kāfī</h3>'+A.map(a=>`<div class="ans"><div class="sc ${a.score==null?'s0':'s'+a.score}" title="${esc((a.reasons||[]).join(' · '))}">${a.score==null?'?':a.score}<small>${esc(a.label_ar||'')}</small></div><div class="txt"><b>${esc(a.answer)}</b>${a.answer_ar&&a.answer_ar!==a.answer?`<span class="ar">${esc(a.answer_ar)}</span>`:''}</div><div class="src">${a.ids.map(i=>byId[i]?`<span data-goto="${d.results.indexOf(byId[i])}">${esc(byId[i].reference)}${(a.unverified_ids||[]).includes(i)?' ⚠':''}</span>`:'').join('')}</div></div>`).join(''); el.classList.add('on'); }
+function renderCmp(both){ const el=$('#cmp'); if(!both){ el.classList.remove('on'); el.innerHTML=''; return; } const c=both.comparison||{}; const su=both.sunni||{}; const s=su.synthesis||{}; const isAr=/[؀-ۿ]/.test(s.short||'');
+ el.innerHTML=`<h3>Comparaison avec la Sunna</h3><b class="st ${c.status}">${esc(c.label_fr||'')}</b> Sunna : ${esc((c.sunni_values||[]).join(' · ')||'—')} · al-Kāfī : ${esc((c.shia_values||[]).join(' · ')||'—')}
+  <div class="sunni"><div class="sc ${s.score==null?'s0':'s'+s.score}">${s.score==null?'?':s.score}</div><div><div class="${isAr?'ar':''}" style="font-weight:600;font-size:${isAr?'22px':'16px'}">${esc(s.short||'—')}</div><div class="muted">${(su.answers||[]).map(a=>`${esc(a.answer)} (${a.score==null?'?':a.score}/5, ${a.sources.slice(0,2).map(esc).join(', ')})`).join(' · ')}</div></div></div>
+  <div class="muted" style="margin-top:6px">${esc(c.note||'')} · <a href="/" style="color:var(--accent)">ouvrir la section sunnite</a></div>`; el.classList.add('on'); }
+function render(d, both){ data=d; $('#empty').textContent=''; if(!d.results.length){ $('#synth').classList.remove('on'); $('#deck').classList.remove('on'); $('#answers').classList.remove('on'); renderCmp(null); $('#empty').textContent='Aucun hadith trouvé dans al-Kāfī.'; return; }
+ renderSynth(d); renderCmp(both); renderAnswers(d); $('#deck').classList.add('on'); $('#dots').innerHTML=d.results.map((_,j)=>`<i data-j="${j}"></i>`).join(''); $('#answer').textContent=d.answer||''; show(0,null); }
+$('#f').addEventListener('submit',async e=>{ e.preventDefault(); const q=$('#q').value.trim(); if(!q) return; const both=$('#cmpbox').checked; $('#go').disabled=true;
+ $('#empty').textContent=$('#llm').checked&&!$('#llm').disabled?(both?'Analyse d\'al-Kāfī puis des six recueils sunnites par le modèle local (environ 2 minutes)…':'Lecture d\'al-Kāfī par le modèle local (30 à 60 s)…'):'Recherche en cours…';
+ $('#synth').classList.remove('on'); $('#deck').classList.remove('on'); $('#answers').classList.remove('on'); renderCmp(null);
+ try{ const r=await fetch('/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:q,k:+$('#k').value,use_llm:$('#llm').checked,tradition:both?'both':'shia'})}); if(!r.ok) throw new Error(await r.text()); const d=await r.json(); if(d.mode==='both') render(d.shia,d); else render(d,null); }
+ catch(err){ $('#empty').textContent='Erreur : '+err.message; } finally{ $('#go').disabled=false; } });
+$('#q').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('#f').requestSubmit(); } });
+$('#prev').onclick=()=>show(idx-1,-1); $('#next').onclick=()=>show(idx+1,1);
+$('#dots').addEventListener('click',e=>{ const j=e.target.dataset.j; if(j!=null) show(+j, +j>idx?1:-1); });
+$('#answers').addEventListener('click',e=>{ const j=e.target.dataset.goto; if(j!=null){ show(+j, +j>idx?1:-1); $('#deck').scrollIntoView({behavior:'smooth'}); } });
+document.addEventListener('keydown',e=>{ if(!data||e.target.tagName==='INPUT') return; if(e.key==='ArrowRight') show(idx+1,1); if(e.key==='ArrowLeft') show(idx-1,-1); });
+document.addEventListener('click',async e=>{ const el=e.target.closest('[data-nid]'); if(!el){ if(!e.target.closest('#pop')) $('#pop').classList.remove('on'); return; }
+ const n=await (await fetch('/narrator/'+el.dataset.nid)).json();
+ $('#pop').innerHTML=`<button class="close" onclick="document.getElementById('pop').classList.remove('on')">✕</button><h3>${esc(n.name)}</h3>
+  <div class="row"><b>Jugement :</b> ${esc(n.grade_label_fr)} ${badge(n)}</div>
+  ${n.grade_text?`<div class="row"><b>al-Jawāhirī (Muʿjam de Khūʾī, résumé) :</b> <span class="ar" style="display:inline">${esc(n.grade_text)}</span></div>`:''}
+  <div class="row"><b>Ouvrages :</b> ${esc(Object.keys(n.sources||{}).join(', ')||'—')} · <b>Hadiths dans al-Kāfī :</b> ${n.hadith_count}</div>
+  ${(n.opinions||[]).slice(0,8).map(o=>`<div class="op"><b>${esc(o.critic)}</b> : ${esc(o.opinion)} <span style="color:var(--muted)">[${esc(o.source||'')}]</span></div>`).join('')}
+  ${(n.counterparts||[]).length?`<div class="row" style="border-top:1px dashed var(--line);padding-top:6px;margin-top:6px"><b>Même nom dans la tradition sunnite :</b> ${n.counterparts.map(c=>`<div><span class="ar" style="display:inline">${esc(c.name)}</span> — ${esc(c.grade_label_fr)}</div>`).join('')}<div class="muted">Statuts affichés côte à côte, sans arbitrage.</div></div>`:''}`;
+ $('#pop').classList.add('on'); });
+</script>
+</body>
+</html>

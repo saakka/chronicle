@@ -22,29 +22,12 @@ button.ghost{background:transparent;color:var(--accent);border:1px solid var(--l
 button:disabled{opacity:.55;cursor:wait}
 .opts{display:flex;gap:14px;align-items:center;color:var(--muted);font-size:12.5px;width:100%;margin-top:2px}
 .ar{font-family:Amiri,serif;direction:rtl;text-align:right}
-/* sélecteur de tradition */
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:0 0 12px;background:var(--card)}
-.seg button{background:transparent;color:var(--muted);border:0;border-radius:0;padding:10px 16px;font-weight:600;font-size:14px}
-.seg button span{font-family:Amiri,serif;font-size:15px;margin-left:6px;font-weight:400}
-.seg button.on{background:var(--accent);color:#fff}
-.trad-tag{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;color:#fff;background:var(--accent)}
-.trad-tag.shia{background:#7b4fb0}
-/* mode « les deux » */
-.cmp{display:none;margin:12px 0 4px;padding:12px 16px;border-radius:14px;border:1px solid var(--line);background:var(--card);font-size:14px}
-.cmp.on{display:block}.cmp b.st{padding:2px 10px;border-radius:999px;color:#fff;margin-right:8px}
-.cmp .concordant{background:var(--g5)}.cmp .divergent{background:var(--g3)}.cmp .indetermine{background:var(--gu)}
-.cols{display:none;gap:18px;align-items:flex-start}.cols.on{display:grid;grid-template-columns:1fr 1fr}
-@media (max-width:900px){.cols.on{grid-template-columns:1fr}}
-.col{min-width:0}.col .colhead{display:flex;align-items:center;gap:10px;margin:8px 0 6px;font-size:15px;font-weight:600}
-.col .synth{margin-top:8px}.col .big{width:84px;height:84px;font-size:30px}.col .story .ar{font-size:21px}.col .link{min-width:104px}
 /* synthèse */
 .synth{display:none;margin:22px 0 14px;align-items:center;gap:18px;flex-wrap:wrap}
 .synth.on{display:flex}
 .big{width:110px;height:110px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:40px;line-height:1;box-shadow:0 10px 30px rgba(0,0,0,.18), inset 0 0 0 5px rgba(255,255,255,.14);flex:0 0 auto}
 .big small{font-size:12px;font-weight:500;opacity:.9;margin-top:5px}
 .synth .lbl{flex:1;min-width:220px}.synth .lbl h2{margin:0;font-size:22px}.synth .lbl h2 span{font-family:Amiri,serif;font-size:26px;color:var(--accent);margin-left:8px}
-.synth .lbl p.short{margin:0 0 6px;font-size:28px;line-height:1.35;font-weight:600;color:var(--ink)}.synth .lbl p.short.ar{font-family:Amiri,serif;font-size:36px;text-align:left;direction:rtl;display:inline-block}
-.synth .lbl .sub{color:var(--muted);font-size:14px}.synth .lbl .sub span{font-family:Amiri,serif;font-size:17px;color:var(--accent)}
 .synth .lbl p{margin:4px 0 0;color:var(--muted);font-size:14px}
 .synth details{font-size:12.5px;color:var(--muted);margin-top:6px}.synth details ul{margin:6px 0 0 16px;padding:0}
 .s5{background:var(--s5)}.s4{background:var(--s4)}.s3{background:var(--s3)}.s2{background:var(--s2)}.s1{background:var(--s1)}.s0,.sn{background:var(--s0)}
@@ -105,28 +88,20 @@ button:disabled{opacity:.55;cursor:wait}
 <header>
   <h1><span>الحديث ورجاله</span>Hadiths & ʿIlm al-Rijāl</h1>
   <span id="status" class="status"></span>
+  <a href="/shia" class="status" style="color:var(--accent);text-decoration:none;font-weight:600">Section chiite (al-Kāfī) →</a>
 </header>
-<div class="seg" id="seg" role="tablist">
-  <button type="button" data-t="sunni" class="on">Sunna <span>أهل السنة</span></button>
-  <button type="button" data-t="shia">Chia (imamite) <span>الإمامية</span></button>
-  <button type="button" data-t="both">Les deux <span>مقارنة</span></button>
-</div>
 <form id="f">
   <input id="q" type="text" placeholder="Posez une question : la prière du voyageur — fasting on Ashura — صيام يوم عاشوراء" autofocus>
   <button id="go" type="submit">Rechercher</button>
   <div class="opts">
     <label><input type="checkbox" id="llm" checked> Analyse par le modèle local</label>
     <label>Candidats <select id="k"><option>8</option><option selected>15</option><option>20</option></select></label>
-    <span class="muted" id="disclaimer">Chaque tradition est notée par sa propre science du rijal ; l'outil décrit, il ne tranche pas.</span>
   </div>
 </form>
-<div id="cmp" class="cmp"></div>
-<div id="cols" class="cols"></div>
 
-<div id="single">
 <section id="synth" class="synth">
   <div id="sbig" class="big s0">?<small>/ 5</small></div>
-  <div class="lbl"><p id="sshort" class="short"></p><div id="skey" class="sub" style="font-size:16px;font-weight:600;margin-bottom:4px"></div><div id="slbl" class="sub"></div><p id="stxt"></p><details><summary>Pourquoi cette note</summary><ul id="sreasons"></ul><div id="slegend"></div></details></div>
+  <div class="lbl"><h2 id="slbl"></h2><p id="stxt"></p><details><summary>Pourquoi cette note</summary><ul id="sreasons"></ul><div id="slegend"></div></details></div>
 </section>
 
 <section id="answers" class="answers"></section>
@@ -135,7 +110,6 @@ button:disabled{opacity:.55;cursor:wait}
   <div class="stage"><div id="card" class="card"></div></div>
   <details class="more" id="more"><summary>Réponse détaillée (texte)</summary><pre id="answer"></pre></details>
 </section>
-</div>
 <div id="empty" class="empty"></div>
 </div>
 <div id="pop" class="pop"></div>
@@ -145,28 +119,20 @@ const $=s=>document.querySelector(s);
 const esc=s=>(s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const VERDICT={sahih_rijal:['Narrateurs fiables','#1f8a4c'],hasan_rijal:['Chaîne bonne','#5c9d2f'],hasan_in_tubia:['À corroborer','#c98f0a'],daif:['Chaîne faible','#d9532b'],daif_jiddan:['Chaîne très faible','#a8232a'],incomplete:['Chaîne partielle','#8a8781']};
 let data=null, idx=0, busy=false;
-let tradition=(()=>{ try{ return localStorage.getItem('tradition')||'sunni'; }catch(e){ return 'sunni'; } })();
-function setTradition(t){ tradition=t; try{ localStorage.setItem('tradition',t); }catch(e){} [...$('#seg').children].forEach(b=>b.classList.toggle('on',b.dataset.t===t)); }
-$('#seg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) setTradition(b.dataset.t); });
-setTradition(tradition);
-const TRAD={sunni:['Sunna','أهل السنة'],shia:['Chia (imamite)','الإمامية']};
-function tradTag(t){ const l=TRAD[t]||['','']; return `<span class="trad-tag ${t}">${l[0]} · ${l[1]}</span>`; }
 
-fetch('/health').then(r=>r.json()).then(h=>{ const m=h.llm_backend==='local'?'modèle local':(h.llm_backend==='anthropic'?'Claude':'sans modèle'); const t=h.traditions||{}; const sun=t.sunni||{},shi=t.shia||{}; $('#status').textContent=`Sunna ${ (sun.hadiths||0).toLocaleString('fr')} hadiths · Chia ${(shi.hadiths||0).toLocaleString('fr')} hadiths · ${m} ${h.llm?'actif':'inactif'}`; if(!h.llm){$('#llm').checked=false;$('#llm').disabled=true;}}).catch(()=>{});
+fetch('/health').then(r=>r.json()).then(h=>{ const m=h.llm_backend==='local'?'modèle local':(h.llm_backend==='anthropic'?'Claude':'sans modèle'); const t=(h.traditions||{}).sunni||{hadiths:h.hadiths,narrators:h.narrators}; $('#status').textContent=`${(t.hadiths||0).toLocaleString('fr')} hadiths · ${(t.narrators||0).toLocaleString('fr')} narrateurs · ${m} ${h.llm?'actif':'inactif'}`; if(!h.llm){$('#llm').checked=false;$('#llm').disabled=true;}}).catch(()=>{});
 
 function badge(n){ if(!n) return '<span class="badge">؟</span>'; const r=n.grade_rank; return `<span class="badge ${r==null?'':'b'+r}" title="${esc(n.grade_ibn_hajar||n.grade_text||'')}">${esc(n.grade_label_ar)}</span>`; }
-const VERDICT_SHIA={sahih:['Ṣaḥīḥ','#1f8a4c'],muwaththaq:['Muwaththaq','#2f8f5b'],hasan:['Ḥasan','#5c9d2f'],daif_majhul:['Ḍaʿīf (majhūl)','#d9532b'],daif_mursal:['Ḍaʿīf (mursal)','#d9532b'],daif:['Ḍaʿīf','#d9532b'],daif_jiddan:['Très faible','#a8232a'],incomplete:['Non évaluable','#8a8781']};
 function linkHtml(l){ const n=l.narrator; const alts=(l.alternatives||[]).map(a=>`<div class="n" style="font-size:15px">/ ${esc(a.name)} ${badge(a.narrator)}</div>`).join('');
- const kindTag=l.kind==='imam'?' · معصوم':l.kind==='group'?' · عدة':(l.kind==='unnamed'||l.kind==='marfu')?' · مرسل':'';
- return `<div class="link" ${n?`data-nid="${n.id}"`:''}><div class="t">${esc(l.term||'')}${kindTag}${l.match_method&&l.match_method.startsWith('ambig')?' · ?':''}</div><div class="n">${esc(l.name)}</div>${badge(n)}${alts}</div>`; }
-function chainHtml(c){ const v=(data&&data.tradition==='shia'?VERDICT_SHIA:VERDICT)[c.verdict.code]||VERDICT[c.verdict.code]||VERDICT_SHIA[c.verdict.code]||['',''];
+ return `<div class="link" ${n?`data-nid="${n.id}"`:''}><div class="t">${esc(l.term||'')}${l.match_method&&l.match_method.startsWith('ambig')?' · ?':''}</div><div class="n">${esc(l.name)}</div>${badge(n)}${alts}</div>`; }
+function chainHtml(c){ const v=VERDICT[c.verdict.code]||['',''];
  return `<div class="chain"><div class="links">${c.links.map(linkHtml).join('<span class="arrow">←</span>')}</div>
   <div class="vline"><span class="dot" style="background:${v[1]}"></span><b>${esc(v[0])}</b><span class="ar">${esc(c.verdict.label_ar)}</span>${c.verdict.unresolved.length?`<span class="muted">· ${c.verdict.unresolved.length} non identifié(s)</span>`:''}<span class="muted" title="${esc(c.verdict.notes.join(' '))}">ⓘ</span></div></div>`; }
 function cardHtml(r){ const rel=r.reliability||{}; const sc=rel.score==null?'?':rel.score; const s=r.summary||{};
  return `<div class="top">
    <div class="score ${rel.score==null?'s0':'s'+rel.score}" title="${esc((rel.reasons||[]).join(' · '))}">${sc}<small>${esc(rel.label_ar||'')}</small></div>
-   <div class="ref"><b>${esc(r.reference)}</b><span class="ar">${esc(r.collection_name_ar)}</span> ${tradTag(r.tradition)}</div>
-   <div class="chips">${r.grade_source_ar?`<span class="chip gold" title="${r.tradition==='shia'?'Majlisī, Mirʾāt al-ʿuqūl':'jugement du recueil / al-Albānī'}">${r.tradition==='shia'?'Majlisī : ':''}${esc(r.grade_source_ar)}</span>`:''}${r.tradition==='shia'&&r.meta&&r.meta.behbudi&&!/لم يخرجه/.test(r.meta.behbudi)?`<span class="chip">Bahbūdī : ${esc(r.meta.behbudi)}</span>`:''}${r.chapter_en?`<span class="chip" title="${esc(r.chapter_ar||'')}">${esc(r.chapter_en)}</span>`:''}${r.relevant_auto===false?'<span class="chip">jugé hors sujet</span>':''}</div>
+   <div class="ref"><b>${esc(r.reference)}</b><span class="ar">${esc(r.collection_name_ar)}</span></div>
+   <div class="chips">${r.grade_source_ar?`<span class="chip gold">${esc(r.grade_source_ar)}</span>`:''}${r.chapter_en?`<span class="chip" title="${esc(r.chapter_ar||'')}">${esc(r.chapter_en)}</span>`:''}${r.relevant_auto===false?'<span class="chip">jugé hors sujet</span>':''}</div>
  </div>
  <div class="story">${r.claim?`<p style="margin:0 0 8px;font-weight:600">↳ ${esc(r.claim)}${r.claim_verified===false?' <span class="chip" title="les nombres de cette réponse ne figurent pas tous dans le texte du hadith">⚠ non vérifié</span>':''}</p>`:''}<p class="ar">${esc(s.ar||'')}</p><p class="en">${esc(s.en||'')}</p></div>
  ${(r.chains||[]).slice(0,2).map(chainHtml).join('')}
@@ -181,9 +147,7 @@ function show(i,dir){ if(!data||!data.results.length) return; const n=data.resul
 
 function renderSynth(d){ const s=d.synthesis; $('#synth').classList.add('on'); const sc=s.score==null?'?':s.score;
  $('#sbig').className='big '+(s.score==null?'sn':'s'+s.score); $('#sbig').innerHTML=`${sc}<small>/ 5</small>`;
- const isAr=/[\u0600-\u06FF]/.test(s.short||''); $('#sshort').textContent=s.short||''; $('#sshort').className='short'+(isAr?' ar':''); $('#sshort').style.display=s.short?'block':'none';
- $('#skey').textContent=s.key?('Valeurs : '+s.key):''; $('#skey').style.display=s.key?'block':'none';
- $('#slbl').innerHTML=`${tradTag(d.tradition||'sunni')} ${esc(s.label_fr)} <span>${esc(s.label_ar)}</span>`; $('#stxt').textContent=s.text||'';
+ $('#slbl').innerHTML=`${esc(s.label_fr)}<span>${esc(s.label_ar)}</span>`; $('#stxt').textContent=s.text||'';
  $('#sreasons').innerHTML=(s.reasons||[]).map(x=>`<li>${esc(x)}</li>`).join('');
  $('#slegend').innerHTML='<div style="margin-top:8px">'+Object.keys(s.scale||{}).sort((a,b)=>b-a).map(k=>`<b>${k}/5 ${esc(s.scale[k].label_fr)} (${esc(s.scale[k].label_ar)})</b> : ${esc(s.scale[k].definition)}`).join('<br>')+'</div><div style="margin-top:6px">Note calculée par le système à partir du jugement des recueils croisé avec l\'analyse des narrateurs ; le LLM ne note jamais.</div>'; }
 
@@ -193,27 +157,11 @@ function renderAnswers(d){ const A=d.answers||[]; const el=$('#answers'); if(!A.
    <div class="txt"><b>${esc(a.answer)}</b>${a.answer_ar&&a.answer_ar!==a.answer?`<span class="ar">${esc(a.answer_ar)}</span>`:''}${a.answer_en&&a.answer_en!==a.answer?`<span class="muted">${esc(a.answer_en)}</span>`:''}</div>
    <div class="src">${a.ids.map(i=>byId[i]?`<span data-goto="${d.results.indexOf(byId[i])}">${esc(byId[i].reference)}${(a.unverified_ids||[]).includes(i)?' ⚠':''}</span>`:'').join('')}</div></div>`).join('');
  el.classList.add('on'); }
-function colHtml(d,t){ const s=d.synthesis||{}; const sc=s.score==null?'?':s.score; const isAr=/[\u0600-\u06FF]/.test(s.short||'');
- const byId={}; d.results.forEach(r=>byId[r.id]=r);
- const answers=(d.answers||[]).map(a=>`<div class="ans"><div class="sc ${a.score==null?'s0':'s'+a.score}">${a.score==null?'?':a.score}<small>${esc(a.label_ar||'')}</small></div><div class="txt"><b>${esc(a.answer)}</b>${a.answer_ar&&a.answer_ar!==a.answer?`<span class="ar">${esc(a.answer_ar)}</span>`:''}</div><div class="src">${a.ids.map(i=>byId[i]?`<span data-col="${t}" data-goto="${d.results.indexOf(byId[i])}">${esc(byId[i].reference)}</span>`:'').join('')}</div></div>`).join('');
- const first=d.results[0];
- return `<div class="colhead">${tradTag(t)}</div>
-  <section class="synth on"><div class="big ${s.score==null?'sn':'s'+s.score}">${sc}<small>/ 5</small></div><div class="lbl">${s.short?`<p class="short${isAr?' ar':''}">${esc(s.short)}</p>`:''}${s.key?`<div class="sub" style="font-weight:600">Valeurs : ${esc(s.key)}</div>`:''}<div class="sub">${esc(s.label_fr||'')} <span>${esc(s.label_ar||'')}</span></div><p>${esc(s.text||'')}</p></div></section>
-  ${answers?`<div class="answers on"><h3>Réponses trouvées</h3>${answers}</div>`:'<div class="muted">Aucune réponse explicite extraite.</div>'}
-  <div class="nav"><button data-col="${t}" data-dir="-1">‹</button><span id="counter-${t}">1 / ${d.results.length}</span><button data-col="${t}" data-dir="1">›</button></div>
-  <div class="stage"><div class="card" id="card-${t}">${first?cardHtml(first):'<div class="empty">Aucun résultat</div>'}</div></div>`; }
-const colState={};
-function renderBoth(d){ data=d.sunni; $('#single').style.display='none'; $('#empty').textContent='';
- const c=d.comparison||{}; $('#cmp').innerHTML=`<b class="st ${c.status}">${esc(c.label_fr||'')}</b> Sunna : ${esc((c.sunni_values||[]).join(' · ')||'—')} · Chia : ${esc((c.shia_values||[]).join(' · ')||'—')}<div class="muted" style="margin-top:4px">${esc(c.note||'')}</div>`; $('#cmp').classList.add('on');
- $('#cols').innerHTML=`<div class="col" id="col-sunni">${colHtml(d.sunni,'sunni')}</div><div class="col" id="col-shia">${colHtml(d.shia,'shia')}</div>`; $('#cols').classList.add('on');
- colState.sunni={d:d.sunni,i:0}; colState.shia={d:d.shia,i:0}; }
-function showCol(t,i){ const st=colState[t]; if(!st||!st.d.results.length) return; const n=st.d.results.length; i=(i+n)%n; st.i=i; data=st.d; $('#card-'+t).innerHTML=cardHtml(st.d.results[i]); $('#counter-'+t).textContent=`${i+1} / ${n}`; }
-document.addEventListener('click',e=>{ const b=e.target.closest('[data-col][data-dir]'); if(b){ showCol(b.dataset.col, colState[b.dataset.col].i+(+b.dataset.dir)); return; } const g=e.target.closest('[data-col][data-goto]'); if(g){ showCol(g.dataset.col,+g.dataset.goto); } });
 function render(d){ data=d; $('#empty').textContent=''; if(!d.results.length){ $('#synth').classList.remove('on'); $('#deck').classList.remove('on'); $('#answers').classList.remove('on'); $('#empty').textContent='Aucun hadith trouvé dans les six recueils.'; return; }
  renderSynth(d); renderAnswers(d); $('#deck').classList.add('on'); $('#dots').innerHTML=d.results.map((_,j)=>`<i data-j="${j}"></i>`).join(''); $('#answer').textContent=d.answer||''; show(0,null); }
 
-$('#f').addEventListener('submit',async e=>{ e.preventDefault(); const q=$('#q').value.trim(); if(!q) return; $('#go').disabled=true; $('#empty').textContent=$('#llm').checked&&!$('#llm').disabled?(tradition==='both'?'Analyse des deux traditions par le modèle local (environ 2 minutes)…':'Analyse en cours : compréhension de la question, recherche, lecture des hadiths par le modèle local (30 à 60 s)…'):'Recherche en cours…'; $('#synth').classList.remove('on'); $('#deck').classList.remove('on');
- try{ const r=await fetch('/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:q,k:+$('#k').value,use_llm:$('#llm').checked,tradition})}); if(!r.ok) throw new Error(await r.text()); const d=await r.json(); if(d.mode==='both') renderBoth(d); else { $('#cols').classList.remove('on'); $('#cmp').classList.remove('on'); $('#single').style.display=''; render(d); } }
+$('#f').addEventListener('submit',async e=>{ e.preventDefault(); const q=$('#q').value.trim(); if(!q) return; $('#go').disabled=true; $('#empty').textContent=$('#llm').checked&&!$('#llm').disabled?'Analyse en cours : compréhension de la question, recherche, lecture des hadiths par le modèle local (30 à 60 s)…':'Recherche en cours…'; $('#synth').classList.remove('on'); $('#deck').classList.remove('on');
+ try{ const r=await fetch('/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:q,k:+$('#k').value,use_llm:$('#llm').checked})}); if(!r.ok) throw new Error(await r.text()); render(await r.json()); }
  catch(err){ $('#empty').textContent='Erreur : '+err.message; } finally{ $('#go').disabled=false; } });
 $('#q').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('#f').requestSubmit(); } });
 $('#prev').onclick=()=>show(idx-1,-1); $('#next').onclick=()=>show(idx+1,1);
@@ -225,8 +173,7 @@ let tx=null; $('#card').addEventListener('touchstart',e=>tx=e.touches[0].clientX
 document.addEventListener('click',async e=>{ const el=e.target.closest('[data-nid]'); if(!el){ if(!e.target.closest('#pop')) $('#pop').classList.remove('on'); return; }
  const n=await (await fetch('/narrator/'+el.dataset.nid)).json();
  $('#pop').innerHTML=`<button class="close" onclick="document.getElementById('pop').classList.remove('on')">✕</button><h3>${esc(n.name)}</h3>
-  <div class="row">${tradTag(n.tradition)} <b>Jugement :</b> ${esc(n.grade_label_fr)} ${badge(n)}</div>
-  ${(n.counterparts||[]).length?`<div class="row" style="border-top:1px dashed var(--line);padding-top:6px;margin-top:6px"><b>Même nom dans l'autre tradition :</b> ${n.counterparts.map(c=>`<div>${tradTag(c.tradition)} <span class="ar" style="display:inline">${esc(c.name)}</span> — ${esc(c.grade_label_fr)}</div>`).join('')}<div class="muted">Statuts affichés côte à côte, sans arbitrage.</div></div>`:''}
+  <div class="row"><b>Jugement :</b> ${esc(n.grade_label_fr)} ${badge(n)}</div>
   ${n.grade_ibn_hajar?`<div class="row"><b>Ibn Ḥajar :</b> <span class="ar" style="display:inline">${esc(n.grade_ibn_hajar)}</span></div>`:''}
   ${n.grade_dhahabi?`<div class="row"><b>al-Dhahabī :</b> <span class="ar" style="display:inline">${esc(n.grade_dhahabi)}</span></div>`:''}
   ${!n.grade_ibn_hajar&&n.grade_text?`<div class="row"><b>Source :</b> ${esc(n.grade_text)}${n.grade_inferred?' (inféré)':''}</div>`:''}

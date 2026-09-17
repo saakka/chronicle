@@ -55,6 +55,11 @@ def index():
     return FileResponse(STATIC / "index.html")
 
 
+@app.get("/shia", include_in_schema=False)
+def shia_page():
+    return FileResponse(STATIC / "shia.html")
+
+
 @app.get("/health")
 def health(s: Session = Depends(get_session)):
     from .retrieval import _local_available
