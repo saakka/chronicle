@@ -27,6 +27,7 @@ class Collection(Base):
     __tablename__ = "collections"
     id: Mapped[int] = mapped_column(primary_key=True)
     slug: Mapped[str] = mapped_column(String(32), unique=True)
+    tradition: Mapped[str] = mapped_column(String(16), default="sunni")  # sunni | shia
     name_ar: Mapped[str] = mapped_column(String(128))
     name_fr: Mapped[str] = mapped_column(String(128))
     name_en: Mapped[str] = mapped_column(String(128))
@@ -58,6 +59,7 @@ class Hadith(Base):
     grade_en: Mapped[str | None] = mapped_column(String(128))
     comment_ar: Mapped[str | None] = mapped_column(Text)
     source: Mapped[str] = mapped_column(String(64), default="LK-Hadith-Corpus")
+    meta: Mapped[dict | None] = mapped_column(JSON)  # gradations secondaires, références, URL source
 
     collection: Mapped[Collection] = relationship(back_populates="hadiths")
     links: Mapped[list["IsnadLink"]] = relationship(
@@ -75,7 +77,8 @@ class Narrator(Base):
     __tablename__ = "narrators"
     __table_args__ = (Index("ix_narrator_norm", "name_norm"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    external_id: Mapped[str | None] = mapped_column(String(64), unique=True)  # id source (Itqan / AR-Sanad)
+    external_id: Mapped[str | None] = mapped_column(String(64), unique=True)  # id source (Itqan / AR-Sanad / Jawahiri)
+    tradition: Mapped[str] = mapped_column(String(16), default="sunni")  # sunni | shia
     name_ar: Mapped[str] = mapped_column(Text)  # nom principal
     name_norm: Mapped[str] = mapped_column(Text)  # nom normalisé (sans tashkil) pour la recherche
     name_en: Mapped[str | None] = mapped_column(Text)
@@ -142,6 +145,7 @@ class IsnadLink(Base):
     transmission_term: Mapped[str | None] = mapped_column(String(32))  # حدثنا / أخبرنا / عن / سمعت ...
     transmission_mode: Mapped[str | None] = mapped_column(String(16))  # sama | anana | other
     is_relative: Mapped[bool] = mapped_column(default=False)  # "عن أبيه", "عن جده" ...
+    kind: Mapped[str] = mapped_column(String(16), default="normal")  # normal | relative | unnamed | group | marfu | imam
     narrator_id: Mapped[int | None] = mapped_column(ForeignKey("narrators.id", ondelete="SET NULL"))
     match_score: Mapped[float | None] = mapped_column(Float)
     match_method: Mapped[str | None] = mapped_column(String(16))  # exact | fuzzy | none

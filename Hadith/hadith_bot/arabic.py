@@ -34,6 +34,7 @@ def normalize(s: str | None, *, keep_spaces: bool = True) -> str:
     s = _HONORIFIC_RE.sub(" ", s)
     s = _ALEF.sub("ا", s)
     s = s.replace("ة", "ه").replace("ى", "ي").replace("ؤ", "و").replace("ئ", "ي")
+    s = s.replace("الرحمان", "الرحمن")  # graphie « عبد الرحمان » des textes imamites
     s = _PUNCT.sub(" ", s)
     s = _WS.sub(" ", s).strip()
     return s if keep_spaces else s.replace(" ", "")

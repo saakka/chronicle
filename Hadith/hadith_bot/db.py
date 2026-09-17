@@ -47,7 +47,24 @@ def get_session() -> Iterator[Session]:
         s.close()
 
 
+_MIGRATIONS = {  # colonnes ajoutées après la première version (create_all ne modifie pas les tables existantes)
+    "collections": {"tradition": "VARCHAR(16) DEFAULT 'sunni'"},
+    "hadiths": {"meta": "JSON"},
+    "narrators": {"tradition": "VARCHAR(16) DEFAULT 'sunni'"},
+    "isnad_links": {"kind": "VARCHAR(16) DEFAULT 'normal'"},
+}
+
+
 def init_db() -> None:
+    from sqlalchemy import inspect, text
+
     from . import models  # noqa: F401  (enregistre les tables)
 
     models.Base.metadata.create_all(engine)
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table, cols in _MIGRATIONS.items():
+            existing = {c["name"] for c in insp.get_columns(table)}
+            for col, ddl in cols.items():
+                if col not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))

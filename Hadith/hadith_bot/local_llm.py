@@ -138,17 +138,17 @@ narration, e.g. "تزوجني رسول الله وانا بنت", "قال رسو
 question. English phrases must use the wording of the classical translations. No diacritics. Output JSON exactly like the examples.
 Example 1 — Q: "combien de rak'a le Prophète priait la nuit ?"
 {"language": "fr", "intent": "fact", "question_en": "How many rak'ahs did the Prophet pray at night?", "question_ar": "كم ركعة كان النبي يصلي بالليل؟",
- "looking_for": "le nombre de rak'a de la prière de nuit du Prophète",
+ "looking_for": "le nombre de rak'a de la prière de nuit du Prophète", "entities_ar": [],
  "queries_ar": ["ما كان يزيد في رمضان ولا في غيره على احدى عشرة ركعة", "يصلي من الليل ثلاث عشرة ركعة", "صلاة الليل مثنى مثنى"],
  "queries_en": ["never exceeded eleven rakat in Ramadan or otherwise", "used to pray thirteen rakat at night"]}
 Example 2 — Q: "كم كان عمر ابن عباس عند وفاة النبي"
 {"language": "ar", "intent": "fact", "question_en": "How old was Ibn Abbas when the Prophet died?", "question_ar": "كم كان عمر ابن عباس عند وفاة النبي؟",
- "looking_for": "عمر ابن عباس يوم توفي النبي",
+ "looking_for": "عمر ابن عباس يوم توفي النبي", "entities_ar": ["ابن عباس"],
  "queries_ar": ["توفي رسول الله وانا ابن عشر سنين", "قبض النبي وانا ختين", "توفي النبي وانا ابن خمس عشرة"],
  "queries_en": ["the Prophet died when I was ten years old", "at the time of the Prophet's death I was circumcised"]}
 Example 3 — Q: "who was the first to accept Islam"
 {"language": "en", "intent": "fact", "question_en": "Who was the first person to accept Islam?", "question_ar": "من اول من اسلم؟",
- "looking_for": "the name of the first person to embrace Islam",
+ "looking_for": "the name of the first person to embrace Islam", "entities_ar": [],
  "queries_ar": ["اول من اسلم", "اول من صلى مع رسول الله", "اسلم ابو بكر"],
  "queries_en": ["the first to embrace Islam", "the first to accept Islam was"]}"""
 
@@ -156,14 +156,26 @@ SYS_TRIAGE = """You are a hadith research assistant. The user asked a question; 
 English translation). Decide for each whether it actually contains information answering the question (not merely the same topic).
 Output a JSON list of the ids of the relevant hadiths only, e.g. [12, 40]. Output [] if none."""
 
-SYS_EXTRACT = """You are a hadith research assistant. For each hadith given (id, Arabic text, English translation), extract the
-answer it gives to the question. Use only what the text says; never invent. Output a JSON list, one object per hadith, same order:
-[{"id": <id>,
-  "answer": "<= 20 words, in the question's language, the answer exactly as the hadith states it, with every value it mentions (e.g. 'تزوجها وهي بنت ست، وبنى بها وهي بنت تسع')",
+_EXTRACT_EXAMPLES = {
+    "fr": "mariée à 6 ans, union consommée à 9 ans",
+    "en": "married at 6, consummated at 9",
+    "ar": "تزوجها وهي بنت ست، وبنى بها وهي بنت تسع",
+}
+
+
+def sys_extract(language: str) -> str:
+    lang = _LANG_NAME.get(language, "French")
+    ex = _EXTRACT_EXAMPLES.get(language, _EXTRACT_EXAMPLES["fr"])
+    return f"""You are a hadith research assistant. For each hadith given (id, Arabic text, English translation), extract the
+answer it gives to the question. Use only what the text says; never invent. The field "answer" MUST be written in {lang}
+(translate the values; numbers as digits), e.g. "{ex}". Output a JSON list, one object per hadith, same order:
+[{{"id": <id>,
+  "answer": "<= 20 words in {lang}: the answer exactly as the hadith states it, with every value it mentions",
   "answer_key": "very short normalized label to group identical answers, e.g. '6 / 9', 'yes', 'Abu Bakr'",
   "summary_ar": "<= 15 Arabic words: what the hadith is about",
-  "summary_en": "<= 15 English words: what the hadith is about"}]
+  "summary_en": "<= 15 English words: what the hadith is about"}}]
 Arabic without diacritics."""
+
 
 SYS_GROUP = """You receive a question and a list of answers extracted from individual hadiths (id, answer, answer_key).
 Merge answers that say the same thing into distinct answer groups (do not merge answers that give different values).
@@ -175,13 +187,32 @@ the answer groups provided (each has a reliability score /5 computed by the syst
 reference (e.g. Sahih al-Bukhari n°3894). Do not add facts, do not give a fatwa, do not invent scores. Plain text, no JSON."""
 
 
-def understand(question: str) -> dict | None:
-    obj = chat_json(SYS_UNDERSTAND, f"Q: {question}", max_tokens=500)
+SYS_UNDERSTAND_SHIA_ADDON = """
+CONTEXT: the corpus is the Twelver Shia collection al-Kāfī (al-Kulaynī). Reports are transmitted from the Imams: chains end with
+"عن أبي عبد الله (عليه السلام)" (Jaʿfar al-Ṣādiq), "عن أبي جعفر" (al-Bāqir), "عن أبي الحسن" (al-Kāẓim / al-Riḍā), "قال أمير المؤمنين".
+Arabic phrases must imitate this wording, e.g. "قال أبو عبد الله عليه السلام", "سألت أبا عبد الله عن", "عن أبي جعفر قال".
+Example — Q: "عمر عائشة عندما تزوجت بالنبي" -> queries_ar: ["تزوج رسول الله عائشة وهي بنت", "دخل بعائشة وهي بنت", "عائشة بنت أبي بكر"], queries_en: ["married Aisha when she was", "Aisha's age"]"""
+
+
+def understand(question: str, tradition: str = "sunni") -> dict | None:
+    system = SYS_UNDERSTAND + (SYS_UNDERSTAND_SHIA_ADDON if tradition == "shia" else "")
+    obj = chat_json(system, f"Q: {question}", max_tokens=500)
     if not isinstance(obj, dict):
         return None
     obj["queries_ar"] = [q for q in (obj.get("queries_ar") or []) if isinstance(q, str) and q.strip()][:5]
     obj["queries_en"] = [q for q in (obj.get("queries_en") or []) if isinstance(q, str) and q.strip()][:4]
+    obj["entities_ar"] = [e.strip() for e in (obj.get("entities_ar") or []) if isinstance(e, str) and 1 < len(e.strip()) < 40][:4]
     return obj
+
+
+def mentions_entity(text_ar: str | None, entities: list[str]) -> bool:
+    """Le texte cite-t-il l'une des entités (comparaison normalisée, sans tashkil) ?"""
+    from .arabic import normalize
+
+    if not entities:
+        return True
+    t = normalize(text_ar or "")
+    return any(normalize(e) and normalize(e) in t for e in entities)
 
 
 def _items(results: list[dict], n: int = 450) -> list[dict]:
@@ -202,13 +233,17 @@ def triage(question: str, looking_for: str | None, results: list[dict]) -> list[
     return [int(i) for i in obj if str(i).lstrip("-").isdigit() and int(i) in valid]
 
 
-def extract(question: str, looking_for: str | None, results: list[dict], batch: int = 4) -> dict[int, dict]:
+_LANG_NAME = {"fr": "French", "en": "English", "ar": "Arabic"}
+
+
+def extract(question: str, looking_for: str | None, results: list[dict], batch: int = 4, language: str = "fr") -> dict[int, dict]:
     """Réponse + résumés ar/en pour chaque hadith pertinent (par lots courts : sorties fiables)."""
     out: dict[int, dict] = {}
+    system = sys_extract(language)
     for i in range(0, len(results), batch):
         chunk = results[i : i + batch]
         user = f"Question: {question}\nLooking for: {looking_for or ''}\n\nHadiths:\n{json.dumps(_items(chunk, 600), ensure_ascii=False)}"
-        obj = chat_json(SYS_EXTRACT, user, max_tokens=190 * len(chunk) + 80, retry=False)
+        obj = chat_json(system, user, max_tokens=190 * len(chunk) + 80, retry=False)
         if isinstance(obj, dict):
             obj = [obj]
         if isinstance(obj, list):
@@ -221,8 +256,8 @@ def extract(question: str, looking_for: str | None, results: list[dict], batch: 
 _AR_NUM = {"واحد": 1, "واحده": 1, "اثنين": 2, "اثنتين": 2, "ثلاث": 3, "ثلاثه": 3, "اربع": 4, "اربعه": 4, "خمس": 5, "خمسه": 5, "ست": 6, "سته": 6,
            "سبع": 7, "سبعه": 7, "ثمان": 8, "ثماني": 8, "ثمانيه": 8, "تسع": 9, "تسعه": 9, "عشر": 10, "عشره": 10, "عشرين": 20, "ثلاثين": 30, "اربعين": 40,
            "خمسين": 50, "ستين": 60, "سبعين": 70, "ثمانين": 80, "تسعين": 90, "مايه": 100, "ماية": 100, "الف": 1000}
-_FR_NUM = {"un": 1, "une": 1, "deux": 2, "trois": 3, "quatre": 4, "cinq": 5, "six": 6, "sept": 7, "huit": 8, "neuf": 9, "dix": 10, "onze": 11, "douze": 12, "treize": 13,
-           "vingt": 20, "trente": 30, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+_FR_NUM = {"deux": 2, "trois": 3, "quatre": 4, "cinq": 5, "six": 6, "sept": 7, "huit": 8, "neuf": 9, "dix": 10, "onze": 11, "douze": 12, "treize": 13,
+           "vingt": 20, "trente": 30, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
            "twelve": 12, "thirteen": 13, "twenty": 20, "thirty": 30}
 
 
@@ -271,8 +306,10 @@ def verify_claim(claim: dict, matn: str | None) -> dict:
     text_nums = _num_signature(matn).split()
     ok = [n for n in answer_nums if n in text_nums]
     claim["verified"] = len(ok) == len(answer_nums)
-    # réponse non conforme au texte -> ce sont les nombres du texte qui classent le hadith
-    claim["sig"] = " ".join((answer_nums if claim["verified"] else text_nums)[:2])
+    # réponse non conforme au texte -> ce sont les nombres du texte qui classent le hadith ;
+    # réponse partielle (saute le premier nombre d'un texte court) -> idem
+    partial = claim["verified"] and len(text_nums) <= 4 and text_nums and answer_nums and answer_nums[0] != text_nums[0] and answer_nums[0] in text_nums
+    claim["sig"] = " ".join((answer_nums if claim["verified"] and not partial else text_nums)[:2])
     return claim
 
 
@@ -298,3 +335,82 @@ def group(question: str, claims: list[dict]) -> list[dict]:
         groups.append({"answer": best, "answer_ar": "", "answer_en": "", "ids": [m["id"] for m in members],
                        "unverified_ids": [m["id"] for m in members if not m.get("verified", True)]})
     return groups
+
+
+SYS_SHORT = """You receive a question and the answer groups found in the hadith sources (each with a reliability score /5 and the
+number of supporting hadiths). Write the SHORTEST direct answer to the question, in the language of the question, at most 12 words,
+using ONLY values present in the groups. If the groups disagree, give the best-attested value first and mention the other briefly
+(e.g. "ست سنين عند العقد وتسع عند البناء، وفي رواية سبع"; "6 ans au contrat, 9 à la consommation ; une version dit 7").
+No introduction, no explanation. Output JSON: {"short": "..."}"""
+
+
+_ARABIC = re.compile(r"[\u0600-\u06FF]")
+_LATIN = re.compile(r"[A-Za-z]")
+
+
+def short_answer(question: str, answers: list[dict], language: str = "fr") -> str | None:
+    """Réponse d'une ligne, vérifiée : nombres issus des réponses extraites, écriture cohérente avec la langue."""
+    if not answers:
+        return None
+    lang = _LANG_NAME.get(language, "French")
+    compact = [{"answer": a["answer"], "score": a["score"], "hadiths": len(a["ids"])} for a in answers[:4]]
+    obj = chat_json(SYS_SHORT, f"Question: {question}\nWrite the answer in {lang}.\nAnswer groups: {json.dumps(compact, ensure_ascii=False)}", max_tokens=160)
+    short = (obj or {}).get("short") if isinstance(obj, dict) else None
+    if not short or not isinstance(short, str):
+        log.warning("réponse courte absente : %r", obj)
+        return None
+    short = short.strip().strip('"')
+    allowed: set[str] = set()
+    for a in answers:
+        allowed.update(_num_signature(a["answer"]).split())
+    short_nums = _num_signature(short).split()
+    if any(n not in allowed for n in short_nums):
+        log.warning("réponse courte rejetée (nombres) : %r", short)
+        return None
+    best = max(answers, key=lambda a: ((a["score"] or 0), len(a["ids"])))
+    best_nums = _num_signature(best["answer"]).split()[:2]
+    if len(best_nums) == 2 and len(short_nums) >= 2 and short_nums[:2] != best_nums:
+        log.warning("réponse courte rejetée (ordre des valeurs %s ≠ %s) : %r", short_nums[:2], best_nums, short)
+        return None
+    # cohérence d'écriture : pas de mot mêlant latin et arabe (« ثirteen »), pas d'arabe seul pour une question fr/en
+    if any(_ARABIC.search(w) and _LATIN.search(w) for w in short.split()):
+        log.warning("réponse courte rejetée (écritures mêlées) : %r", short)
+        return None
+    if language in ("fr", "en") and _ARABIC.search(short) and not _LATIN.search(short):
+        log.warning("réponse courte rejetée (arabe pour une question %s) : %r", language, short)
+        return None
+    if language == "ar" and _LATIN.search(short):
+        log.warning("réponse courte rejetée (latin pour une question arabe) : %r", short)
+        return None
+    return short
+
+
+SYS_TRANSLATE = """Translate each short answer into the requested language. Keep every number and value exactly, keep proper nouns
+(transliterate Arabic names), be concise. Output JSON: {"items": ["...", "..."]} in the same order."""
+
+
+def translate_answers(texts: list[str], language: str) -> list[str]:
+    """Traduit les réponses extraites dans la langue de la question ; une traduction qui perd ou change un nombre est refusée."""
+    if not texts:
+        return []
+    lang = _LANG_NAME.get(language, "French")
+    obj = chat_json(SYS_TRANSLATE, f"Target language: {lang}\nAnswers: {json.dumps(texts, ensure_ascii=False)}", max_tokens=60 * len(texts) + 60)
+    items = obj.get("items") if isinstance(obj, dict) else obj
+    if not isinstance(items, list) or len(items) != len(texts):
+        return texts
+    out = []
+    for src, tr in zip(texts, items):
+        # aucun nombre nouveau ne doit apparaître (un nombre omis, ex. « one » article, est toléré)
+        ok = isinstance(tr, str) and tr.strip() and set(_num_signature(tr).split()) <= set(_num_signature(src).split())
+        if ok and language in ("fr", "en") and _ARABIC.search(tr) and not _LATIN.search(tr):
+            ok = False
+        if ok and language == "ar" and _LATIN.search(tr):
+            ok = False
+        out.append(tr.strip() if ok else src)
+    return out
+
+
+def key_values(answer: str) -> str:
+    """Valeurs clés déterministes d'une réponse : « 6 / 9 » (deux premiers nombres), sinon vide."""
+    nums = _num_signature(answer).split()[:2]
+    return " / ".join(nums)

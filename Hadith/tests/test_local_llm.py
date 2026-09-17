@@ -37,3 +37,9 @@ def test_verify_claim_against_text():
     assert c["verified"] is False and c["sig"] == "6 9"  # reclassé d'après le texte
     c = verify_claim({"id": 2, "answer": "تزوجها وهي بنت ست وبنى بها وهي بنت تسع"}, "تزوجها وهي بنت ست وبنى بها وهي بنت تسع ومات عنها وهي بنت ثمان عشرة")
     assert c["verified"] is True and c["sig"] == "6 9"
+
+
+def test_partial_claim_regrouped_by_text():
+    from hadith_bot.local_llm import verify_claim
+    c = verify_claim({"id": 3, "answer": "وهي بنت تسع ومات عنها وهي بنت ثمان عشرة"}, "تزوجها وهي بنت ست وبنى بها وهي بنت تسع ومات عنها وهي بنت ثمان عشرة")
+    assert c["verified"] is True and c["sig"] == "6 9"

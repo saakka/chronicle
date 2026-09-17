@@ -23,22 +23,17 @@ def doc_text(matn_ar: str | None, matn_en: str | None, text_ar: str | None, chap
 
 
 def build(session: Session) -> int:
-    rows = session.execute(text("SELECT id, matn_ar, matn_en, text_ar, chapter_ar, section_ar FROM hadiths")).all()
+    rows = session.execute(text(
+        "SELECT h.id, h.matn_ar, h.matn_en, h.text_ar, h.chapter_ar, h.section_ar, c.tradition FROM hadiths h JOIN collections c ON c.id = h.collection_id"
+    )).all()
+    params = [{"id": r[0], "body": doc_text(r[1], r[2], r[3], r[4], r[5]), "trad": r[6] or "sunni"} for r in rows]
+    session.execute(text("DROP TABLE IF EXISTS hadith_fts"))
     if IS_SQLITE:
-        session.execute(text("DROP TABLE IF EXISTS hadith_fts"))
-        session.execute(text("CREATE VIRTUAL TABLE hadith_fts USING fts5(hadith_id UNINDEXED, body, tokenize='porter unicode61 remove_diacritics 2')"))
-        session.execute(
-            text("INSERT INTO hadith_fts(hadith_id, body) VALUES (:id, :body)"),
-            [{"id": r[0], "body": doc_text(r[1], r[2], r[3], r[4], r[5])} for r in rows],
-        )
+        session.execute(text("CREATE VIRTUAL TABLE hadith_fts USING fts5(hadith_id UNINDEXED, tradition UNINDEXED, body, tokenize='porter unicode61 remove_diacritics 2')"))
     else:
-        session.execute(text("DROP TABLE IF EXISTS hadith_fts"))
-        session.execute(text("CREATE TABLE hadith_fts (hadith_id INTEGER PRIMARY KEY, body TEXT, tsv tsvector GENERATED ALWAYS AS (to_tsvector('simple', body)) STORED)"))
+        session.execute(text("CREATE TABLE hadith_fts (hadith_id INTEGER PRIMARY KEY, tradition TEXT, body TEXT, tsv tsvector GENERATED ALWAYS AS (to_tsvector('simple', body)) STORED)"))
         session.execute(text("CREATE INDEX hadith_fts_tsv ON hadith_fts USING GIN (tsv)"))
-        session.execute(
-            text("INSERT INTO hadith_fts(hadith_id, body) VALUES (:id, :body)"),
-            [{"id": r[0], "body": doc_text(r[1], r[2], r[3], r[4], r[5])} for r in rows],
-        )
+    session.execute(text("INSERT INTO hadith_fts(hadith_id, tradition, body) VALUES (:id, :trad, :body)"), params)
     session.commit()
     return len(rows)
 
@@ -94,7 +89,11 @@ def _terms(q: str) -> list[str]:
     return toks[:24]
 
 
-def search(session: Session, query: str, k: int = 20) -> list[tuple[int, float]]:
+def _trad_clause(tradition: str | None) -> str:
+    return " AND tradition = :trad" if tradition else ""
+
+
+def search(session: Session, query: str, k: int = 20, tradition: str | None = None) -> list[tuple[int, float]]:
     """Renvoie [(hadith_id, score)] triés du meilleur au moins bon (BM25 en SQLite, ts_rank en PG)."""
     toks = _terms(query)
     if not toks:
@@ -103,13 +102,13 @@ def search(session: Session, query: str, k: int = 20) -> list[tuple[int, float]]
         if IS_SQLITE:
             match = " OR ".join(f'"{t}"' for t in toks)
             rows = session.execute(
-                text("SELECT hadith_id, bm25(hadith_fts) AS r FROM hadith_fts WHERE hadith_fts MATCH :m ORDER BY r LIMIT :k"),
-                {"m": match, "k": k},
+                text(f"SELECT hadith_id, bm25(hadith_fts) AS r FROM hadith_fts WHERE hadith_fts MATCH :m{_trad_clause(tradition)} ORDER BY r LIMIT :k"),
+                {"m": match, "k": k, "trad": tradition},
             ).all()
             return [(int(h), float(-r)) for h, r in rows]
         rows = session.execute(
-            text("SELECT hadith_id, ts_rank(tsv, q) AS r FROM hadith_fts, to_tsquery('simple', :q) q WHERE tsv @@ q ORDER BY r DESC LIMIT :k"),
-            {"q": " | ".join(toks), "k": k},
+            text(f"SELECT hadith_id, ts_rank(tsv, q) AS r FROM hadith_fts, to_tsquery('simple', :q) q WHERE tsv @@ q{_trad_clause(tradition)} ORDER BY r DESC LIMIT :k"),
+            {"q": " | ".join(toks), "k": k, "trad": tradition},
         ).all()
         return [(int(h), float(r)) for h, r in rows]
     except Exception:  # table absente (index non construit) -> pas de composante lexicale
@@ -117,7 +116,7 @@ def search(session: Session, query: str, k: int = 20) -> list[tuple[int, float]]
         return []
 
 
-def phrase_search(session: Session, query: str, k: int = 20) -> list[int]:
+def phrase_search(session: Session, query: str, k: int = 20, tradition: str | None = None) -> list[int]:
     """Hadiths contenant la requête comme expression contiguë (signal fort : « إنما الأعمال بالنيات »)."""
     toks = _terms(query)
     if len(toks) < 2:
@@ -126,12 +125,12 @@ def phrase_search(session: Session, query: str, k: int = 20) -> list[int]:
         if IS_SQLITE:
             phrase = '"' + " ".join(toks) + '"'
             rows = session.execute(
-                text("SELECT hadith_id FROM hadith_fts WHERE hadith_fts MATCH :m ORDER BY bm25(hadith_fts) LIMIT :k"), {"m": phrase, "k": k}
+                text(f"SELECT hadith_id FROM hadith_fts WHERE hadith_fts MATCH :m{_trad_clause(tradition)} ORDER BY bm25(hadith_fts) LIMIT :k"), {"m": phrase, "k": k, "trad": tradition}
             ).all()
         else:
             rows = session.execute(
-                text("SELECT hadith_id FROM hadith_fts WHERE tsv @@ phraseto_tsquery('simple', :q) ORDER BY ts_rank(tsv, phraseto_tsquery('simple', :q)) DESC LIMIT :k"),
-                {"q": " ".join(toks), "k": k},
+                text(f"SELECT hadith_id FROM hadith_fts WHERE tsv @@ phraseto_tsquery('simple', :q){_trad_clause(tradition)} ORDER BY ts_rank(tsv, phraseto_tsquery('simple', :q)) DESC LIMIT :k"),
+                {"q": " ".join(toks), "k": k, "trad": tradition},
             ).all()
         return [int(r[0]) for r in rows]
     except Exception:

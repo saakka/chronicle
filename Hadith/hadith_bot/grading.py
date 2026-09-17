@@ -196,15 +196,26 @@ def score_hadith(collection_slug: str, grade_ar: str | None, chains: list[dict])
 
 
 def _companion_of(result: dict) -> str | None:
+    """Dernier maillon humain : le Compagnon (sunnite) ou le narrateur auprès de l'Imam (imamite)."""
     for c in result.get("chains", []):
-        if c["links"]:
-            return c["links"][-1]["name_norm"] if "name_norm" in c["links"][-1] else c["links"][-1]["name"]
+        for l in reversed(c["links"]):
+            if (l.get("kind") or "normal") != "imam":
+                return l.get("name_norm") or l["name"]
     return None
 
 
-def score_topic(results: list[dict], relevant_ids: list[int] | None = None) -> dict:
+def scale_for(tradition: str | None) -> dict[int, tuple[str, str, str]]:
+    if tradition == "shia":
+        from .grading_shia import SCALE_SHIA
+
+        return SCALE_SHIA
+    return SCALE
+
+
+def score_topic(results: list[dict], relevant_ids: list[int] | None = None, tradition: str | None = None) -> dict:
     """Synthèse : note /5 de l'information à partir des hadiths pertinents (choisis par le LLM, sinon
     par le score de recherche)."""
+    SCALE = scale_for(tradition)  # noqa: N806 - libellés propres à la tradition
     if not results:
         s = SCALE[0]
         return {"score": 0, "label_fr": s[0], "label_ar": s[1], "definition": s[2], "reasons": [s[2]], "hadith_ids": [], "considered_ids": []}

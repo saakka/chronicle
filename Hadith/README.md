@@ -107,6 +107,20 @@ JOIN narrators n ON n.id = l.narrator_id WHERE n.grade_rank <= 1;
 
 Catégories (`narrators.grade_category` / `grade_rank`) : `companion` 6 · `thiqa` 5 · `saduq` 4 · `maqbul` 3 (à corroborer) · `daif` 2 · `matruk` 1 · `kadhdhab` 0 · `unknown` NULL. Les formules sont classées par `grading.classify_grade_text` (marātib d'Ibn Ḥajar) ; la seule mention dans *al-Thiqāt* d'Ibn Ḥibbān est ramenée à `saduq` (تساهل).
 
+## Deux traditions : Sunna · Chia (imamite)
+
+Le sélecteur en tête de l'interface choisit la tradition interrogée ; le mode « Les deux » pose la même question aux deux corpus et affiche les réponses côte à côte avec un indicateur factuel de convergence des valeurs (concordant / divergent), sans arbitrage. Chaque tradition est notée exclusivement par sa propre science du rijal.
+
+| | Sunna | Chia (imamite, MVP) |
+|---|---|---|
+| Corpus | six recueils (LK-Hadith-Corpus) | al-Kāfī, 8 volumes, 14 245 hadiths (ThaqalaynAPI : arabe, traduction Sarwar, gradation de Majlisī) |
+| Chaîne | parseur sunnite (`isnad.py`) | parseur imamite (`isnad_shia.py`) : chaîne terminée sur l'Imam, ʿidda d'al-Kulaynī, رفعه / عمن ذكره, renvois « وعنه » |
+| Narrateurs | Itqan (94 000) | 15 000 notices d'al-Jawāhirī (résumé de Khūʾī) + avis de Najāshī, Ṭūsī, Ḥillī ; entrées virtuelles des Infaillibles et de la ʿidda |
+| Verdict de chaîne | ṣaḥīḥ / ḥasan par les narrateurs | usūlī quadripartite : ṣaḥīḥ, muwaththaq, ḥasan, ḍaʿīf (majhūl, mursal) |
+| Base de la note /5 | jugement du recueil / al-Albānī | Mirʾāt al-ʿuqūl de Majlisī (ṣaḥīḥ / muwaththaq = 4, ḥasan = 3, ḍaʿīf / majhūl / mursal = 2) ; 5 par corroboration d'une autre voie |
+
+Scripts imamites : `scripts/ingest_kafi.py` (texte, gradations, isnads), `scripts/ingest_rijal_shia.py` (narrateurs et avis), puis `link_narrators.py shia`, `build_fts.py`, `build_index.py kafi`. Les fiches de narrateurs signalent l'homonyme éventuel de l'autre tradition (statuts côte à côte, sans arbitrage). Sources imamites à usage éducatif / non commercial.
+
 ## Fonctionnement autonome (sans API)
 
 Par défaut (`HADITH_LLM_BACKEND=local`), un modèle ouvert tourne sur la machine via MLX (Apple Silicon) : `mlx-community/Qwen2.5-7B-Instruct-4bit`, téléchargé une fois (~4,5 Go) dans le cache Hugging Face au premier lancement. Pipeline d'une question (≈ 30 à 60 s sur un M5) :

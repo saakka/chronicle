@@ -47,6 +47,7 @@ class AskRequest(BaseModel):
     k: int = Field(default=settings.top_k, ge=1, le=30)
     use_llm: bool = True
     collections: list[str] | None = None
+    tradition: str = Field(default="sunni", pattern="^(sunni|shia|both)$")
 
 
 @app.get("/", include_in_schema=False)
@@ -66,10 +67,16 @@ def health(s: Session = Depends(get_session)):
         def available() -> bool:
             return False
 
+    from .models import Collection
+
+    per_trad = {t: {"hadiths": hc, "narrators": 0} for t, hc in s.execute(select(Collection.tradition, func.count(Hadith.id)).join(Hadith).group_by(Collection.tradition))}
+    for t, nc in s.execute(select(Narrator.tradition, func.count(Narrator.id)).group_by(Narrator.tradition)):
+        per_trad.setdefault(t, {"hadiths": 0, "narrators": 0})["narrators"] = nc
     return {
         "llm_backend": settings.llm_backend,
         "local_model": settings.local_model if settings.llm_backend == "local" else None,
         "status": "ok",
+        "traditions": per_trad,
         "hadiths": s.scalar(select(func.count(Hadith.id))),
         "narrators": s.scalar(select(func.count(Narrator.id))),
         "isnad_links": s.scalar(select(func.count(IsnadLink.id))),
@@ -83,7 +90,7 @@ def health(s: Session = Depends(get_session)):
 
 @app.post("/ask")
 def ask_endpoint(req: AskRequest, s: Session = Depends(get_session)):
-    return ask(s, req.question, k=req.k, use_llm=req.use_llm, collections=req.collections)
+    return ask(s, req.question, k=req.k, use_llm=req.use_llm, collections=req.collections, tradition=req.tradition)
 
 
 @app.get("/report/{hadith_id}", include_in_schema=False)
@@ -125,6 +132,10 @@ def get_narrator(narrator_id: int, s: Session = Depends(get_session)):
     d = narrator_dict(n, with_opinions=True)
     d["names"] = sorted({x.name_ar for x in n.names})
     d["hadith_count"] = s.scalar(select(func.count(func.distinct(IsnadLink.hadith_id))).where(IsnadLink.narrator_id == n.id))
+    # passerelle factuelle : même nom dans l'autre tradition (statuts affichés côte à côte, sans arbitrage)
+    other = "shia" if n.tradition == "sunni" else "sunni"
+    ids = list(dict.fromkeys(s.scalars(select(NarratorName.narrator_id).join(Narrator).where(Narrator.tradition == other, NarratorName.name_norm == n.name_norm)).all()))[:3]
+    d["counterparts"] = [narrator_dict(x) for x in s.scalars(select(Narrator).where(Narrator.id.in_(ids))).all()] if ids else []
     return d
 
 

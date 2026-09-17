@@ -26,6 +26,7 @@ class NarratorInfo:
     teachers: set[int]
     students: set[int]
     death: int | None
+    fame: float = 0.0  # narrations citées par al-Jawāhirī + avis classiques (tradition imamite)
 
 
 @dataclass
@@ -39,36 +40,59 @@ class Match:
 class NarratorIndex:
     """Index en mémoire (≈115k narrateurs, ≈330k variantes de noms)."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, tradition: str = "sunni"):
+        self.tradition = tradition
         self.by_name: dict[str, list[int]] = {}
-        for nn, nid in session.execute(select(NarratorName.name_norm, NarratorName.narrator_id)):
+        for nn, nid in session.execute(select(NarratorName.name_norm, NarratorName.narrator_id).join(Narrator).where(Narrator.tradition == tradition)):
             self.by_name.setdefault(nn, []).append(nid)
         self.info: dict[int, NarratorInfo] = {}
         self.by_ext: dict[int, int] = {}
+        self.imams: dict[str, int] = {}  # variantes de noms des Infaillibles (tradition imamite)
+        self.group_id: int | None = None
+        from .models import NarratorOpinion
+        from sqlalchemy import func
+
+        opinions = dict(session.execute(select(NarratorOpinion.narrator_id, func.count()).join(Narrator).where(Narrator.tradition == tradition).group_by(NarratorOpinion.narrator_id)).all())
         rows = session.execute(
-            select(Narrator.id, Narrator.external_id, Narrator.name_ar, Narrator.kunya, Narrator.grade_rank, Narrator.death_year_h, Narrator.extra)
+            select(Narrator.id, Narrator.external_id, Narrator.name_ar, Narrator.kunya, Narrator.grade_rank, Narrator.death_year_h, Narrator.extra, Narrator.grade_category)
+            .where(Narrator.tradition == tradition)
         )
 
         def _num(e: str | None) -> int | None:
             return int(e.split(":")[1]) if e and e.startswith("itqan:") and e.split(":")[1].isdigit() else None
 
-        for nid, ext, name, kunya, rank, death, extra in rows:
+        for nid, ext, name, kunya, rank, death, extra, cat in rows:
             extra = extra or {}
+            if cat == "imam":
+                self.imams[normalize_name(name)] = nid
+            if ext and ext.startswith("idda:"):
+                self.group_id = nid
             ext_i = _num(ext)
             exts = {x for x in [ext_i, *(_num(a) for a in extra.get("merged_ids") or [])] if x is not None}
             self.info[nid] = NarratorInfo(
                 id=nid, ext=ext_i, exts=exts, name=name, name_norm=normalize_name(name), kunya_norm=normalize_name((kunya or "").split("،")[0]),
                 rank=rank, confidence=extra.get("confidence"),
                 teachers=set(extra.get("teachers") or []), students=set(extra.get("students") or []), death=death,
+                fame=min(float(extra.get("narrations") or 0), 3000.0) / 1000.0 + 0.6 * opinions.get(nid, 0),
             )
             for x in exts:
                 self.by_ext[x] = nid
         for nid in self.info:
             self.by_name.setdefault(self.info[nid].name and normalize_name(self.info[nid].name), []).append(nid)
+        for nn, ids in self.by_name.items():
+            for nid in ids:
+                if nid in self.imams.values():
+                    self.imams[nn] = nid
         # seaux par premier jeton (ou deux premiers pour أبو/ابن/عبد...) : le flou reste rapide
         self._buckets: dict[str, list[str]] = {}
         for nn in self.by_name:
             self._buckets.setdefault(self._bucket_key(nn), []).append(nn)
+        # noms courts (« زرارة », « حريز ») : candidats dont le nom complet commence par ce nom + « بن »
+        self._prefix: dict[str, list[int]] = {}
+        for nid, inf in self.info.items():
+            t = inf.name_norm.split()
+            if len(t) >= 3 and t[1] == "بن":
+                self._prefix.setdefault(t[0], []).append(nid)
         self._fuzzy_cache: dict[str, tuple[str | None, float]] = {}
 
     _GENERIC = {"ابو", "ابن", "ابي", "ام", "عبد", "بن", "ال"}
@@ -93,6 +117,8 @@ class NarratorIndex:
             ids.update(self.by_name.get(variant) or [])
             if ids:
                 return sorted(ids), 96.0, "exact"
+        if " " not in name_norm and name_norm in self._prefix:
+            return sorted(set(self._prefix[name_norm])), 80.0, "prefix"
         best = self._fuzzy(name_norm)
         if best[0] is not None:
             return sorted(set(self.by_name[best[0]])), best[1], "fuzzy"
@@ -120,6 +146,10 @@ class NarratorIndex:
             out.append(" ".join([*t[:-1], t[-1][:-1]]))
         if len(t) >= 4 and t[-2] != "بن" and t[-1].startswith("ال"):
             out.append(" ".join(t[:-1]))  # « عبد الله بن يوسف التنيسي » -> sans nisba
+        if t and t[0].startswith("ال") and len(t[0]) > 4:
+            out.append(" ".join([t[0][2:], *t[1:]]))  # « الفضيل بن يسار » <-> « فضيل بن يسار »
+        elif t and not t[0].startswith("ال") and t[0] not in ("ابو", "ابي", "ابن", "بن", "ام", "عبد"):
+            out.append(" ".join(["ال" + t[0], *t[1:]]))
         return out
 
     def _fuzzy(self, q: str) -> tuple[str | None, float]:
@@ -157,6 +187,7 @@ class NarratorIndex:
             sc += 0.5
         sc += {"A": 0.6, "B": 0.4, "C": 0.2}.get(i.confidence or "", 0)
         sc += min(len(i.teachers) + len(i.students), 400) / 200  # notoriété (max 2) : écarte les doublons vides
+        sc += min(i.fame, 4.0)  # tradition imamite : narrations recensées et notices classiques
         if i.rank == 6:  # Compagnon : attendu en fin de chaîne, rare au milieu (il ne rapporte pas d'un tâbi'î)
             sc += 3 if last else -2.5
         return sc
@@ -165,7 +196,15 @@ class NarratorIndex:
         """`links` : dicts {name_norm, is_relative, alternatives:[{name_norm}...]} ordonnés élève -> maître."""
         cands: list[tuple[list[int], float, str]] = []
         for l in links:
-            if l.get("is_relative"):
+            kind = l.get("kind") or "normal"
+            if kind in ("unnamed", "marfu"):
+                cands.append(([], 0.0, "none"))
+            elif kind == "group":
+                cands.append(([self.group_id] if self.group_id else [], 100.0, "group"))
+            elif kind == "imam":
+                nid = self.imams.get(l["name_norm"]) or next((v for k, v in sorted(self.imams.items(), key=lambda kv: -len(kv[0])) if l["name_norm"].startswith(k)), None)
+                cands.append(([nid] if nid else [], 100.0, "imam"))
+            elif l.get("is_relative"):
                 cands.append(([], 0.0, "relative"))
             else:
                 cands.append(self.candidates(l["name_norm"]))
@@ -177,6 +216,9 @@ class NarratorIndex:
                     continue
                 if not ids:
                     chosen[i] = Match(None, 0.0, "none")
+                    continue
+                if method in ("group", "imam"):
+                    chosen[i] = Match(ids[0], score, method, ids)
                     continue
                 prev_ids = set(chosen[i - 1].candidates or ([chosen[i - 1].narrator_id] if chosen[i - 1].narrator_id else [])) if i > 0 else set()
                 next_ids = set(cands[i + 1][0]) if i + 1 < len(cands) else set()
